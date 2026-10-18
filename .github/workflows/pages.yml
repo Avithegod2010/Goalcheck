@@ -9,7 +9,6 @@ permissions:
   contents: read
   pages: write
   id-token: write
-  administration: write  # lets configure-pages enable the Pages site on first run
 
 concurrency:
   group: pages
@@ -32,6 +31,7 @@ jobs:
         uses: actions/configure-pages@v5
         with:
           enablement: true
+        continue-on-error: true  # site must be enabled once in Settings → Pages if this fails
 
       - name: Static export (GoalCheck Advance)
         run: BUILD_TARGET=pages NEXT_PUBLIC_GC_EDITION=pro bunx next build
