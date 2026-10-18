@@ -45,14 +45,14 @@
 
 ## Next steps (immediate — the GitHub launch path) — status 2026-10-18
 1. ~~Polish pass on v4 surfaces~~ ✅ shipped in the v4 milestone.
-2. **Test suite** — Vitest for schema migrations (v1→v4!), `evaluateAchievements`, habit streak math, recurring-respawn logic; Playwright golden path per edition. *Still open → fold into Phase 2 CI.*
+2. ~~Test suite~~ ✅ **done 2026-10-18** — Vitest suite (4 files, **57 tests**) covers schema migrations v1→v4 via real rehydration, `evaluateAchievements`, habit streak math (daily + weekly), heatmap streaks, recurring respawn + category resets, dependency locks, RPG XP curve, quick-paste parser, edition clamps and the quota-safe storage wrapper. **It immediately caught a real bug** (`dueStatus` returned `"week"` for every future date — fixed). CI gate = lint + typecheck + tests + both edition builds. *Playwright golden-path automation still open (browser E2E is currently manual).*
 3. **i18n** — extract UI strings to `next-intl` catalogs (en-US first, community translations after the repo is public). *Still open → post-PWA.*
 4. ~~Monorepo migration~~ → deferred (single codebase at root, `NEXT_PUBLIC_GC_EDITION` switch; see REPO-STRATEGY §5).
 5. ~~GitHub Actions~~ ✅ CI matrix green (lint + strict typecheck + both edition builds).
 6. ~~GitHub Pages demo~~ ✅ **LIVE** — https://avithegod2010.github.io/Goalcheck/ (Advance edition).
 
 **Next micro-steps (pick up any time):**
-- [ ] Vitest unit tests for `store.ts` migrations, `logic.ts` (quick-paste parser, streaks, XP curve), and **edition clamps**
+- [x] Vitest unit tests for `store.ts` migrations, `logic.ts` (quick-paste parser, streaks, XP curve), and **edition clamps** — ✅ 57 tests green (2026-10-18)
 - [ ] Playwright smoke suite for the golden path in BOTH editions
 - [x] License: **MIT** (chosen 2026-10-18 — simpler, no patent-grant needs for a small app)
 - [x] Privacy policy: *"No data collected. No analytics. No network. Everything stays on your device."* (in README + About)
@@ -103,14 +103,18 @@
 4. **Storage resilience** ✅ — quota-safe persist layer: on QuotaExceededError the largest
    embedded images are pruned (largest-first, tasks/notes/streaks never touched), user gets a
    toast + backup nudge; hard-full case gets its own warning
-5. **Tests in CI** — deferred (lint + strict typecheck + both builds currently gate every push)
+5. **Tests in CI** ✅ — `bun run test` (Vitest + jsdom, 57 tests) added to the `verify` matrix between typecheck and build (2026-10-18)
 
 **Deliverable:** installable PWA, offline-capable — ✅ shipped. Lighthouse PWA audit still to run.
+
+**Bonus fix from the new suite (2026-10-18):** `dueStatus()` in `logic.ts` had an always-true ISO-week clause that made the `"later"` due-date badge unreachable — every future date rendered as `"week"`. Fixed; the This Week filter (`inCurrentWeek`) was already correct and is unchanged.
 
 ---
 
 ## Phase 3 — Android via Capacitor
 **Goal: ship APKs with ZERO internet permission — a genuine "local-only" app.**
+
+> 📱 User-facing build/install/sideload guide: [`download/ANDROID.md`](./ANDROID.md)
 
 1. ✅ **Scaffold per edition**: `io.github.<username>.goalcheck` and `io.github.<username>.goalcheckadvance`
    — two packages from the shared core (this is why the monorepo matters)
