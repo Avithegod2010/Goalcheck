@@ -59,32 +59,29 @@
 
 ---
 
-## Phase 1 — GitHub launch 🎯 (next up — the user's stated priority)
+## Phase 1 — GitHub launch 🎯 (status: ~90% done 2026-10-18)
 **Goal: a public repo + real releases + a live demo URL. No stores involved.**
 
-1. **Monorepo layout** (see `REPO-STRATEGY.md` §4 for the day-long migration recipe)
-   ```
-   goalcheck/
-   ├─ apps/base/         # GoalCheck      (NEXT_PUBLIC_GC_EDITION=base)
-   ├─ apps/pro/          # GoalCheck Advance  (NEXT_PUBLIC_GC_EDITION=pro)
-   ├─ packages/core/     # types, storage+migrations, task engine, pomodoro
-   ├─ packages/icons/    # mono animated icon set
-   ├─ packages/audio/    # chime packs + ambient streams
-   └─ .github/workflows/ # one CI matrix → both editions
-   ```
-2. **Repo hygiene day 1**
-   - Public repo, Apache-2.0 `LICENSE`, CODE_OF_CONDUCT, issue templates
-   - README: screenshots/GIFs of both editions + base-vs-pro comparison table
-   - Branch protection + conventional commits
-3. **CI (GitHub Actions)** — one workflow, two jobs:
-   - `lint + typecheck + build:base` and `lint + typecheck + build:pro`
-   - on tag `base/vX.Y.Z` / `pro/vX.Y.Z` → zip static export → attach to GitHub Release
-   - auto-generated release notes from conventional commits
-4. **GitHub Pages demo** — `https://<user>.github.io/goalcheck/` (Pro) and `/goalcheck/base/`
-   — both apps are 100% client-side, so static hosting is free and works offline
+**✅ Already shipped (2026-10-18):**
+- Public repo **`Avithegod2010/Goalcheck`** — single codebase at root, editions switched by
+  `NEXT_PUBLIC_GC_EDITION` (the `apps/`+`packages/` split below is deferred; see REPO-STRATEGY §5 note)
+- `LICENSE` = **MIT**, README with screenshots of both editions + comparison table
+- CI green on every push: `verify (advance)` + `verify (base)` — lint, strict typecheck, both builds
+- **Releases published:** [`advance/v0.4.0`](https://github.com/Avithegod2010/Goalcheck/releases/tag/advance/v0.4.0)
+  + [`base/v0.4.0`](https://github.com/Avithegod2010/Goalcheck/releases/tag/base/v0.4.0) with full notes
+- Pages pipeline: static export (`BUILD_TARGET=pages`, basePath `/Goalcheck`) verified locally + builds
+  green on CI (`build ✅`); deploy pending one-time "Settings → Pages → Source: GitHub Actions" click
+
+**Remaining Phase 1 items:**
+1. **Enable Pages** — Settings → Pages → Build and deployment → Source: **GitHub Actions**,
+   then re-run the failed *Deploy to GitHub Pages* workflow (Actions tab → Re-run failed jobs)
+2. **Repo About box** — paste description + homepage `https://avithegod2010.github.io/Goalcheck/`
+   (or re-issue the PAT with `Administration: RW` and the bot sets both + enables Pages via API)
+3. Branch protection on `main` (require the `verify` checks to pass)
+4. Optional: CODE_OF_CONDUCT + issue templates; attach zipped static builds to future releases
 5. **Announce** once, publicly: r/fossdroid, r/selfhosted, X/Mastodon, Product Hunt (optional)
 
-**Deliverable:** `github.com/<user>/goalcheck` with two green CI jobs, two tagged releases, live demo links.
+**Deliverable:** `github.com/Avithegod2010/Goalcheck` — two green CI jobs ✅, two tagged releases ✅, live demo link ⏳ (one click away).
 
 ---
 
