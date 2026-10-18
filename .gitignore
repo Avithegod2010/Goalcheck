@@ -63,9 +63,11 @@ tool-results/
 .zscripts/
 examples/
 mini-services/
-tests/
 db/
 Caddyfile
+
+# NOTE: tests/ IS published since Phase 2 (Vitest suite is a CI gate —
+# see tests/ + vitest.config.ts; removed from this ignore list 2026-10-18)
 
 # ---- capacitor android shell (Task 9-a) ----
 # capacitor/ is an INDEPENDENT project (own package.json/lockfile)

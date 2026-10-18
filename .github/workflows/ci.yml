@@ -28,6 +28,9 @@ jobs:
       - name: Typecheck
         run: bun run typecheck
 
+      - name: Tests
+        run: bun run test
+
       - name: Build (${{ matrix.edition }} edition)
         run: |
           if [ "${{ matrix.edition }}" = "base" ]; then
