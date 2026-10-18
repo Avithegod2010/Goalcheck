@@ -20,6 +20,32 @@ GoalCheck turns any checklist into a **multi-goal board**: boards → categories
 
 **GoalCheck (base)** is the calm edition: the core planner, 2 themes, completion confetti — nothing else.
 
+## 🌐 Try it live
+
+**GoalCheck Advance runs right now on GitHub Pages — no install, no account:**
+
+> ### [▶ Open GoalCheck Advance Demo](https://avithegod2010.github.io/Goalcheck/)
+
+*(100% client-side — your demo data never leaves your browser. Export a JSON backup before switching devices.)*
+
+## 📸 Screenshots
+
+**GoalCheck Advance — Checklist** (Nebula dark, heatmap, habits, focus timer)
+
+![GoalCheck Advance — Checklist](docs/screenshots/advance-checklist.png)
+
+**Kanban view** — drag & drop across To Do / In Progress / Done
+
+![GoalCheck Advance — Kanban](docs/screenshots/advance-kanban.png)
+
+**Analytics view** — completion rate, focus time per goal, category workload
+
+![GoalCheck Advance — Analytics](docs/screenshots/advance-analytics.png)
+
+**GoalCheck (base)** — the same data, the calm planner edition
+
+![GoalCheck base — Checklist](docs/screenshots/base-checklist.png)
+
 ## Privacy
 
 > **No data collected. No analytics. No network. Everything stays on your device.**
