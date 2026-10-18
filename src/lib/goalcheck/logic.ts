@@ -294,9 +294,9 @@ export function dueStatus(dueDate: string, now: Date = new Date()): DueStatus {
   const today = localDateKey(now);
   if (dueDate < today) return "overdue";
   if (dueDate === today) return "today";
-  const wk = isoWeekKey(now);
-  const wkEnd = isoWeekKey(shiftDays(now, 6 - ((now.getDay() + 6) % 7)));
-  if (dueDate <= localDateKey(shiftDays(now, 6 - ((now.getDay() + 6) % 7))) || wk === wkEnd) return "week";
+  // end of the current ISO week (Sunday); string compare works on YYYY-MM-DD
+  const endOfWeek = shiftDays(now, 6 - ((now.getDay() + 6) % 7));
+  if (dueDate <= localDateKey(endOfWeek)) return "week";
   return "later";
 }
 
