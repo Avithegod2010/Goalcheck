@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  verify:
+    strategy:
+      matrix:
+        edition: [advance, base]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Lint
+        run: bun run lint
+
+      - name: Typecheck
+        run: bun run typecheck
+
+      - name: Build (${{ matrix.edition }} edition)
+        run: |
+          if [ "${{ matrix.edition }}" = "base" ]; then
+            NEXT_PUBLIC_GC_EDITION=base bunx next build
+          else
+            NEXT_PUBLIC_GC_EDITION=pro bunx next build
+          fi
