@@ -9,6 +9,7 @@ permissions:
   contents: read
   pages: write
   id-token: write
+  administration: write  # lets configure-pages enable the Pages site on first run
 
 concurrency:
   group: pages
@@ -26,6 +27,11 @@ jobs:
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
+
+      - name: Configure / enable GitHub Pages
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
 
       - name: Static export (GoalCheck Advance)
         run: BUILD_TARGET=pages NEXT_PUBLIC_GC_EDITION=pro bunx next build
