@@ -43,45 +43,47 @@
   - [x] Auto-backup nudge card (7-day cadence, dismissible)
   - [x] Base edition "Discover GoalCheck Advance" card (same-schema upgrade promise)
 
-## Next steps (immediate — the GitHub launch path)
-1. **Polish pass on v4 surfaces** — mobile widths for the Habits widget & onboarding, empty-state art for achievements, sound-design pass on the new chime variants.
-2. **Test suite** — Vitest for schema migrations (v1→v4!), `evaluateAchievements`, habit streak math, recurring-respawn logic; Playwright golden path per edition.
-3. **i18n** — now that features are frozen for release: extract UI strings to `next-intl` catalogs (en-US first, community translations after the repo is public).
-4. **Monorepo migration** (1 day, recipe in `REPO-STRATEGY.md` §4) → Apache-2.0 LICENSE → README with screenshots of both editions.
-5. **GitHub Actions** — lint + typecheck + both edition builds; tag `base/vX` / `advance/vX` → auto-attach static-export zips to Releases.
-6. **GitHub Pages demo** for both editions + PWA manifest/service worker (Phase 2).
+## Next steps (immediate — the GitHub launch path) — status 2026-10-18
+1. ~~Polish pass on v4 surfaces~~ ✅ shipped in the v4 milestone.
+2. **Test suite** — Vitest for schema migrations (v1→v4!), `evaluateAchievements`, habit streak math, recurring-respawn logic; Playwright golden path per edition. *Still open → fold into Phase 2 CI.*
+3. **i18n** — extract UI strings to `next-intl` catalogs (en-US first, community translations after the repo is public). *Still open → post-PWA.*
+4. ~~Monorepo migration~~ → deferred (single codebase at root, `NEXT_PUBLIC_GC_EDITION` switch; see REPO-STRATEGY §5).
+5. ~~GitHub Actions~~ ✅ CI matrix green (lint + strict typecheck + both edition builds).
+6. ~~GitHub Pages demo~~ ✅ **LIVE** — https://avithegod2010.github.io/Goalcheck/ (Advance edition).
 
 **Next micro-steps (pick up any time):**
 - [ ] Vitest unit tests for `store.ts` migrations, `logic.ts` (quick-paste parser, streaks, XP curve), and **edition clamps**
 - [ ] Playwright smoke suite for the golden path in BOTH editions
-- [ ] License: **Apache-2.0** (recommended — F-Droid-friendly, patent grant) or MIT/GPL-3.0
-- [ ] Privacy policy: *"No data collected. No analytics. No network. Everything stays on your device."*
+- [x] License: **MIT** (chosen 2026-10-18 — simpler, no patent-grant needs for a small app)
+- [x] Privacy policy: *"No data collected. No analytics. No network. Everything stays on your device."* (in README + About)
 
 ---
 
-## Phase 1 — GitHub launch 🎯 (status: ~90% done 2026-10-18)
+## Phase 1 — GitHub launch 🎯 (status: 98% done 2026-10-18 — LIVE 🎉)
 **Goal: a public repo + real releases + a live demo URL. No stores involved.**
 
-**✅ Already shipped (2026-10-18):**
+**✅ Shipped (2026-10-18):**
 - Public repo **`Avithegod2010/Goalcheck`** — single codebase at root, editions switched by
-  `NEXT_PUBLIC_GC_EDITION` (the `apps/`+`packages/` split below is deferred; see REPO-STRATEGY §5 note)
-- `LICENSE` = **MIT**, README with screenshots of both editions + comparison table
+  `NEXT_PUBLIC_GC_EDITION` (the `apps/`+`packages/` split is deferred; see REPO-STRATEGY §5 note)
+- `LICENSE` = **MIT**, README with screenshots of both editions + comparison table + live-demo CTA
 - CI green on every push: `verify (advance)` + `verify (base)` — lint, strict typecheck, both builds
 - **Releases published:** [`advance/v0.4.0`](https://github.com/Avithegod2010/Goalcheck/releases/tag/advance/v0.4.0)
   + [`base/v0.4.0`](https://github.com/Avithegod2010/Goalcheck/releases/tag/base/v0.4.0) with full notes
-- Pages pipeline: static export (`BUILD_TARGET=pages`, basePath `/Goalcheck`) verified locally + builds
-  green on CI (`build ✅`); deploy pending one-time "Settings → Pages → Source: GitHub Actions" click
+- **Repo About box set:** description + website link `https://avithegod2010.github.io/Goalcheck/`
+- **GitHub Pages LIVE:** https://avithegod2010.github.io/Goalcheck/ — Advance edition, static export
+  (`BUILD_TARGET=pages`, basePath `/Goalcheck`), deployed from `main` via Actions
+- **Live-site E2E verified (2026-10-18):** boots clean, 0 console errors, onboarding tour fires,
+  task add→toggle→persist survives reload (schema v4), no horizontal scroll at 390px, footer intact
 
 **Remaining Phase 1 items:**
-1. **Enable Pages** — Settings → Pages → Build and deployment → Source: **GitHub Actions**,
-   then re-run the failed *Deploy to GitHub Pages* workflow (Actions tab → Re-run failed jobs)
-2. **Repo About box** — paste description + homepage `https://avithegod2010.github.io/Goalcheck/`
-   (or re-issue the PAT with `Administration: RW` and the bot sets both + enables Pages via API)
-3. Branch protection on `main` (require the `verify` checks to pass)
-4. Optional: CODE_OF_CONDUCT + issue templates; attach zipped static builds to future releases
-5. **Announce** once, publicly: r/fossdroid, r/selfhosted, X/Mastodon, Product Hunt (optional)
+1. Branch protection on `main` (require the `verify` checks to pass) — Settings → Branches →
+   Add branch protection rule → `main` → require status check `verify` *(needs admin UI or PAT)
+2. Optional: topics for discoverability (gamification, pomodoro, habit-tracker, local-first,
+   offline-first, productivity, task-manager, privacy, nextjs); CODE_OF_CONDUCT + issue templates;
+   attach zipped static builds to future releases
+3. **Announce** once, publicly: r/fossdroid, r/selfhosted, X/Mastodon, Product Hunt (optional)
 
-**Deliverable:** `github.com/Avithegod2010/Goalcheck` — two green CI jobs ✅, two tagged releases ✅, live demo link ⏳ (one click away).
+**Deliverable:** `github.com/Avithegod2010/Goalcheck` — two green CI jobs ✅, two tagged releases ✅, live demo ✅.
 
 ---
 
