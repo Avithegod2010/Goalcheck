@@ -25,6 +25,103 @@ import {
 import { DEFAULT_DARK_THEME, DEFAULT_LIGHT_THEME, isLightTheme, themeExists, clampThemeForEdition, GC_THEME_VARS } from "./themes";
 import { EDITION, IS_PRO, APP_NAME } from "./editions";
 
+/* =========================================================
+   Quota-safe persistence — Phase 2 (PWA) storage resilience
+   ---------------------------------------------------------
+   localStorage has a hard quota (~5MB). Embedded images are
+   the only heavy payload in our state (data:image URLs on
+   goals/categories/brand media). When setItem throws
+   QuotaExceededError we:
+     1. prune the largest embedded images (replace with the
+        `mono:image-pic` placeholder), retrying after each;
+     2. never drop tasks, notes, streaks or analytics;
+     3. broadcast `gc-storage-quota` so PwaBootstrap can
+        surface a toast nudging a JSON backup.
+   ========================================================= */
+
+const QUOTA_FALLBACK_MEDIA = "mono:image-pic";
+
+function isQuotaError(e: unknown): boolean {
+  const nameOk =
+    !!e && typeof e === "object" && (e as { name?: string }).name === "QuotaExceededError";
+  const codeOk = e instanceof DOMException && (e.code === 22 || e.code === 1014);
+  return nameOk || codeOk;
+}
+
+/** Replace the single largest data:image media value with the fallback. Returns true when something was pruned. */
+function pruneLargestImage(state: Record<string, unknown>): boolean {
+  let worst: { path: string[]; size: number } | null = null;
+  const scan = (obj: unknown, path: string[]) => {
+    if (!obj || typeof obj !== "object") return;
+    if (Array.isArray(obj)) {
+      obj.forEach((v, i) => scan(v, [...path, String(i)]));
+      return;
+    }
+    for (const [k, v] of Object.entries(obj as Record<string, unknown>)) {
+      if (typeof v === "string" && v.startsWith("data:image/")) {
+        if (!worst || v.length > worst.size) worst = { path: [...path, k], size: v.length };
+      } else {
+        scan(v, [...path, k]);
+      }
+    }
+  };
+  scan(state, []);
+  if (!worst) return false;
+  let cursor: unknown = state;
+  const p = (worst as { path: string[] }).path;
+  for (let i = 0; i < p.length - 1; i++) cursor = (cursor as Record<string, unknown>)[p[i]];
+  (cursor as Record<string, unknown>)[p[p.length - 1]] = QUOTA_FALLBACK_MEDIA;
+  return true;
+}
+
+/** zustand StateStorage wrapper: transparent unless the quota is hit. */
+const quotaSafeStorage = {
+  getItem: (name: string): string | null => {
+    try {
+      return localStorage.getItem(name);
+    } catch {
+      return null;
+    }
+  },
+  setItem: (name: string, value: string): void => {
+    try {
+      localStorage.setItem(name, value);
+    } catch (e) {
+      if (!isQuotaError(e)) throw e;
+      // prune loop — up to 40 embedded images, then give up gracefully
+      let saved = false;
+      try {
+        const envelope = JSON.parse(value) as { state?: Record<string, unknown> };
+        if (envelope && typeof envelope === "object" && envelope.state) {
+          for (let i = 0; i < 40; i++) {
+            if (!pruneLargestImage(envelope.state)) break;
+            try {
+              localStorage.setItem(name, JSON.stringify(envelope));
+              saved = true;
+              break;
+            } catch {
+              /* still full — prune again */
+            }
+          }
+        }
+      } catch {
+        /* keep original error path below */
+      }
+      if (!saved && typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("gc-storage-quota-failed"));
+      }
+      if (saved) window.dispatchEvent(new CustomEvent("gc-storage-quota"));
+    }
+  },
+  removeItem: (name: string): void => {
+    try {
+      localStorage.removeItem(name);
+    } catch {
+      /* ignore */
+    }
+  },
+};
+
 /* ---------- effects bus (confetti / ripple / chime / xp floats) ---------- */
 
 export type BusEvent =
@@ -969,7 +1066,7 @@ export const useStore = create<Store>()(
     {
       name: STORAGE_KEY,
       version: STORAGE_VERSION,
-      storage: createJSONStorage(() => localStorage),
+      storage: createJSONStorage(() => quotaSafeStorage),
       partialize: (s) => pickPersisted(s),
       migrate: (persisted, version) => {
         // v0/v1: legacy flat shape (or unknown) -> v2

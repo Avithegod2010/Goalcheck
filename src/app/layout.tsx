@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "sonner";
 import { APP_NAME, IS_PRO } from "@/lib/goalcheck/editions";
+import { PwaBootstrap } from "@/components/goalcheck/Pwa";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -23,6 +24,18 @@ export const metadata: Metadata = {
     : "Local-first goal tracker: boards → categories → tasks, priorities, notes, Pomodoro focus timer, light & dark themes. No account, no network — your data stays on your device.",
   keywords: ["goal tracker", "checklist", "pomodoro", "productivity", "offline first", "FOSS"],
   applicationName: APP_NAME,
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: APP_NAME,
+  },
+  icons: {
+    icon: [
+      { url: "/icon.svg", type: "image/svg+xml" },
+      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+    ],
+    apple: [{ url: "/icons/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+  },
 };
 
 export const viewport: Viewport = {
@@ -49,6 +62,7 @@ export default function RootLayout({
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         {children}
         <Toaster position="bottom-right" visibleToasts={3} gap={8} />
+        <PwaBootstrap />
       </body>
     </html>
   );

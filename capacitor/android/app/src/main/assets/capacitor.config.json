@@ -1,0 +1,17 @@
+{
+	"appId": "io.github.avithegod2010.goalcheckadvance",
+	"appName": "GoalCheck Advance",
+	"webDir": "www",
+	"server": {
+		"androidScheme": "https"
+	},
+	"android": {
+		"allowMixedContent": false
+	},
+	"plugins": {
+		"LocalNotifications": {
+			"smallIcon": "ic_launcher",
+			"iconColor": "#a855f7"
+		}
+	}
+}

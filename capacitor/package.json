@@ -1,0 +1,21 @@
+{
+  "name": "goalcheck-android-shell",
+  "version": "0.4.0",
+  "private": true,
+  "description": "Capacitor Android shell for GoalCheck (base) and GoalCheck Advance (pro). Independent project — the web app at the repo root must never depend on Capacitor.",
+  "scripts": {
+    "sync": "cap sync android",
+    "open": "cap open android",
+    "assets": "npx @capacitor/assets generate --android"
+  },
+  "dependencies": {
+    "@capacitor/android": "^7",
+    "@capacitor/app": "^7",
+    "@capacitor/core": "^7",
+    "@capacitor/local-notifications": "^7"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "^3",
+    "@capacitor/cli": "^7"
+  }
+}

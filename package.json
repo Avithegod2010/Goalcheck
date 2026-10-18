@@ -10,6 +10,8 @@
     "build": "next build && cp -r .next/static .next/standalone/.next/ && cp -r public .next/standalone/",
     "build:base": "NEXT_PUBLIC_GC_EDITION=base next build && cp -r .next/static .next/standalone/.next/ && cp -r public .next/standalone/",
     "build:pro": "NEXT_PUBLIC_GC_EDITION=pro next build && cp -r .next/static .next/standalone/.next/ && cp -r public .next/standalone/",
+    "build:capacitor:advance": "NEXT_PUBLIC_GC_EDITION=pro BUILD_TARGET=capacitor next build && node scripts/sync-capacitor.mjs advance",
+    "build:capacitor:base": "NEXT_PUBLIC_GC_EDITION=base BUILD_TARGET=capacitor next build && node scripts/sync-capacitor.mjs base",
     "start": "NODE_ENV=production bun .next/standalone/server.js 2>&1 | tee server.log",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit"

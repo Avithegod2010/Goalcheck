@@ -1,0 +1,89 @@
+name: Android APK
+
+# Builds the Capacitor debug APKs for both editions.
+# - workflow_dispatch: manual test builds (artifacts only)
+# - tags android/v*: artifacts + attach the APKs to the matching release
+#
+# Zero-internet guardrail: after each build we dump the APK's merged manifest
+# permissions and FAIL if android.permission.INTERNET is present. The local-
+# only promise is enforced here, not just documented.
+#
+# NOTE: release signing is intentionally deferred (debug keystore only) —
+# Phase 4 adds the reproducible signed release pipeline.
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "android/v*"
+
+permissions:
+  contents: write # required only for attaching APKs to a release on tag push
+
+jobs:
+  apk:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - edition: advance # GC_EDITION=pro  → GoalCheck Advance
+            label: Advance
+          - edition: base # GC_EDITION=base → GoalCheck
+            label: ""
+    name: APK (${{ matrix.edition }})
+    runs-on: ubuntu-latest # GitHub runners ship JDK + the Android SDK preinstalled
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17" # required by Capacitor 7 gradle toolchain
+
+      - name: Install web app dependencies
+        run: bun install --frozen-lockfile
+        # (capacitor/node_modules is installed on demand by
+        # scripts/sync-capacitor.mjs — the shell is an independent project.)
+
+      - name: Static export + sync into Capacitor shell (${{ matrix.edition }})
+        run: bun run build:capacitor:${{ matrix.edition }}
+
+      - name: Assemble debug APK
+        run: cd capacitor/android && bash ./gradlew assembleDebug --no-daemon
+
+      - name: Zero-internet check (fail if INTERNET permission is present)
+        run: |
+          AAPT2="$(ls "$ANDROID_HOME"/build-tools/*/aapt2 | sort -V | tail -1)"
+          APK=capacitor/android/app/build/outputs/apk/debug/app-debug.apk
+          echo "Using $AAPT2"
+          PERMS="$("$AAPT2" dump permissions "$APK")"
+          echo "$PERMS"
+          if echo "$PERMS" | grep -q "android.permission.INTERNET"; then
+            echo "::error::APK declares android.permission.INTERNET — zero-internet guarantee violated"
+            exit 1
+          fi
+          echo "✓ no INTERNET permission in merged manifest"
+
+      - name: Rename APK
+        run: |
+          cp capacitor/android/app/build/outputs/apk/debug/app-debug.apk \
+             GoalCheck${{ matrix.label }}-debug.apk
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: GoalCheck${{ matrix.label }}-debug.apk
+          path: GoalCheck${{ matrix.label }}-debug.apk
+          if-no-files-found: error
+
+      - name: Attach APK to release (tag builds only)
+        if: startsWith(github.ref, 'refs/tags/android/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: GoalCheck${{ matrix.label }}-debug.apk
+          make_latest: false # android builds attach to their own android/v* release

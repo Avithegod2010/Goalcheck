@@ -66,3 +66,27 @@ mini-services/
 tests/
 db/
 Caddyfile
+
+# ---- capacitor android shell (Task 9-a) ----
+# capacitor/ is an INDEPENDENT project (own package.json/lockfile)
+capacitor/node_modules/
+# www/ is replaced at build time by the Next.js static export — keep only the placeholder marker
+capacitor/www/*
+!capacitor/www/.gitkeep
+# gradle / Android Studio build outputs + local config
+capacitor/android/.gradle/
+capacitor/android/app/build/
+capacitor/android/build/
+capacitor/android/local.properties
+capacitor/android/.idea/
+# built APKs are distributed via GitHub Releases, never committed
+*.apk
+# NOTE (do NOT add): capacitor/android/app/src/main/assets/public/,
+# capacitor/android/capacitor-cordova-android-plugins/ and the generated
+# res/ icons + capacitor.config.json ARE committed — they are `cap sync`
+# output kept for reproducible node-less builds (see capacitor/android/.gitignore).
+
+# next.js static-export artifacts
+out/
+.next-pages/
+.next-capacitor/

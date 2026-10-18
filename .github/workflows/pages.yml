@@ -36,6 +36,12 @@ jobs:
       - name: Static export (GoalCheck Advance)
         run: BUILD_TARGET=pages NEXT_PUBLIC_GC_EDITION=pro bunx next build
 
+      # Next 16 writes the export inside a custom distDir; normalize to out/
+      - name: Locate static export
+        run: |
+          if [ ! -d out ] && [ -d .next-pages ]; then mv .next-pages out; fi
+          test -f out/index.html
+
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:

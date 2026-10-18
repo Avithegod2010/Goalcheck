@@ -23,6 +23,7 @@ import { ModalHost } from "@/components/goalcheck/modals";
 import { ZenHud, FloatingPill, CommandPalette } from "@/components/goalcheck/Overlays";
 import { HabitsWidget } from "@/components/goalcheck/Habits";
 import Onboarding from "@/components/goalcheck/Onboarding";
+import { InstallCard } from "@/components/goalcheck/Pwa";
 import { playChime } from "@/lib/goalcheck/audio";
 import { scheduleSyncWrite } from "@/lib/goalcheck/syncfile";
 import { DEFAULT_DARK_THEME, DEFAULT_LIGHT_THEME, isLightTheme } from "@/lib/goalcheck/themes";
@@ -101,6 +102,7 @@ export default function Page() {
 
               {/* Main board */}
               <div className="flex min-w-0 flex-col gap-5">
+                <InstallCard />
                 <BackupNudge />
                 <HeroCard />
                 <MainBoard />
