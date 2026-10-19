@@ -18,6 +18,8 @@ import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { GcIcon } from "@/lib/goalcheck/icons";
 import { notify } from "@/lib/goalcheck/notify";
+import { APP_NAME } from "@/lib/goalcheck/editions";
+import { initNativeShell } from "@/lib/goalcheck/native";
 
 export const INSTALL_DISMISS_KEY = "gc_install_dismissed_at";
 
@@ -66,11 +68,25 @@ export function PwaBootstrap() {
     window.addEventListener("gc-storage-quota", onQuota);
     window.addEventListener("gc-storage-quota-failed", onQuotaFailed);
 
+    /* ---- native shell glue (Android): hardware back button ---- */
+    const disposeNative = initNativeShell();
+
+    /* ---- welcome toast after a runtime edition switch ---- */
+    try {
+      if (sessionStorage.getItem("gc_edition_switched") === "1") {
+        sessionStorage.removeItem("gc_edition_switched");
+        notify(`Welcome to ${APP_NAME}!`, "rocket-launch");
+      }
+    } catch {
+      /* cosmetic only */
+    }
+
     return () => {
       window.removeEventListener("beforeinstallprompt", onInstallable);
       window.removeEventListener("appinstalled", onInstalled);
       window.removeEventListener("gc-storage-quota", onQuota);
       window.removeEventListener("gc-storage-quota-failed", onQuotaFailed);
+      disposeNative();
     };
   }, []);
 

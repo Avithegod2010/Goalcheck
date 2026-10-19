@@ -24,6 +24,7 @@ import {
 } from "./logic";
 import { DEFAULT_DARK_THEME, DEFAULT_LIGHT_THEME, isLightTheme, themeExists, clampThemeForEdition, GC_THEME_VARS } from "./themes";
 import { EDITION, IS_PRO, APP_NAME } from "./editions";
+import { nativeBackgroundNotify, ensureNotificationPermission } from "./native";
 
 /* =========================================================
    Quota-safe persistence — Phase 2 (PWA) storage resilience
@@ -796,6 +797,9 @@ export const useStore = create<Store>()(
           const total = s.pomo.mode === "short" ? 5 : s.pomo.mode === "long" ? 15 : s.pomo.focusMinutes;
           const rem = s.pomo.remainingMs > 0 ? s.pomo.remainingMs : total * 60_000;
           set({ pomo: { ...s.pomo, running: true, endsAt: Date.now() + rem } });
+          // Android 13+ needs the POST_NOTIFICATIONS runtime grant — ask once,
+          // lazily, at the natural moment the user starts a focus session.
+          void ensureNotificationPermission();
         }
       },
       resetPomo: () => {
@@ -866,6 +870,7 @@ export const useStore = create<Store>()(
         if (changed) {
           set({ goals });
           notify("Recurring categories auto-reset for the new day/week!", "repeat-cycle");
+          void nativeBackgroundNotify("Recurring tasks refreshed", "Your daily/weekly categories were reset for a new round.");
         }
       },
       exportWorkspace: () => {
@@ -1204,6 +1209,7 @@ export function completePomodoroSession() {
   bus.emit({ type: "chime", kind: "pomo-done" });
   bus.emit({ type: "confetti" });
   notifySuccess("Pomodoro Session Completed!", "tomato-timer");
+  void nativeBackgroundNotify("Pomodoro complete", "Focus session finished — time for a break.");
   useStore.getState().evaluateAndUnlockAchievements();
 }
 
