@@ -57,7 +57,7 @@ GoalCheck is an **installable, offline-first PWA**: a web app manifest (per-edit
 
 ## 🤖 Android app (zero permissions)
 
-A Capacitor shell wraps the same static export into a native APK — and the template's `android.permission.INTERNET` is **removed**, so the OS enforces the no-network promise. CI builds debug APKs for both editions on every `android/v*` tag and attaches them to the release.
+A Capacitor shell wraps the same static export into a native APK — and the template's `android.permission.INTERNET` is **removed**, so the OS enforces the no-network promise. CI builds debug APKs for both editions on every `android/v*` tag and attaches them to the release — and once the keystore secret is configured, **signed release APKs + Play-ready AABs** too (versioned from `package.json`). Grab the latest APKs from the [android releases](https://github.com/Avithegod2010/Goalcheck/releases) — zero setup needed.
 
 ```bash
 bun run build:capacitor:advance   # static export → capacitor/www → cap sync
@@ -65,11 +65,13 @@ cd capacitor/android && ./gradlew assembleDebug
 # → app/build/outputs/apk/debug/app-debug.apk  (expect ZERO permissions)
 ```
 
-See [`capacitor/README.md`](capacitor/README.md) for prerequisites and the release-signing note. Release-signed, reproducible APK builds land in Phase 4.
+See [`capacitor/README.md`](capacitor/README.md) for prerequisites and [`download/ANDROID.md`](download/ANDROID.md) for the full build/sign/sideload guide.
 
 ## Privacy
 
 > **No data collected. No analytics. No network. Everything stays on your device.**
+
+Full policy: **[privacy.html](https://avithegod2010.github.io/Goalcheck/privacy.html)** (also at `public/privacy.html` in the repo).
 
 - All state lives in `localStorage` on your machine (schema-versioned, with automatic migrations).
 - The only optional file access is the **sync-file** feature (Advance): you explicitly pick a local file, and the app writes your backup there. Nothing is uploaded.
@@ -84,7 +86,7 @@ See [`capacitor/README.md`](capacitor/README.md) for prerequisites and the relea
 | Themes | 2 (Nebula / Nordic) | 11 + 13 particle engines + presets |
 | Extras | — | Habits, achievements, due dates, palette, Zen, templates, audio studio, Data Doctor, theme sharing |
 
-Both editions read the **same storage schema**, so switching between them never loses data.
+Both editions read the **same storage schema**, so switching between them never loses data — and Advance builds let you switch **inside the app** (Settings → Edition) anytime.
 
 ## Run it
 
@@ -121,6 +123,8 @@ bun run typecheck    # tsc --noEmit (strict)
 - [`download/ROADMAP.md`](download/ROADMAP.md) — phase-by-phase roadmap (GitHub → PWA → Android → IzzyOnDroid/F-Droid) and the feature backlog
 - [`download/REPO-STRATEGY.md`](download/REPO-STRATEGY.md) — why one monorepo hosts both editions, tag scheme & release flow
 - [`download/SECURITY-AUDIT.md`](download/SECURITY-AUDIT.md) — the pre-publication security audit (Q&A format)
+- [`CHANGELOG.md`](CHANGELOG.md) · [`SECURITY.md`](SECURITY.md) · [`CONTRIBUTING.md`](CONTRIBUTING.md)
+- [`fastlane/`](fastlane/) — store metadata for both Android editions (IzzyOnDroid/F-Droid)
 - [`upload/`](upload/) — the original single-file prototype this project was rebuilt from (kept for history, not part of the app)
 
 ## Contributing

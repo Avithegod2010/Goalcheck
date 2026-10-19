@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Question or idea (informal)
+    url: https://github.com/Avithegod2010/Goalcheck/discussions
+    about: Ask anything about usage, editions, self-hosting or Android builds.
+  - name: Security vulnerability
+    url: https://github.com/Avithegod2010/Goalcheck/security/advisories/new
+    about: Please report vulnerabilities privately — do not open a public issue.

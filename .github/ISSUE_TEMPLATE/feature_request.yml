@@ -1,0 +1,26 @@
+name: Feature request
+description: Suggest an idea or improvement.
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem to solve
+      description: What are you trying to do, and what's missing?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: What should it look like / behave like?
+    validations:
+      required: true
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy check
+      description: GoalCheck is local-first and offline. Features that require servers, accounts or network calls are out of scope for core.
+      options:
+        - label: This feature works fully offline / on-device
+          required: true

@@ -1,0 +1,7 @@
+v0.4.1 — first tagged Android build.
+
+• PWA: installable, offline-first app shell
+• Android: zero-INTERNET local-only shell
+• In-app edition switch: Normal <-> Advance (data is shared)
+• Hardware back button closes dialogs, then exits
+• Local reminders when a focus session ends in the background

@@ -1,0 +1,51 @@
+name: Bug report
+description: Something broke — tell us what, where and how.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for reporting! GoalCheck is local-first — **never paste real task data** into this form; describe the shape of the data instead.
+  - type: dropdown
+    id: edition
+    attributes:
+      label: Edition
+      options:
+        - GoalCheck Advance
+        - GoalCheck (Normal)
+        - Both
+    validations:
+      required: true
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Where did it happen?
+      options:
+        - Web (browser)
+        - Web (PWA, installed)
+        - Android app
+        - Live demo site
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: Steps to reproduce, what you expected, what you saw.
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Browser/OS or Android version, desktop or mobile.
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I redacted any personal data from this report
+          required: true
+        - label: I searched existing issues for duplicates
+          required: true

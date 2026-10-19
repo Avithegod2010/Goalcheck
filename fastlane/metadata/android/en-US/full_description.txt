@@ -1,0 +1,26 @@
+GoalCheck Advance is the complete edition of GoalCheck — a local-first, open-source productivity workspace. Your data stays 100% on your device: no account, no analytics, no network. The Android app is built with the INTERNET permission REMOVED, so "local-only" is enforced by the operating system itself.
+
+PLAN
+• Boards → categories → tasks with notes, subtasks and dependency locks
+• Kanban, Eisenhower Matrix, Mind-map and Analytics views
+• Habit tracker with streak flames, 13 achievements, due dates with Overdue/Today/This-week badges, recurring daily/weekly tasks
+• Rapid add + quick-paste parser for entire checklists
+
+FOCUS
+• Drift-free Pomodoro timer that survives reloads and runs in the background
+• Floating focus pill, Zen mode, local notifications when the app is backgrounded
+
+GROW
+• RPG gamification: XP, levels, combos, skills and auras
+• 365-day activity heatmap and per-goal focus-time analytics
+• Switch to the minimal GoalCheck (Normal) edition anytime from Settings — same storage, zero data loss
+
+MAKE IT YOURS
+• 11 themes with 13 particle engines, cursor physics, atmosphere presets
+• Audio studio with 7 generative ambient streams and 4 completion chime packs
+• Theme JSON sharing, goal templates, command palette (Ctrl+K)
+
+PRIVACY & FREEDOM
+• MIT-licensed open source — audit every line
+• Full JSON export/import: your data is never locked in
+• Optional sync-file: auto-save your workspace JSON into a Syncthing/WebDAV folder you control
