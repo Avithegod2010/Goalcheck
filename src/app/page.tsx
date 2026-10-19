@@ -27,7 +27,7 @@ import { InstallCard } from "@/components/goalcheck/Pwa";
 import { playChime } from "@/lib/goalcheck/audio";
 import { scheduleSyncWrite } from "@/lib/goalcheck/syncfile";
 import { DEFAULT_DARK_THEME, DEFAULT_LIGHT_THEME, isLightTheme } from "@/lib/goalcheck/themes";
-import { APP_NAME, hasFeature } from "@/lib/goalcheck/editions";
+import { APP_NAME, BUILD_APP_NAME, APP_TITLE, BUILD_EDITION, EDITION, hasFeature } from "@/lib/goalcheck/editions";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Page() {
@@ -71,11 +71,35 @@ export default function Page() {
     };
   }, []);
 
+  /* runtime edition switch — keep the browser tab title in sync.
+     The metadata <title> is React-owned and is (re)applied asynchronously
+     during head hydration, which clobbers one-shot assignments. A short,
+     bounded sync loop converges whenever React finishes settling and
+     stops on its own (no permanent polling). */
+  useEffect(() => {
+    if (EDITION === BUILD_EDITION) return;
+    let ticks = 0;
+    let stable = 0;
+    const iv = window.setInterval(() => {
+      ticks += 1;
+      if (document.title !== APP_TITLE) {
+        document.title = APP_TITLE;
+        stable = 0;
+      } else if (++stable >= 2 || ticks > 15) {
+        window.clearInterval(iv);
+      }
+    }, 250);
+    return () => window.clearInterval(iv);
+  }, [hydrated]);
+
   return (
     <MotionConfig reducedMotion="user">
       <div className="gc-app flex min-h-screen flex-col">
         <Effects />
-        <Header />
+        {/* Header + onboarding render edition-dependent module constants —
+            they mount only after store rehydration so a runtime edition
+            switch (Normal⇄Advance) can never cause a hydration mismatch. */}
+        {hydrated && <Header />}
 
         <main className="relative z-10 mx-auto w-full max-w-[1440px] flex-1 px-3 py-4 sm:px-5 sm:py-6">
           {!hydrated ? (
@@ -114,7 +138,9 @@ export default function Page() {
         <footer className="relative z-10 mt-auto border-t px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] text-center text-xs"
           style={{ borderColor: "var(--gc-border)", color: "var(--gc-text2)" }}
         >
-          {APP_NAME} — local-first &amp; FOSS. Your data never leaves this device.{" "}
+          {/* hydration-safe: prerender + first client render agree on the BUILD
+              name; the rehydrate flip re-renders with the runtime edition */}
+          {hydrated ? APP_NAME : BUILD_APP_NAME} — local-first &amp; FOSS. Your data never leaves this device.{" "}
           <span className="hidden sm:inline">Free source code &amp; releases on GitHub.</span>
         </footer>
 
@@ -122,7 +148,7 @@ export default function Page() {
         {hasFeature("zen") && <ZenHud />}
         {hasFeature("command-palette") && <CommandPalette />}
         <FloatingPill />
-        <Onboarding />
+        {hydrated && <Onboarding />}
       </div>
     </MotionConfig>
   );

@@ -25,18 +25,67 @@
      NEXT_PUBLIC_GC_EDITION=pro  bun run build   (default)
      NEXT_PUBLIC_GC_EDITION=base bun run build
 
+   RUNTIME EDITION SWITCH (v4.1)
+     Advance builds additionally let the USER switch edition at runtime
+     (Settings → Edition): the choice is persisted in localStorage under
+     EDITION_OVERRIDE_KEY and applied when this module initializes. A page
+     reload re-renders the whole workspace as the other edition. Data is
+     untouched — both editions read the same storage schema. Base builds
+     deliberately DO NOT offer the switch: the two products must stay
+     distinct (base users upgrade via the Advance release instead).
+
    Both editions share the SAME storage key + schema version,
    so upgrading base → pro keeps every byte of user data.
    ========================================================= */
 
 export type Edition = "base" | "pro";
 
-export const EDITION: Edition =
+/** The edition this deployment was BUILT as (env at compile time). */
+export const BUILD_EDITION: Edition =
   process.env.NEXT_PUBLIC_GC_EDITION === "base" ? "base" : "pro";
+
+/** localStorage key holding the user's runtime edition choice. */
+export const EDITION_OVERRIDE_KEY = "gc_edition_override";
+
+function resolveEdition(): Edition {
+  // Only Advance builds offer the in-app switch; base builds stay base.
+  // Server/prerender always resolves to the build edition.
+  if (typeof window === "undefined" || BUILD_EDITION !== "pro") return BUILD_EDITION;
+  try {
+    const o = window.localStorage.getItem(EDITION_OVERRIDE_KEY);
+    if (o === "base" || o === "pro") return o;
+  } catch {
+    /* storage unavailable (private mode) — build edition */
+  }
+  return BUILD_EDITION;
+}
+
+/** Runtime-resolved edition (build default + optional user override). */
+export const EDITION: Edition = resolveEdition();
+
+/** Persist the user's edition choice (client-only). Pass null to reset to
+ *  the build edition. The caller reloads the page afterwards. */
+export function setEditionOverride(e: Edition | null): void {
+  if (typeof window === "undefined") return;
+  try {
+    if (e === null || e === BUILD_EDITION) window.localStorage.removeItem(EDITION_OVERRIDE_KEY);
+    else window.localStorage.setItem(EDITION_OVERRIDE_KEY, e);
+  } catch {
+    /* ignore — storage unavailable */
+  }
+}
 
 export const IS_PRO = EDITION === "pro";
 
 export const APP_NAME = IS_PRO ? "GoalCheck Advance" : "GoalCheck";
+
+/** App name as compiled (used for hydration-safe prerendered text). */
+export const BUILD_APP_NAME = BUILD_EDITION === "pro" ? "GoalCheck Advance" : "GoalCheck";
+
+/** Full browser-tab title (kept in sync when the edition changes at runtime). */
+export const APP_TITLE = IS_PRO
+  ? "GoalCheck Advance — Multi-Goal Checklists, Focus Timer & Analytics"
+  : "GoalCheck — Multi-Goal Checklists & Focus Timer";
 
 export const APP_TAGLINE = IS_PRO
   ? "Multi-goal checklists • Focus timer • Analytics"

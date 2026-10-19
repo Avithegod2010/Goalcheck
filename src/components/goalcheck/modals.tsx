@@ -20,7 +20,7 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { THEMES, ENGINES, ATMOSPHERE_PRESETS, availableThemes, availableEngines } from "@/lib/goalcheck/themes";
-import { hasFeature, IS_PRO, APP_NAME } from "@/lib/goalcheck/editions";
+import { hasFeature, IS_PRO, APP_NAME, BUILD_EDITION, setEditionOverride, type Edition } from "@/lib/goalcheck/editions";
 import { syncFileSupported, linkSyncFile, isSyncLinked, unlinkSyncFile, writeNow } from "@/lib/goalcheck/syncfile";
 import { isImageUrl, isMonoIcon } from "@/lib/goalcheck/presets";
 import { RPG_AURAS, RPG_SKILLS, ACHIEVEMENTS, buildMarkdownExport, buildPlainExport, localDateKey, rankForLevel, totalXpForLevel, xpForLevel } from "@/lib/goalcheck/logic";
@@ -423,6 +423,7 @@ function SettingsModal() {
 
           {hasFeature("data-doctor") && <DataDoctorPanel />}
           {!IS_PRO && <UpgradeCard />}
+          {BUILD_EDITION === "pro" && <EditionSwitchCard />}
           <button
             type="button"
             className="self-start rounded-lg px-2 py-1 text-xs font-bold underline-offset-2 transition-colors hover:underline"
@@ -512,6 +513,52 @@ function SettingRow({ title, desc, icon, checked, onCheckedChange }: { title: st
         <p className="text-xs" style={{ color: "var(--gc-text2)" }}>{desc}</p>
       </div>
       <Switch checked={checked} onCheckedChange={onCheckedChange} aria-label={title} />
+    </div>
+  );
+}
+
+/* v4.1 — in-app edition switch (Advance builds only): flip between the
+   Normal planner and the full Advance workspace. Persisted as a runtime
+   override (see editions.ts) and applied by a page reload. Data is shared
+   between editions by design — nothing is ever lost or migrated. */
+function EditionSwitchCard() {
+  const [confirming, setConfirming] = useState(false);
+  const target: Edition = IS_PRO ? "base" : "pro";
+  const targetName = IS_PRO ? "GoalCheck (Normal)" : "GoalCheck Advance";
+
+  const doSwitch = () => {
+    setEditionOverride(target);
+    try {
+      sessionStorage.setItem("gc_edition_switched", "1");
+    } catch {
+      /* ignore — welcome toast after reload is cosmetic */
+    }
+    window.location.reload();
+  };
+
+  return (
+    <div className="rounded-xl border p-3" style={{ borderColor: "var(--gc-border)", background: "var(--gc-surface-2)" }}>
+      <p className="flex items-center gap-2 text-sm font-extrabold"><GcIcon name="puzzle-piece" size={15} /> Edition — {APP_NAME}</p>
+      <p className="mb-2 text-xs" style={{ color: "var(--gc-text2)" }}>
+        {IS_PRO
+          ? "You are running GoalCheck Advance (everything unlocked). Switch to Normal for the minimal planner experience."
+          : "You are running GoalCheck (Normal). Switch to Advance to unlock Kanban, habits, themes, audio and more."}{" "}
+        Your data is shared between editions — nothing is lost; Advance-only settings quietly pause while you are in Normal mode.
+      </p>
+      {confirming ? (
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" size="sm" className="gc-btn-primary text-white" onClick={doSwitch}>
+            Yes, switch to {targetName}
+          </Button>
+          <Button type="button" size="sm" variant="outline" className="gc-btn" onClick={() => setConfirming(false)}>
+            Cancel
+          </Button>
+        </div>
+      ) : (
+        <Button type="button" size="sm" variant="outline" className="gc-btn" onClick={() => setConfirming(true)}>
+          Switch to {targetName}…
+        </Button>
+      )}
     </div>
   );
 }
