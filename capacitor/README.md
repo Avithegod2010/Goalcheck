@@ -41,8 +41,8 @@ capacitor/
 
 ## Prerequisites
 
-- **Android Studio** (easiest — bundles JDK 17 + Android SDK), *or*
-  manually: **JDK 17** + **Android SDK** (platform 36 / build-tools per
+- **Android Studio** (easiest — bundles JDK 21 + Android SDK), *or*
+  manually: **JDK 21** + **Android SDK** (platform 36 / build-tools per
   `android/variables.gradle`) with `ANDROID_HOME` set.
 - **Bun** (or Node 20+) for the build/sync tooling.
 

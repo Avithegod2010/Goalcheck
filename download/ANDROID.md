@@ -54,7 +54,7 @@ Artifacts: `GoalCheckAdvance-debug.apk` / `GoalCheck-debug.apk`.
 
 ## 3. Building locally (optional)
 
-Prereqs: JDK 17 + Android SDK (Android Studio), Bun or Node.
+Prereqs: JDK 21 + Android SDK (Android Studio), Bun or Node.
 
 ```bash
 # Advance edition

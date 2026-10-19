@@ -42,7 +42,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: "17" # required by Capacitor 7 gradle toolchain
+          java-version: "21" # Capacitor 7 template compiles Java at release 21 (17 fails: "invalid source release: 21")
 
       - name: Install web app dependencies
         run: bun install --frozen-lockfile
