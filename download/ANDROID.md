@@ -71,17 +71,34 @@ appId/appName in) — expect git churn under `capacitor/android/` when you flip.
 
 ## 4. Signing
 
-Current CI builds are **debug-signed** — fine for sideloading and IzzyOnDroid
-testing, not for Play Store. For a release keystore:
+Debug builds are debug-signed — fine for sideloading and IzzyOnDroid testing.
+The **signed release pipeline is wired**: every `android/v*` tag builds a release
+APK **and a Play AAB** automatically once the keystore exists.
+
+### One-time keystore setup (do this locally, never paste keys in chat)
 
 ```bash
 keytool -genkeypair -v -keystore goalcheck.keystore -alias goalcheck \
   -keyalg RSA -keysize 2048 -validity 10000
+base64 -w0 goalcheck.keystore > goalcheck.keystore.b64   # linux; macOS: base64 -i
 ```
 
-Then either build locally (`assembleRelease` with signing config) or add these
-GitHub secrets and extend `android.yml`:
-`KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`.
+### Add 4 GitHub repo secrets (Settings → Secrets and variables → Actions)
+
+| Secret | Value |
+| --- | --- |
+| `ANDROID_KEYSTORE_BASE64` | contents of `goalcheck.keystore.b64` |
+| `ANDROID_KEYSTORE_PASSWORD` | keystore password |
+| `ANDROID_KEY_ALIAS` | `goalcheck` |
+| `ANDROID_KEY_PASSWORD` | key password |
+
+The next `android/v*` tag produces `GoalCheck[-Advance]-v<semver>-release.apk` and
+`GoalCheck[-Advance]-v<semver>.aab`, both attached to the tag's GitHub release and
+both passed through the zero-INTERNET gate. Without the secret the workflow still
+ships debug builds (never hard-blocks).
+
+Versioning is automatic: `versionName`/`versionCode` derive from the root
+`package.json` (`versionCode = major*10000 + minor*100 + patch`, so 0.4.1 → 401).
 
 > Keep the keystore + passwords safe and offline — losing them means you can
 > never update the same app entry on Play Store (GitHub/Izzy releases are

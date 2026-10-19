@@ -81,6 +81,11 @@ capacitor/android/app/build/
 capacitor/android/build/
 capacitor/android/local.properties
 capacitor/android/.idea/
+# release signing material — NEVER commit private keys
+capacitor/android/keystore.jks
+capacitor/android/keystore.properties
+*.jks
+*.keystore
 # built APKs are distributed via GitHub Releases, never committed
 *.apk
 # NOTE (do NOT add): capacitor/android/app/src/main/assets/public/,

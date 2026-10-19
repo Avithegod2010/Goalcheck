@@ -1,15 +1,22 @@
 name: Android APK
 
-# Builds the Capacitor debug APKs for both editions.
+# Builds the Capacitor Android artifacts for both editions.
 # - workflow_dispatch: manual test builds (artifacts only)
-# - tags android/v*: artifacts + attach the APKs to the matching release
+# - tags android/v*: artifacts + attach them to the matching release
 #
-# Zero-internet guardrail: after each build we dump the APK's merged manifest
-# permissions and FAIL if android.permission.INTERNET is present. The local-
-# only promise is enforced here, not just documented.
+# Artifacts per edition:
+#   - debug APK     → always (sideload testing, debug-signed)
+#   - release APK   → when the ANDROID_KEYSTORE_BASE64 secret is set
+#   - release AAB   → when the keystore is present (Play Store format)
 #
-# NOTE: release signing is intentionally deferred (debug keystore only) —
-# Phase 4 adds the reproducible signed release pipeline.
+# Zero-internet guardrail: after each build we dump EVERY produced APK's
+# merged manifest permissions and FAIL if android.permission.INTERNET is
+# present. The local-only promise is enforced here, not just documented.
+#
+# Signing: keystore.properties + keystore.jks are materialized from GitHub
+# Secrets (see "Restore release signing" step) or created locally — they are
+# gitignored and NEVER committed. Without the secret the job still ships
+# debug builds so the pipeline never hard-blocks on missing signing setup.
 
 on:
   workflow_dispatch:
@@ -18,7 +25,7 @@ on:
       - "android/v*"
 
 permissions:
-  contents: write # required only for attaching APKs to a release on tag push
+  contents: write # required only for attaching artifacts to a release on tag push
 
 jobs:
   apk:
@@ -52,38 +59,82 @@ jobs:
       - name: Static export + sync into Capacitor shell (${{ matrix.edition }})
         run: bun run build:capacitor:${{ matrix.edition }}
 
+      - name: Restore release signing (from secrets, optional)
+        id: keystore
+        env:
+          GC_KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          GC_KEYSTORE_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          GC_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          GC_KEY_PASS: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ -n "$GC_KEYSTORE_B64" ]; then
+            echo "$GC_KEYSTORE_B64" | base64 -d > capacitor/android/keystore.jks
+            printf 'storeFile=keystore.jks\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' \
+              "$GC_KEYSTORE_PASS" "$GC_KEY_ALIAS" "$GC_KEY_PASS" \
+              > capacitor/android/keystore.properties
+            echo "present=true" >> "$GITHUB_OUTPUT"
+            echo "✓ keystore restored — release APK + AAB will be signed"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "ℹ no ANDROID_KEYSTORE_BASE64 secret — building debug artifacts only"
+          fi
+
       - name: Assemble debug APK
         run: cd capacitor/android && bash ./gradlew assembleDebug --no-daemon
+
+      - name: Assemble + bundle signed release (APK + AAB)
+        if: steps.keystore.outputs.present == 'true'
+        run: cd capacitor/android && bash ./gradlew assembleRelease bundleRelease --no-daemon
 
       - name: Zero-internet check (fail if INTERNET permission is present)
         run: |
           AAPT2="$(ls "$ANDROID_HOME"/build-tools/*/aapt2 | sort -V | tail -1)"
-          APK=capacitor/android/app/build/outputs/apk/debug/app-debug.apk
           echo "Using $AAPT2"
-          PERMS="$("$AAPT2" dump permissions "$APK")"
-          echo "$PERMS"
-          if echo "$PERMS" | grep -q "android.permission.INTERNET"; then
-            echo "::error::APK declares android.permission.INTERNET — zero-internet guarantee violated"
-            exit 1
-          fi
-          echo "✓ no INTERNET permission in merged manifest"
+          FAILED=0
+          for APK in \
+            capacitor/android/app/build/outputs/apk/debug/app-debug.apk \
+            capacitor/android/app/build/outputs/apk/release/app-release.apk; do
+            if [ -f "$APK" ]; then
+              echo "--- $APK"
+              PERMS="$("$AAPT2" dump permissions "$APK")"
+              echo "$PERMS"
+              if echo "$PERMS" | grep -q "android.permission.INTERNET"; then
+                echo "::error::$APK declares android.permission.INTERNET — zero-internet guarantee violated"
+                FAILED=1
+              fi
+            fi
+          done
+          if [ "$FAILED" = "1" ]; then exit 1; fi
+          echo "✓ no INTERNET permission in any merged manifest"
 
-      - name: Rename APK
+      - name: Collect artifacts
         run: |
+          VERSION=$(node -p "require('./package.json').version")
           cp capacitor/android/app/build/outputs/apk/debug/app-debug.apk \
-             GoalCheck${{ matrix.label }}-debug.apk
+             GoalCheck${{ matrix.label }}-v${VERSION}-debug.apk
+          if [ -f capacitor/android/app/build/outputs/apk/release/app-release.apk ]; then
+            cp capacitor/android/app/build/outputs/apk/release/app-release.apk \
+               GoalCheck${{ matrix.label }}-v${VERSION}-release.apk
+            cp capacitor/android/app/build/outputs/bundle/release/app-release.aab \
+               GoalCheck${{ matrix.label }}-v${VERSION}.aab
+          fi
+          ls -la GoalCheck*.apk GoalCheck*.aab 2>/dev/null
 
-      - name: Upload APK artifact
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: GoalCheck${{ matrix.label }}-debug.apk
-          path: GoalCheck${{ matrix.label }}-debug.apk
+          name: GoalCheck${{ matrix.label }}-v${{ github.ref_name }}-android
+          path: |
+            GoalCheck*.apk
+            GoalCheck*.aab
           if-no-files-found: error
 
-      - name: Attach APK to release (tag builds only)
+      - name: Attach artifacts to release (tag builds only)
         if: startsWith(github.ref, 'refs/tags/android/v')
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
-          files: GoalCheck${{ matrix.label }}-debug.apk
+          files: |
+            GoalCheck*.apk
+            GoalCheck*.aab
           make_latest: false # android builds attach to their own android/v* release

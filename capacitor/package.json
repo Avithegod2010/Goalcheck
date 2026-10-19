@@ -1,6 +1,6 @@
 {
   "name": "goalcheck-android-shell",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "private": true,
   "description": "Capacitor Android shell for GoalCheck (base) and GoalCheck Advance (pro). Independent project — the web app at the repo root must never depend on Capacitor.",
   "scripts": {
