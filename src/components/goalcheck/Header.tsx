@@ -71,6 +71,7 @@ export function Header() {
               className="hidden items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-extrabold md:flex"
               style={{ borderColor: "var(--gc-border-strong)", background: "var(--gc-surface-2)" }}
               title="Open RPG Progression"
+              aria-label={`Open RPG Progression — Level ${level}`}
               onClick={() => ui.open("rpgModal")}
               key={`lv-${level}`}
               initial={{ scale: 1.18 }}
@@ -86,12 +87,12 @@ export function Header() {
           )}
 
           {hasFeature("command-palette") && (
-            <Button type="button" variant="outline" size="sm" className="hidden lg:inline-flex gc-btn" onClick={() => ui.open("paletteOpen")} title="Natural language command bar (Ctrl+K)">
+            <Button type="button" variant="outline" size="sm" className="hidden lg:inline-flex gc-btn" onClick={() => ui.open("paletteOpen")} title="Natural language command bar (Ctrl+K)" aria-label="Open command bar (Ctrl+K)">
               <GcIcon name="command-key" size={15} /> ⌘K
             </Button>
           )}
           {hasFeature("zen") && (
-            <Button type="button" variant="outline" size="sm" className="hidden lg:inline-flex gc-btn" onClick={() => ui.open("zenOpen")} title="Distraction-free focus HUD">
+            <Button type="button" variant="outline" size="sm" className="hidden lg:inline-flex gc-btn" onClick={() => ui.open("zenOpen")} title="Distraction-free focus HUD" aria-label="Open Zen focus HUD">
               <GcIcon name="lotus-zen" size={16} /> <span>Zen</span>
             </Button>
           )}

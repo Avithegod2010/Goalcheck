@@ -167,7 +167,7 @@ export function PomodoroWidget() {
           <span>Attached Task</span>
         </div>
         <Select value={pomo.attachedTaskId || "__none"} onValueChange={(v) => { if (v !== "__none") useStore.getState().bindPomo(v); else useStore.setState({ pomo: { ...useStore.getState().pomo, attachedTaskId: "" } }); }}>
-          <SelectTrigger className="w-full gc-input !h-auto py-2 text-xs">
+          <SelectTrigger aria-label="Attach a task to this focus session" className="w-full gc-input !h-auto py-2 text-xs">
             <SelectValue placeholder="-- No task attached --" />
           </SelectTrigger>
           <SelectContent className="max-h-64">
@@ -256,7 +256,7 @@ export function GoalNav() {
               <motion.span
                 key={`${g.id}-${stats.percent}`}
                 className="relative shrink-0 rounded-full px-2 py-0.5 font-mono text-[0.7rem] font-bold"
-                style={active ? { background: "var(--gc-accent)", color: "#fff" } : { background: "var(--gc-surface-2)", color: "var(--gc-text2)" }}
+                style={active ? { background: "var(--gc-accent)", color: "#060913" } : { background: "var(--gc-surface-2)", color: "var(--gc-text2)" }}
                 initial={{ scale: 1.15 }}
                 animate={{ scale: 1 }}
                 transition={{ type: "spring", stiffness: 460, damping: 18 }}
@@ -301,7 +301,7 @@ export function Templates() {
                 <span className="block truncate text-[0.68rem]" style={{ color: "var(--gc-text2)" }}>{tpl.blurb}</span>
               </span>
             </span>
-            <span className="shrink-0 text-[0.72rem] font-extrabold" style={{ color: "var(--gc-accent)" }}>＋ Load</span>
+            <span className="shrink-0 text-[0.72rem] font-extrabold" style={{ color: "var(--gc-text)" }}>＋ Load</span>
           </motion.button>
         ))}
       </div>
@@ -413,7 +413,7 @@ export function AudioStudio() {
           </div>
         ))}
         <Select value={audioStream} onValueChange={(v) => { setAudio({ audioStream: v }); if (running) { stopAudioStream(); startAudioStream(v).then(setRunning); } }}>
-          <SelectTrigger className="w-full gc-input text-xs"><SelectValue /></SelectTrigger>
+          <SelectTrigger aria-label="Choose an ambient audio stream" className="w-full gc-input text-xs"><SelectValue /></SelectTrigger>
           <SelectContent>
             {STREAMS.map((s) => (
               <SelectItem key={s.id} value={s.id}>
