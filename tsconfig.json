@@ -44,6 +44,7 @@
     "tests",
     "tool-results",
     ".zscripts",
-    "worklog.md"
+    "worklog.md",
+    "capacitor"
   ]
 }
