@@ -132,7 +132,7 @@
   --gc-input: rgba(11, 17, 32, 0.9);
   --gc-text: #f8fafc;
   --gc-text2: #94a3b8;
-  --gc-muted: #64748b;
+  --gc-muted: #7f8da4;
   --gc-border: rgba(148, 163, 184, 0.14);
   --gc-border-strong: rgba(148, 163, 184, 0.3);
   --gc-accent: #6366f1;
@@ -239,7 +239,7 @@ html[data-gc-theme="synthwave"] {
 html[data-gc-theme="nordic"] {
   --gc-bg: #f8fafc; --gc-surface: rgba(255,255,255,0.88); --gc-surface-2: rgba(241,245,249,0.95);
   --gc-surface-hover: rgba(226,232,240,0.98); --gc-input: #ffffff;
-  --gc-text: #0f172a; --gc-text2: #475569; --gc-muted: #64748b;
+  --gc-text: #0f172a; --gc-text2: #475569; --gc-muted: #5b6b82;
   --gc-border: rgba(15,23,42,0.08); --gc-border-strong: rgba(15,23,42,0.18);
   --gc-accent: #2563eb; --gc-glow: rgba(37,99,235,0.3); --gc-soft: rgba(37,99,235,0.1);
   --gc-grad: linear-gradient(135deg, #2563eb 0%, #0ea5e9 100%);

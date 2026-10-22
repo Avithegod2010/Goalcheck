@@ -105,7 +105,13 @@
    toast + backup nudge; hard-full case gets its own warning
 5. **Tests in CI** ✅ — `bun run test` (Vitest + jsdom, 57 tests) added to the `verify` matrix between typecheck and build (2026-10-18)
 
-**Deliverable:** installable PWA, offline-capable — ✅ shipped. Lighthouse PWA audit still to run.
+**Deliverable:** installable PWA, offline-capable — ✅ shipped.
+
+**Lighthouse audit (2026-10-19, live site, mobile emulation):** Performance 49 · Accessibility 80 → **post-fix sweep: axe reports ZERO WCAG 2.0/2.1 AA violations on desktop AND mobile**. Fixed in the same session:
+- **basePath bug** — hand-written `/icon.svg` + `/icons/icon-192.png` metadata links are emitted WITHOUT the `/Goalcheck` prefix on Pages (404s, broken favicon + console errors) → replaced with Next file-convention icons (`src/app/icon.svg|icon.png|apple-icon.png`) which get the basePath automatically.
+- **a11y**: slider thumbs had no accessible name (label hoisted from Root to Thumb); goal + category progressbars unnamed; view-switcher `role=tablist` on the wrong wrapper; "New Board" button icon-only on mobile with no name; home-button label/name mismatch.
+- **contrast**: tiny accent/warning/danger text on soft backgrounds (3.8–4.4:1) → `color-mix(in srgb, var(--gc-X) 55–62%, var(--gc-text))` (adapts correctly in BOTH light and dark themes); nebula/nordic `--gc-muted` lifted to AA.
+- Remaining (perf lane): TBT 2.7 s / LCP 4.7 s on throttled mobile — heavy client bundle (framer-motion + all views in the initial chunk). Next lever: `next/dynamic` code-split of the four Advance views + deferred particle engine boot.
 
 **Bonus fix from the new suite (2026-10-18):** `dueStatus()` in `logic.ts` had an always-true ISO-week clause that made the `"later"` due-date badge unreachable — every future date rendered as `"week"`. Fixed; the This Week filter (`inCurrentWeek`) was already correct and is unchanged.
 

@@ -142,7 +142,7 @@ function MediaPickerBody({ initial, onApply, onCancel }: { initial: string; onAp
           return (
             <button key={id} type="button" role="tab" aria-selected={tab === id} onClick={() => setTab(id)}
               className="rounded-lg px-3 py-1.5 text-xs font-bold"
-              style={tab === id ? { background: "var(--gc-surface)", color: "var(--gc-accent)" } : { color: "var(--gc-text2)" }}>
+              style={tab === id ? { background: "var(--gc-surface)", color: "color-mix(in srgb, var(--gc-accent) 55%, var(--gc-text))" } : { color: "var(--gc-text2)" }}>
               {label}
             </button>
           );
@@ -620,7 +620,7 @@ function ExportModal() {
           {([["plain", "Plain Text"], ["markdown", "Markdown (.md)"], ["json", "JSON Backup"]] as const).map(([id, label]) => (
             <button key={id} type="button" role="tab" aria-selected={format === id} onClick={() => setFormat(id)}
               className="rounded-lg px-3 py-1.5 text-xs font-bold"
-              style={format === id ? { background: "var(--gc-surface)", color: "var(--gc-accent)" } : { color: "var(--gc-text2)" }}>
+              style={format === id ? { background: "var(--gc-surface)", color: "color-mix(in srgb, var(--gc-accent) 55%, var(--gc-text))" } : { color: "var(--gc-text2)" }}>
               {label}
             </button>
           ))}

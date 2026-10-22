@@ -37,8 +37,8 @@ export function Header() {
           type="button"
           className="flex min-w-0 items-center gap-3 rounded-xl px-1 py-1 text-left focus-visible:outline-2 focus-visible:outline-offset-2"
           style={{ outlineColor: "var(--gc-accent)" }}
+          aria-label={`${APP_NAME} — back to top`}
           onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-          aria-label={`${APP_NAME} home`}
         >
           <motion.span
             className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl text-lg font-extrabold"
@@ -100,7 +100,7 @@ export function Header() {
             <GcIcon name="contrast-half" size={17} />
           </Button>
 
-          <Button type="button" size="sm" className="gc-btn-primary" onClick={() => ui.openBoardModal("create")}>
+          <Button type="button" size="sm" className="gc-btn-primary" onClick={() => ui.openBoardModal("create")} aria-label="Create new board">
             <Plus className="h-4 w-4" /> <span className="hidden sm:inline">New Board</span>
           </Button>
 

@@ -92,7 +92,7 @@ export function HeroCard() {
         </div>
       </div>
 
-      <div className="mt-5 h-[18px] overflow-hidden rounded-full border p-0.5" style={{ borderColor: "var(--gc-border)", background: "var(--gc-surface-2)" }} role="progressbar" aria-valuenow={stats.percent} aria-valuemin={0} aria-valuemax={100}>
+      <div className="mt-5 h-[18px] overflow-hidden rounded-full border p-0.5" style={{ borderColor: "var(--gc-border)", background: "var(--gc-surface-2)" }} role="progressbar" aria-label={`Goal progress: ${stats.percent}% complete`} aria-valuenow={stats.percent} aria-valuemin={0} aria-valuemax={100}>
         <motion.div
           className="h-full rounded-full"
           style={{ background: "var(--gc-grad)", boxShadow: "0 0 14px var(--gc-glow)" }}
@@ -261,14 +261,12 @@ export function FilterBar() {
     <>
       <motion.div
         className="gc-panel gc-blur flex flex-wrap items-center justify-between gap-3 rounded-2xl p-2.5"
-        role="tablist"
-        aria-label="Workspace views"
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
       >
         {VIEWS_AVAILABLE.length > 1 && (
-          <div className="flex flex-wrap items-center gap-1">
+          <div className="flex flex-wrap items-center gap-1" role="tablist" aria-label="Workspace views">
             {VIEWS_AVAILABLE.map(([id, label, icon]) => (
             <button
               key={id}
@@ -317,7 +315,7 @@ export function FilterBar() {
               onClick={() => setFilter(id)}
               aria-pressed={filter === id}
               className="relative rounded-lg px-3 py-1.5 text-xs font-bold transition-colors focus-visible:outline-2"
-              style={filter === id ? { color: "var(--gc-accent)" } : { color: "var(--gc-text2)" }}
+              style={filter === id ? { color: "color-mix(in srgb, var(--gc-accent) 55%, var(--gc-text))" } : { color: "var(--gc-text2)" }}
             >
               {filter === id && (
                 <motion.span layoutId="gcFilterPill" className="tab-pill-soft" transition={{ type: "spring", stiffness: 420, damping: 32 }} />

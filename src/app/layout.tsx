@@ -29,13 +29,10 @@ export const metadata: Metadata = {
     statusBarStyle: "black-translucent",
     title: APP_NAME,
   },
-  icons: {
-    icon: [
-      { url: "/icon.svg", type: "image/svg+xml" },
-      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
-    ],
-    apple: [{ url: "/icons/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
-  },
+  /* NOTE: icon links come from the file convention (src/app/icon.svg,
+     icon.png, apple-icon.png) so Next.js prefixes them with the basePath.
+     Hand-written "/icons/..." URLs are emitted WITHOUT the basePath and
+     404 on the GitHub Pages deploy. */
 };
 
 export const viewport: Viewport = {

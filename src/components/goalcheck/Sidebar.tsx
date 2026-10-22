@@ -118,7 +118,7 @@ export function PomodoroWidget() {
           >
             {formatMs(remaining)}
           </motion.span>
-          <span className="mt-1 rounded-full px-2 py-0.5 text-[0.65rem] font-bold uppercase tracking-wide" style={{ background: "var(--gc-soft)", color: "var(--gc-accent)" }}>
+          <span className="mt-1 rounded-full px-2 py-0.5 text-[0.65rem] font-bold uppercase tracking-wide" style={{ background: "var(--gc-soft)", color: "color-mix(in srgb, var(--gc-accent) 55%, var(--gc-text))" }}>
             {pomo.mode === "focus" ? "Focus Block" : pomo.mode === "short" ? "Short Break" : "Long Break"}
           </span>
         </div>
@@ -256,7 +256,7 @@ export function GoalNav() {
               <motion.span
                 key={`${g.id}-${stats.percent}`}
                 className="relative shrink-0 rounded-full px-2 py-0.5 font-mono text-[0.7rem] font-bold"
-                style={active ? { background: "var(--gc-accent)", color: "#060913" } : { background: "var(--gc-surface-2)", color: "var(--gc-text2)" }}
+                style={active ? { background: "color-mix(in srgb, var(--gc-accent) 85%, black)", color: "#ffffff" } : { background: "var(--gc-surface-2)", color: "var(--gc-text2)" }}
                 initial={{ scale: 1.15 }}
                 animate={{ scale: 1 }}
                 transition={{ type: "spring", stiffness: 460, damping: 18 }}
@@ -405,7 +405,7 @@ export function AudioStudio() {
         <canvas ref={canvasRef} width={260} height={48} className="w-full rounded-lg" style={{ background: "var(--gc-input)" }} aria-hidden="true" />
         {(["bass", "mid", "treble"] as const).map((k) => (
           <div key={k} className="flex items-center gap-2 text-[0.68rem] font-extrabold">
-            <span className="w-12 uppercase" style={{ color: k === "bass" ? "var(--gc-danger)" : k === "mid" ? "var(--gc-warning)" : "var(--gc-accent)" }}>{k}</span>
+            <span className="w-12 uppercase" style={{ color: k === "bass" ? "var(--gc-danger)" : k === "mid" ? "color-mix(in srgb, var(--gc-warning) 75%, white)" : "color-mix(in srgb, var(--gc-accent) 60%, white)" }}>{k}</span>
             <div className="h-1.5 flex-1 overflow-hidden rounded-full" style={{ background: "var(--gc-surface-2)" }}>
               <div id={`${k}MeterFill`} className="h-full w-0 rounded-full transition-[width] duration-100" style={{ background: "var(--gc-grad)" }} />
             </div>

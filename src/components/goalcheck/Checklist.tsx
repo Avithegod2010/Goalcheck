@@ -143,12 +143,12 @@ function CategoryCard({ cat, editing, index }: { cat: Category; editing: boolean
               <p className="mt-0.5 flex items-center gap-1.5 font-mono text-[0.7rem]" style={{ color: "var(--gc-text2)" }}>
                 {completed} / {total} done • {pct}%
                 {cat.recurrence === "daily" && (
-                  <span className="inline-flex items-center gap-1" style={{ color: "var(--gc-accent)" }}>
+                  <span className="inline-flex items-center gap-1" style={{ color: "color-mix(in srgb, var(--gc-accent) 55%, var(--gc-text))" }}>
                     <GcIcon name="repeat-cycle" size={11} /> daily
                   </span>
                 )}
                 {cat.recurrence === "weekly" && (
-                  <span className="inline-flex items-center gap-1" style={{ color: "var(--gc-accent)" }}>
+                  <span className="inline-flex items-center gap-1" style={{ color: "color-mix(in srgb, var(--gc-accent) 55%, var(--gc-text))" }}>
                     <GcIcon name="calendar-tick" size={11} /> weekly
                   </span>
                 )}
@@ -181,7 +181,7 @@ function CategoryCard({ cat, editing, index }: { cat: Category; editing: boolean
             <DeleteCatButton onDelete={() => deleteCategory(cat.id)} title={cat.title} />
           </div>
         </div>
-        <div className="mt-3 h-2 overflow-hidden rounded-full" style={{ background: "var(--gc-surface-2)" }} role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
+        <div className="mt-3 h-2 overflow-hidden rounded-full" style={{ background: "var(--gc-surface-2)" }} role="progressbar" aria-label={`${cat.title} progress: ${pct}% complete`} aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
           <motion.div
             className="h-full rounded-full"
             style={{ background: "var(--gc-grad)" }}
@@ -283,8 +283,8 @@ function DeleteCatButton({ onDelete, title }: { onDelete: () => void; title: str
 
 const PRI_META = {
   normal: { label: "Normal", icon: "sliders-tune", color: "var(--gc-text2)" },
-  high: { label: "High", icon: "star-shine", color: "var(--gc-warning)" },
-  urgent: { label: "Urgent", icon: "flame-ember", color: "var(--gc-danger)" },
+  high: { label: "High", icon: "star-shine", color: "color-mix(in srgb, var(--gc-warning) 62%, var(--gc-text))" },
+  urgent: { label: "Urgent", icon: "flame-ember", color: "color-mix(in srgb, var(--gc-danger) 62%, var(--gc-text))" },
 } as const;
 
 function TaskRow({ catId, task, seq, index, subOpen }: { catId: string; task: Task; seq: number; index: number; subOpen: boolean }) {
@@ -388,7 +388,7 @@ function TaskRow({ catId, task, seq, index, subOpen }: { catId: string; task: Ta
             <DueBadge dueDate={task.dueDate} />
           )}
           {hasFeature("recurring-tasks") && task.recurrence !== "none" && (
-            <span className="flex items-center rounded-md px-1.5 py-0.5 text-[0.62rem] font-bold" style={{ background: "var(--gc-soft)", color: "var(--gc-accent)" }} title={`Repeats ${task.recurrence}`}>
+            <span className="flex items-center rounded-md px-1.5 py-0.5 text-[0.62rem] font-bold" style={{ background: "var(--gc-soft)", color: "color-mix(in srgb, var(--gc-accent) 55%, var(--gc-text))" }} title={`Repeats ${task.recurrence}`}>
               <GcIcon name="repeat-cycle" size={11} /> {task.recurrence}
             </span>
           )}
@@ -619,11 +619,11 @@ function DueBadge({ dueDate }: { dueDate: string }) {
   const status = dueStatus(dueDate);
   if (!status) return null;
   const meta = status === "overdue"
-    ? { label: "Overdue", bg: "var(--gc-danger-soft)", fg: "var(--gc-danger)", icon: "zap-star" }
+    ? { label: "Overdue", bg: "var(--gc-danger-soft)", fg: "color-mix(in srgb, var(--gc-danger) 62%, var(--gc-text))", icon: "zap-star" }
     : status === "today"
-      ? { label: "Today", bg: "var(--gc-warning-soft)", fg: "var(--gc-warning)", icon: "clock-hand" }
+      ? { label: "Today", bg: "var(--gc-warning-soft)", fg: "color-mix(in srgb, var(--gc-warning) 62%, var(--gc-text))", icon: "clock-hand" }
       : status === "week"
-        ? { label: "This week", bg: "var(--gc-soft)", fg: "var(--gc-accent)", icon: "calendar-tick" }
+        ? { label: "This week", bg: "var(--gc-soft)", fg: "color-mix(in srgb, var(--gc-accent) 55%, var(--gc-text))", icon: "calendar-tick" }
         : { label: dueDate.slice(5), bg: "var(--gc-surface-2)", fg: "var(--gc-text2)", icon: "calendar-tick" };
   return (
     <span
