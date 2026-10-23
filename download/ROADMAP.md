@@ -243,3 +243,7 @@ All 17 community ideas shipped (some with honest scoping):
 
 New gates: `E2E` workflow (chromium) on every push/PR; Android collect step fixed
 for debug-only builds (no signing secrets → no .aab → `ls` glob guard).
+
+**Releases for this drop:** [`advance/v0.5.1`](https://github.com/Avithegod2010/Goalcheck/releases/tag/advance/v0.5.1)
++ [`base/v0.5.1`](https://github.com/Avithegod2010/Goalcheck/releases/tag/base/v0.5.1)
+(2026-10-23, tagged at `812f2e1`). Android APKs ride the `android/*` tag pipeline.
