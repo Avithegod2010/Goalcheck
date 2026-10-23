@@ -123,10 +123,15 @@ jobs:
           ls -la GoalCheck*.apk 2>/dev/null || true
           ls -la GoalCheck*.aab 2>/dev/null || true
 
+      # `${{ github.ref_name }}` may contain "/" (android/vX.Y.Z) which is an
+      # invalid artifact-name character — sanitize once, reuse everywhere.
+      - name: Sanitize ref name for artifact names
+        run: echo "SAFE_REF=${GITHUB_REF_NAME//\//-}" >> "$GITHUB_ENV"
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: GoalCheck${{ matrix.label }}-v${{ github.ref_name }}-android
+          name: GoalCheck${{ matrix.label }}-${{ env.SAFE_REF }}-android
           path: |
             GoalCheck*.apk
             GoalCheck*.aab
