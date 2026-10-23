@@ -745,7 +745,12 @@ const de: Catalog = {
   "habits.weeks": "Wochen",
 
   /* ---- onboarding slides (Onboarding.tsx) ---- */
-  "onboard.aria": "Einführung: {name}",
+    "onboard.backupBody": "Einstellungen → Export sichert per Fingertipp ein JSON-Backup. Alles bleibt lokal — das Backup gehört allein dir.",
+  "onboard.focusBodyBase": "Binde eine Aufgabe an den Pomodoro-Timer und drücke Start — die schwebende Pille zählt appweit mit.",
+  "onboard.focusBodyPro": "Binde eine Aufgabe an den Pomodoro-Timer, drücke Start, und die schwebende Pille zählt appweit mit. Sessions fließen in XP, Streaks und Analysen ein.",
+  "onboard.powerBody": "Drücke Ctrl+K für die Befehlsleiste: /view, /theme, /pomo 25, /done 3, /goal exam — und baue im neuen Habits-Panel Streaks auf.",
+  "onboard.welcomeBody": "Boards enthalten Kategorien, Kategorien enthalten Aufgaben. Deine Daten bleiben zu 100 % auf diesem Gerät — kein Konto, kein Netzwerk.",
+"onboard.aria": "Einführung: {name}",
   "onboard.back": "Zurück",
   "onboard.backupTitle": "Früh und oft ein Backup erstellen",
   "onboard.demoTitle": "Mit einem fertigen Arbeitsbereich erkunden — jederzeit in den Einstellungen ersetzbar",

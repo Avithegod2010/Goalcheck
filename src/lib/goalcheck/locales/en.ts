@@ -781,7 +781,12 @@ const en = {
   "habits.weeks": "weeks",
 
   /* ---- onboarding slides (Onboarding.tsx) ---- */
-  "onboard.aria": "{name} onboarding",
+    "onboard.backupBody": "Settings → Export keeps a one-tap JSON backup. Everything stays local, so the backup is yours alone.",
+  "onboard.focusBodyBase": "Bind a task to the Pomodoro timer and hit Start — the floating pill keeps count across the app.",
+  "onboard.focusBodyPro": "Bind a task to the Pomodoro timer, hit Start, and the floating pill keeps count across the app. Sessions feed XP, streaks and analytics.",
+  "onboard.powerBody": "Press Ctrl+K for the command bar: /view, /theme, /pomo 25, /done 3, /goal exam — and build streaks in the new Habits panel.",
+  "onboard.welcomeBody": "Boards hold categories, categories hold tasks. Your data lives 100% on this device — no account, no network.",
+"onboard.aria": "{name} onboarding",
   "onboard.back": "Back",
   "onboard.backupTitle": "Backup early, backup often",
   "onboard.demoTitle": "Explore with a ready-made workspace — replace it any time from Settings",

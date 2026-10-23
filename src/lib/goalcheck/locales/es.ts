@@ -760,7 +760,12 @@ const es: Catalog = {
   "habits.weeks": "semanas",
 
   /* ---- diapositivas de introducción (Onboarding.tsx) ---- */
-  "onboard.aria": "Introducción de {name}",
+    "onboard.backupBody": "Ajustes → Exportar guarda una copia de seguridad JSON con un toque. Todo queda en local, así que la copia es solo tuya.",
+  "onboard.focusBodyBase": "Vincula una tarea al temporizador Pomodoro y pulsa Iniciar — la píldora flotante lleva la cuenta en toda la app.",
+  "onboard.focusBodyPro": "Vincula una tarea al temporizador Pomodoro, pulsa Iniciar y la píldora flotante lleva la cuenta en toda la app. Las sesiones alimentan XP, rachas y analíticas.",
+  "onboard.powerBody": "Pulsa Ctrl+K para la barra de comandos: /view, /theme, /pomo 25, /done 3, /goal exam — y construye rachas en el nuevo panel de hábitos.",
+  "onboard.welcomeBody": "Los tableros contienen categorías y las categorías contienen tareas. Tus datos viven 100 % en este dispositivo — sin cuenta, sin red.",
+"onboard.aria": "Introducción de {name}",
   "onboard.back": "Atrás",
   "onboard.backupTitle": "Haz copias de seguridad temprano y seguido",
   "onboard.demoTitle": "Explora con un espacio de trabajo listo — reemplázalo cuando quieras desde Ajustes",

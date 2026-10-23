@@ -3,7 +3,42 @@
 All notable changes to GoalCheck & GoalCheck Advance.
 Format: [Keep a Changelog](https://keepachangelog.com/) · Versions follow [SemVer](https://semver.org/).
 
-## [Unreleased]
+## [0.6.1] — 2026-10-23
+
+### Added
+- **Full i18n extraction**: every screen's strings are now catalog-driven — 630 new keys,
+  en/hi/es/de each key-complete at 721 keys (compile-enforced; onboarding paragraph
+  bodies included). Content data stays English by design.
+- **Drag-and-drop E2E suite** (`tests/e2e/dnd.spec.ts`, 5 tests): kanban column moves
+  (@dnd-kit pointer path), calendar chip reschedule / schedule / unschedule, checklist
+  row reorder — with reload-persistence assertions. Full suite: 92 unit + 14 E2E.
+- README: v4.3 feature tour, Calendar + Deep Focus screenshots, Languages section.
+
+### Fixed
+- Playwright artifact folder (`test-results/`) gitignored.
+
+## [0.6.0] — 2026-10-23
+
+The 18-item community batch (v4.3) — see ROADMAP §v4.3 for the full matrix. Highlights:
+calendar month view with drag-to-reschedule; roadmap/timeline view; Deep Focus overlay;
+guided Weekly Review ritual; Year-in-Review Wrapped (shareable PNG); importers for
+Todoist / TickTick / Google Tasks; local due-date reminders (service worker, opt-in);
+auto-snapshot rotation for the sync file; per-task time tracking (logs + stopwatch);
+Markdown notes with inline checklists; smart recurrence ("every 2nd Tuesday",
+weekdays-only); drag-and-drop everywhere; global fuzzy search in the palette; PWA app
+shortcuts + update toast; demo-data generator; resizable + compact Android widgets and
+lock-screen readiness; F-Droid/Izzy fastlane metadata for both editions. 21 new unit
+tests (suite 92). Android tag pipeline: `android/v*`.
+
+## [0.5.1] — 2026-10-23
+
+Web releases for the v4.2 17-feature drop (matrix in ROADMAP §v4.2); docs recording.
+
+## [0.5.0] — 2026-10-20
+
+E2E golden-path suite (9 Playwright tests) + CI quality lane; Android tag pipeline
+hardening.
+
 
 ### Added
 - **In-app edition switch** (Advance builds): Settings → Edition toggles between

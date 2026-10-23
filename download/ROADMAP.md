@@ -281,3 +281,23 @@ New tests: 21 (recurrence math, fuzzy scorer, recap aggregation, checkbox toggli
 demo workspace invariants) — suite at **92 green**. Browser-verified: calendar/roadmap/
 deep-focus/review/wrapped/import/demo/settings all exercised end-to-end at 390px & 1280px,
 zero console errors.
+
+## v4.3.1 — i18n completion + DnD E2E ✅ (2026-10-23)
+
+Follow-up polish batch closing the two honestly-scoped leftovers from v4.3:
+
+- **#16 i18n — finished for real.** Every component surface extracted to the
+  catalog: task rows, settings + all modals, kanban/matrix/mind map/analytics,
+  week/calendar/roadmap/deep-focus, command palette, onboarding (incl. the
+  long-form paragraph bodies), PWA surfaces. **630 new keys**; each catalog
+  (en/hi/es/de) is key-complete at **721 keys**, compile-enforced — a missing
+  translation is a build error. Remaining English by design: content data
+  (sample tasks, stream names, template titles) and Intl date patterns.
+- **#6 DnD — automated E2E coverage.** New `tests/e2e/dnd.spec.ts` (5 tests):
+  kanban @dnd-kit pointer drag between columns, calendar HTML5 chip
+  reschedule/schedule/unschedule, checklist row reorder — all with
+  persistence assertions. Headless Chromium doesn't synthesize native drag
+  events, so HTML5 surfaces are driven via a shared-DataTransfer event chain.
+- Suite now: 92 unit + **14 E2E** tests; shipped as
+  [`advance/v0.6.1`](https://github.com/Avithegod2010/Goalcheck/releases/tag/advance/v0.6.1)
+  + [`base/v0.6.1`](https://github.com/Avithegod2010/Goalcheck/releases/tag/base/v0.6.1).

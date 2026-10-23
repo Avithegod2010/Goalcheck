@@ -33,14 +33,14 @@ export default function Onboarding() {
 
   const steps: Step[] = IS_PRO
     ? [
-        { icon: "clipboard-check", title: t("onboard.welcome", { name: APP_NAME }), body: "Boards hold categories, categories hold tasks. Your data lives 100% on this device — no account, no network." },
-        { icon: "tomato-timer", title: t("onboard.focusTitle"), body: "Bind a task to the Pomodoro timer, hit Start, and the floating pill keeps count across the app. Sessions feed XP, streaks and analytics." },
-        { icon: "command-key", title: t("onboard.powerTitle"), body: "Press Ctrl+K for the command bar: /view, /theme, /pomo 25, /done 3, /goal exam — and build streaks in the new Habits panel." },
+        { icon: "clipboard-check", title: t("onboard.welcome", { name: APP_NAME }), body: t("onboard.welcomeBody") },
+        { icon: "tomato-timer", title: t("onboard.focusTitle"), body: t("onboard.focusBodyPro") },
+        { icon: "command-key", title: t("onboard.powerTitle"), body: t("onboard.powerBody") },
       ]
     : [
-        { icon: "clipboard-check", title: t("onboard.welcome", { name: APP_NAME }), body: "Boards hold categories, categories hold tasks. Your data lives 100% on this device — no account, no network." },
-        { icon: "tomato-timer", title: t("onboard.focusTitle"), body: "Bind a task to the Pomodoro timer and hit Start — the floating pill keeps count across the app." },
-        { icon: "shield-guard", title: t("onboard.backupTitle"), body: "Settings → Export keeps a one-tap JSON backup. Everything stays local, so the backup is yours alone." },
+        { icon: "clipboard-check", title: t("onboard.welcome", { name: APP_NAME }), body: t("onboard.welcomeBody") },
+        { icon: "tomato-timer", title: t("onboard.focusTitle"), body: t("onboard.focusBodyBase") },
+        { icon: "shield-guard", title: t("onboard.backupTitle"), body: t("onboard.backupBody") },
       ];
 
   const s = steps[step];

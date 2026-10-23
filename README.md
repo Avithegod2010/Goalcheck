@@ -6,7 +6,7 @@
 
 One codebase, two editions. Your data is yours: everything lives in your browser's local storage.
 
-`MIT License` · `No telemetry` · `Works offline` · `Installable PWA` · `Android APK (zero permissions)` · `Built with Next.js 16 + TypeScript`
+`MIT License` · `No telemetry` · `Works offline` · `Installable PWA` · `Android APK (zero permissions)` · `EN · हिन्दी · ES · DE` · `Built with Next.js 16 + TypeScript`
 
 </div>
 
@@ -16,7 +16,7 @@ One codebase, two editions. Your data is yours: everything lives in your browser
 
 GoalCheck turns any checklist into a **multi-goal board**: boards → categories → tasks, with progress rings, priorities, notes, micro-steps, dependency locks, recurring categories, rapid-add parsing (`!high` `@today`), and a drift-free Pomodoro focus timer with a floating pill.
 
-**GoalCheck Advance** (default build) adds the power tools: Kanban / Eisenhower Matrix / Mind Map / Analytics views, a 365-day activity heatmap, RPG gamification (XP, levels, combo, skills, auras, achievements), habits & streaks, task due dates + recurrences, per-goal focus attribution, a command palette (`Ctrl/⌘+K`), Zen mode, goal templates, 11 themes, 13 particle engines, atmosphere presets, an audio studio with 7 generative ambient streams, theme JSON sharing, and a Data Doctor for storage integrity.
+**GoalCheck Advance** (default build) adds the power tools: Checklist / Week / **Calendar month grid** (drag a chip to another day to reschedule) / **Roadmap timeline** / Kanban / Eisenhower Matrix / Mind Map / Analytics views, a 365-day activity heatmap, RPG gamification (XP, levels, combo, skills, auras, achievements), habits & streaks, task due dates + **smart recurrence** ("every 2nd Tuesday", weekdays-only), per-goal focus attribution, **per-task time tracking** (manual logs + stopwatch), **Markdown notes with inline checklists**, a global fuzzy search palette (`Ctrl/⌘+K`), **Deep Focus** (a fullscreen one-task overlay), a guided **Weekly Review** ritual, an annual **Year-in-Review Wrapped** card, **importers for Todoist / TickTick / Google Tasks** exports, local due-date reminders (service worker, opt-in), auto-snapshot rotation for the sync file, drag-and-drop everywhere, a demo-data generator, 11 themes, 13 particle engines, atmosphere presets, an audio studio with 7 generative ambient streams, theme JSON sharing, and a Data Doctor for storage integrity.
 
 **GoalCheck (base)** is the calm edition: the core planner, 2 themes, completion confetti — nothing else.
 
@@ -38,6 +38,14 @@ GoalCheck turns any checklist into a **multi-goal board**: boards → categories
 
 ![GoalCheck Advance — Kanban](docs/screenshots/advance-kanban.png)
 
+**Calendar view** — month grid with due tasks; drag chips between days to reschedule, drop them in the top pool to unschedule
+
+![GoalCheck Advance — Calendar](docs/screenshots/advance-calendar.png)
+
+**Deep Focus** — a fullscreen one-task overlay with its own timer and ambient streams; everything else hidden
+
+![GoalCheck Advance — Deep Focus](docs/screenshots/advance-deep-focus.png)
+
 **Analytics view** — completion rate, focus time per goal, category workload
 
 ![GoalCheck Advance — Analytics](docs/screenshots/advance-analytics.png)
@@ -54,6 +62,11 @@ GoalCheck is an **installable, offline-first PWA**: a web app manifest (per-edit
 - **Android:** Chrome → ⋮ → *Add to Home screen* / the in-app install card.
 - **iOS:** Share → *Add to Home Screen*.
 - Storage is quota-resilient: if localStorage fills up, the largest embedded images are pruned automatically (with a warning toast + backup nudge) — your tasks, notes and streaks are never dropped.
+- **App shortcuts** (Android/desktop PWA): long-press the launcher icon for Week view, Quick-add and Start focus.
+
+## 🌍 Languages
+
+The UI ships in **English, हिन्दी (Hindi), Español and Deutsch** — switch anytime in **Settings → Language** (auto-detected from your browser on first visit). Every locale is key-complete and compile-enforced against the English source catalog, so a missing translation can never ship. Long-form onboarding paragraphs are translated too; only content data (sample tasks, stream names) stays English.
 
 ## 🤖 Android app (zero permissions)
 
@@ -82,9 +95,9 @@ Full policy: **[privacy.html](https://avithegod2010.github.io/Goalcheck/privacy.
 
 | | GoalCheck (base) | GoalCheck Advance |
 |---|---|---|
-| Views | Checklist | + Kanban, Matrix, Mind Map, Analytics |
+| Views | Checklist | + Week, Calendar, Roadmap, Kanban, Matrix, Mind Map, Analytics, Deep Focus |
 | Themes | 2 (Nebula / Nordic) | 11 + 13 particle engines + presets |
-| Extras | — | Habits, achievements, due dates, palette, Zen, templates, audio studio, Data Doctor, theme sharing |
+| Extras | — | Habits, achievements, due dates + smart recurrence, time tracking, Markdown notes, weekly review, Year Wrapped, importers, reminders, auto-snapshots, palette, DnD, demo data, templates, audio studio, Data Doctor, theme sharing |
 
 Both editions read the **same storage schema**, so switching between them never loses data — and Advance builds let you switch **inside the app** (Settings → Edition) anytime.
 
@@ -116,6 +129,8 @@ Quality gates (run in CI on every push):
 ```bash
 bun run lint         # ESLint
 bun run typecheck    # tsc --noEmit (strict)
+bunx vitest run      # 92 unit tests
+bunx playwright test # 14 E2E golden-path + drag-and-drop tests
 ```
 
 ## Project docs
