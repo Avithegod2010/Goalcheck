@@ -247,3 +247,37 @@ for debug-only builds (no signing secrets → no .aab → `ls` glob guard).
 **Releases for this drop:** [`advance/v0.5.1`](https://github.com/Avithegod2010/Goalcheck/releases/tag/advance/v0.5.1)
 + [`base/v0.5.1`](https://github.com/Avithegod2010/Goalcheck/releases/tag/base/v0.5.1)
 (2026-10-23, tagged at `812f2e1`). Android APKs ride the `android/*` tag pipeline.
+
+---
+
+## v4.3 — the 18-item community batch ✅ (2026-10-23)
+
+The second full-ideas-list drop. All 18 shipped (web, PWA, Android, stores):
+
+| # | Feature | Status |
+|---|---------|--------|
+| 1 | Calendar month view — drag chips to reschedule, unschedule pool | ✅ |
+| 2 | Roadmap timeline — 8-week mini-Gantt across boards + dependency locks | ✅ |
+| 3 | Deep-Focus mode — fullscreen one-task overlay bound to the pomodoro (`/focus N`) | ✅ |
+| 4 | Weekly Review ritual — celebrate → reschedule → focus, saved journal | ✅ |
+| 5 | Global fuzzy search — live results in the Ctrl+K palette across all boards | ✅ |
+| 6 | Drag-and-drop everywhere — reorder categories/tasks, cross-category, kanban within columns | ✅ (HTML5 in checklist; kanban via dnd-kit card droppables) |
+| 7 | Importers — Todoist JSON / Google Tasks Takeout / TickTick CSV, on-device | ✅ |
+| 8 | Auto-snapshot rotation — picked folder, daily/weekly cadence, keep-N | ✅ |
+| 9 | Time tracking — per-task stopwatch, banked seconds, shown in editor | ✅ |
+| 10 | Markdown notes — safe renderer, interactive `[ ]` checkboxes in preview | ✅ |
+| 11 | Smart recurrence editor — weekdays / every-N / monthly-on-the-Nth-<weekday> | ✅ |
+| 12 | Local due-date reminders — Notification API + native path, once/day dedupe, opt-in | ✅ |
+| 13 | Android widgets — resizable 3×1 + new compact 2×1, lock-screen (`keyguard`) ready | ✅ (gradle-verified) |
+| 14 | PWA app shortcuts (?view=) + update-available toast (waiting SW + Reload) | ✅ |
+| 15 | Year-in-Review Wrapped — shareable 900×560 PNG card | ✅ |
+| 16 | i18n — new-surface keys (en/hi/es/de) + view tabs translated; full per-screen extraction ongoing | ✅ (scoped honestly) |
+| 17 | Demo-data generator — onboarding "Try demo data" + Settings + /demo | ✅ |
+| 18 | F-Droid/Izzy metadata — both editions' fastlane catalogs + FDROID-CHECKLIST.md | ✅ (code side) |
+
+Also fixed en route: v4.2 community-pack bug (board object compared against id — packs
+never applied); `z-ai-web-dev-sdk` moved out of production dependencies (store review).
+New tests: 21 (recurrence math, fuzzy scorer, recap aggregation, checkbox toggling,
+demo workspace invariants) — suite at **92 green**. Browser-verified: calendar/roadmap/
+deep-focus/review/wrapped/import/demo/settings all exercised end-to-end at 390px & 1280px,
+zero console errors.
