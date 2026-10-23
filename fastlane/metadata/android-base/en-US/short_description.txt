@@ -1,1 +1,1 @@
-Local-first checklists & focus timer. No account. No network. FOSS.
+Offline-first checklists & focus timer. No account, analytics or network. FOSS.

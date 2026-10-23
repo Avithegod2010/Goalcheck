@@ -1,26 +1,37 @@
-GoalCheck Advance is the complete edition of GoalCheck — a local-first, open-source productivity workspace. Your data stays 100% on your device: no account, no analytics, no network. The Android app is built with the INTERNET permission REMOVED, so "local-only" is enforced by the operating system itself.
+GoalCheck Advance is the complete edition of GoalCheck — a local-first, open-source productivity workspace. Everything runs on your device: no account, no sign-up, no analytics, no trackers, and zero network access for core features. The Android build goes one step further: the INTERNET permission is REMOVED, so "local-only" is enforced by the operating system itself, not just a privacy policy.
 
 PLAN
-• Boards → categories → tasks with notes, subtasks and dependency locks
-• Kanban, Eisenhower Matrix, Mind-map and Analytics views
-• Habit tracker with streak flames, 13 achievements, due dates with Overdue/Today/This-week badges, recurring daily/weekly tasks
-• Rapid add + quick-paste parser for entire checklists
+• Boards → categories → tasks with notes, subtasks, priorities and dependency locks
+• Views: checklist grid, Kanban, Eisenhower Matrix, Mind-map and Analytics
+• Week view — a 7-day planner over the due-date/recurrence engine
+• Habit tracker with streaks and streak freezes; 13 achievements; seasonal challenges
+• Due dates with Overdue/Today/This-week badges; recurring daily/weekly tasks
+• Rapid add + quick-paste parser; share text into the app from anywhere (Android share sheet, Quick Settings tile, PWA share target)
 
 FOCUS
-• Drift-free Pomodoro timer that survives reloads and runs in the background
-• Floating focus pill, Zen mode, local notifications when the app is backgrounded
+• Drift-free Pomodoro timer — timestamp-based, survives reloads and backgrounding
+• Floating focus pill, Zen mode, local notifications when a session ends in the background
+• Per-goal focus-time analytics, attributed automatically from Pomodoro sessions
 
 GROW
-• RPG gamification: XP, levels, combos, skills and auras
-• 365-day activity heatmap and per-goal focus-time analytics
-• Switch to the minimal GoalCheck (Normal) edition anytime from Settings — same storage, zero data loss
+• RPG layer: XP, levels, combos, skills and auras + 365-day activity heatmap
+• Report card: shareable canvas summary of your week, month or all-time
 
 MAKE IT YOURS
-• 11 themes with 13 particle engines, cursor physics, atmosphere presets
-• Audio studio with 7 generative ambient streams and 4 completion chime packs
-• Theme JSON sharing, goal templates, command palette (Ctrl+K)
+• 12 themes including a high-contrast accessibility theme, text size 90–130%
+• 13 particle engines, cursor physics, atmosphere presets (all rendered locally)
+• Audio studio: 7 generative ambient streams + 4 chime packs, synthesized on-device
+• Command palette (Ctrl+K), goal templates, theme JSON sharing, community packs
+• English, हिन्दी, Español and Deutsch built in
 
 PRIVACY & FREEDOM
-• MIT-licensed open source — audit every line
-• Full JSON export/import: your data is never locked in
-• Optional sync-file: auto-save your workspace JSON into a Syncthing/WebDAV folder you control
+• Local-first: data stays in on-device storage, schema-versioned with migrations
+• Data Doctor: integrity scan, storage meter and safe auto-repairs
+• Encrypted backups: AES-256-GCM ".gcenc" vault exports (passphrase + PBKDF2)
+• Optional WebDAV vault sync and sync-file auto-save — you pick the server (e.g. a Syncthing/WebDAV folder you control)
+• Full JSON export/import — your data is never locked in
+• MIT-licensed FOSS: audit every line; fonts bundled locally; no proprietary dependencies
+• Two editions, one data format: GoalCheck (base, free) and GoalCheck Advance share the same storage schema — switch from Settings or install the other app without losing a byte
+• Runs as an installable PWA in any browser and as a zero-permission Android app
+
+No ads. No tracking. No cloud. Just your goals, on your device.

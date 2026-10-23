@@ -1,0 +1,15 @@
+v0.5.1 — the 17-feature drop, base-edition slice (Oct 2026)
+
+• Encrypted backups: AES-256-GCM ".gcenc" vault exports (PBKDF2)
+• Text intake everywhere: Android share sheet, Quick Settings tile, PWA share target → Quick Paste
+• Report card: shareable canvas summary (week / month / all)
+• Community packs: import curated goal packs from URL or pasted JSON
+• Android home-screen widget + Quick Settings tile
+• i18n: English, हिन्दी, Español, Deutsch (+ picker)
+• Self-hosted fonts — fully offline, reproducible builds (F-Droid ready)
+• High-contrast theme + text size 90–130% (accessibility)
+• Data Doctor: storage meter, 30-day scheduled scans, auto-repair
+• Faster start: code-split views + skeleton loading
+• 9-test Playwright E2E suite added to CI
+
+Still zero permissions, zero accounts, zero analytics — and now zero network at build time too: fonts are bundled locally.

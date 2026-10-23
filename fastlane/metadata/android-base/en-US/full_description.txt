@@ -1,9 +1,19 @@
-GoalCheck is a local-first, open-source planner that stays true to the original idea: goals → categories → tasks, progress rings, priorities, notes, subtasks, dependency locks and a drift-free Pomodoro timer. No account, no analytics, no network. The Android app is built with the INTERNET permission REMOVED — your data physically cannot leave your device.
+GoalCheck is a local-first, open-source planner that stays true to the original idea: goals → categories → tasks, progress rings, priorities, notes, subtasks, dependency locks and a drift-free Pomodoro timer. No account, no sign-up, no analytics, no trackers — and zero network access for core features. The Android build is shipped with the INTERNET permission REMOVED: your data physically cannot leave your device.
 
 • Boards with categories, tasks, notes, subtasks and dependency locks
 • Recurring daily/weekly categories, quick-paste rapid add, search + filters
-• Pomodoro focus timer with floating pill, works offline forever
+• Pomodoro focus timer with floating pill — works offline forever
+• Encrypted backups: AES-256-GCM ".gcenc" vault exports (passphrase + PBKDF2)
+• Report card: shareable canvas summary (week / month / all)
+• Community packs: import curated goal packs from URL or pasted JSON
+• Capture text from anywhere: Android share sheet, Quick Settings tile, PWA share target
+• Android home-screen widget + Quick Settings tile
+• High-contrast accessibility theme + text size 90–130%
 • Light & dark themes, completion confetti, reduce-effects battery saver
+• English, हिन्दी, Español and Deutsch built in
 • Full JSON export/import — your data is never locked in
-• MIT-licensed open source
-• Want more? GoalCheck Advance adds Kanban/Matrix/Mind-map/Analytics views, habits, achievements, RPG levels, 11 themes with particle atmospheres and an audio studio — switchable from inside this app if you install the Advance edition, or via the separate Advance app. Same storage schema: upgrading keeps every byte.
+• MIT-licensed FOSS; fonts bundled locally; no proprietary dependencies
+
+Want more? GoalCheck Advance adds Kanban/Matrix/Mind-map/Analytics views, a week planner, habits & achievements, RPG levels, 12 themes with particle atmospheres and an audio studio — as a separate app. Same storage schema: upgrading keeps every byte.
+
+No ads. No tracking. No cloud. Just your goals, on your device.

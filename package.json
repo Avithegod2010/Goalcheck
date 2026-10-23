@@ -2,7 +2,7 @@
   "name": "goalcheck",
   "version": "0.5.1",
   "private": true,
-  "description": "GoalCheck & GoalCheck Advance — local-first multi-goal checklists, focus timer & analytics. One codebase, two editions.",
+  "description": "GoalCheck & GoalCheck Advance \u2014 local-first multi-goal checklists, focus timer & analytics. One codebase, two editions.",
   "scripts": {
     "dev": "next dev -p 3000 2>&1 | tee dev.log",
     "dev:base": "NEXT_PUBLIC_GC_EDITION=base next dev -p 3000 2>&1 | tee dev.log",
@@ -63,7 +63,6 @@
     "sonner": "^2.0.6",
     "tailwind-merge": "^3.3.1",
     "tailwindcss-animate": "^1.0.7",
-    "z-ai-web-dev-sdk": "^0.0.18",
     "zustand": "^5.0.6"
   },
   "devDependencies": {
@@ -78,7 +77,8 @@
     "tailwindcss": "^4",
     "tw-animate-css": "^1.3.5",
     "typescript": "^5",
-    "vitest": "^5.0.5"
+    "vitest": "^5.0.5",
+    "z-ai-web-dev-sdk": "^0.0.18"
   },
   "overrides": {
     "source-map-js": "^1.2.2"
