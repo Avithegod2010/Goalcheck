@@ -35,9 +35,37 @@ export function PwaBootstrap() {
     if (process.env.NODE_ENV === "production" && "serviceWorker" in navigator) {
       // document.baseURI already carries the Pages basePath
       const swUrl = new URL("sw.js", document.baseURI).href;
-      navigator.serviceWorker.register(swUrl).catch(() => {
-        /* SW is an enhancement — never break the app over it */
-      });
+      navigator.serviceWorker
+        .register(swUrl)
+        .then((reg) => {
+          /* v4.3 — update-available toast: a waiting SW means a new deploy
+             is ready; never auto-reload, let the user choose the moment. */
+          const announce = (sw: ServiceWorker | null) => {
+            if (!sw) return;
+            notify("A new version of GoalCheck is ready.", "rocket-launch", {
+              description: "Reload to pick it up — your data is unaffected.",
+              action: {
+                label: "Reload",
+                onClick: () => {
+                  sw.postMessage("SKIP_WAITING");
+                  window.location.reload();
+                },
+              },
+              duration: 30000,
+            });
+          };
+          if (reg.waiting) announce(reg.waiting);
+          reg.addEventListener("updatefound", () => {
+            const nw = reg.installing;
+            if (!nw) return;
+            nw.addEventListener("statechange", () => {
+              if (nw.state === "installed" && navigator.serviceWorker.controller) announce(nw);
+            });
+          });
+        })
+        .catch(() => {
+          /* SW is an enhancement — never break the app over it */
+        });
     }
 
     /* ---- install prompt capture ---- */

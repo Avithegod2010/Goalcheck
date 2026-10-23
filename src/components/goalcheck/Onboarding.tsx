@@ -101,6 +101,22 @@ export default function Onboarding() {
               Skip
             </Button>
             <div className="flex gap-2">
+              {/* v4.3 — "try with sample data" for first-run visitors */}
+              {!last && step === 0 && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="gc-btn"
+                  onClick={() => {
+                    useStore.getState().loadDemoData();
+                    completeOnboarding();
+                  }}
+                  title="Explore with a ready-made workspace — replace it any time from Settings"
+                >
+                  Try demo data
+                </Button>
+              )}
               {!last && (
                 <Button type="button" variant="outline" size="sm" className="gc-btn" onClick={() => setStep((v) => Math.max(0, v - 1))} disabled={step === 0}>
                   Back

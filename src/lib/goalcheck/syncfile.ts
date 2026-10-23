@@ -125,3 +125,81 @@ export function scheduleSyncWrite(): void {
   if (writeTimer) clearTimeout(writeTimer);
   writeTimer = setTimeout(() => { void writeNow(); }, 2500);
 }
+
+/* =========================================================
+   v4.3 — AUTO-SNAPSHOT ROTATION
+   A user-picked DIRECTORY receives dated workspace snapshots
+   (goalcheck-snap-YYYY-MM-DD.json). Cadence comes from
+   settings.snapshotCadence; the N newest snapshots are kept,
+   older ones are deleted (rotation). Directory handles also
+   cannot be persisted, so the folder is re-picked per session.
+   ========================================================= */
+
+type DirPickerWindow = Window & {
+  showDirectoryPicker?: (opts?: { mode?: "read" | "readwrite" }) => Promise<FileSystemDirectoryHandle>;
+};
+
+let snapDir: FileSystemDirectoryHandle | null = null;
+let snapChecking = false;
+
+export function snapshotFolderLinked(): boolean {
+  return snapDir !== null;
+}
+
+export async function linkSnapshotFolder(): Promise<boolean> {
+  const w = window as DirPickerWindow;
+  if (!w.showDirectoryPicker || !syncFileSupported()) return false;
+  try {
+    snapDir = await w.showDirectoryPicker({ mode: "readwrite" });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function unlinkSnapshotFolder(): void {
+  snapDir = null;
+}
+
+/** Run the cadence check on app boot (and optionally on an interval). */
+export async function maybeAutoSnapshot(): Promise<void> {
+  if (snapChecking || !snapDir) return;
+  const { settings, exportWorkspace } = useStore.getState();
+  const cadence = settings.snapshotCadence;
+  if (cadence === "off") return;
+  snapChecking = true;
+  try {
+    const todayKey = new Date().toISOString().slice(0, 10);
+    const fileName = `goalcheck-snap-${todayKey}.json`;
+    /* skip when today's snapshot already exists */
+    try {
+      await snapDir.getFileHandle(fileName, { create: false });
+      return; // already snapshotted today
+    } catch { /* not present — continue */ }
+
+    const json = exportWorkspace();
+    const fh = await snapDir.getFileHandle(fileName, { create: true });
+    const w = await fh.createWritable();
+    await w.write(json);
+    await w.close();
+
+    /* rotation: keep the N newest goalcheck-snap-*.json entries */
+    const keep = Math.max(1, Math.min(20, settings.snapshotsToKeep || 5));
+    const snaps: { name: string; date: string }[] = [];
+    /* iterate the directory (lib.dom's async iterator is async-iterable at runtime) */
+    const dir = snapDir as unknown as AsyncIterable<[string, FileSystemHandle]>;
+    for await (const [name, entry] of dir) {
+      if (entry.kind === "file" && /^goalcheck-snap-\d{4}-\d{2}-\d{2}\.json$/.test(name)) {
+        snaps.push({ name, date: name.slice(15, 25) });
+      }
+    }
+    snaps.sort((a, b) => (a.date < b.date ? 1 : -1)); // newest first
+    for (const old of snaps.slice(keep)) {
+      try { await snapDir.removeEntry(old.name); } catch { /* best effort */ }
+    }
+  } catch {
+    /* snapshots are a resilience enhancement — never break the app */
+  } finally {
+    snapChecking = false;
+  }
+}

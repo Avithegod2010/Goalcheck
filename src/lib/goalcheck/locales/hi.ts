@@ -30,7 +30,10 @@ const hi: Catalog = {
   "views.matrix": "मैट्रिक्स",
   "views.graph": "माइंड मैप",
   "views.analytics": "एनालिटिक्स",
-  "views.week": "इस सप्ताह",
+  "views.week": "सप्ताह",
+  "views.calendar": "कैलेंडर",
+  "views.timeline": "रोडमैप",
+  "views.deepFocus": "डीप फ़ोकस",
 
   /* ---- Filters ---- */
   "filters.all": "सभी आइटम",

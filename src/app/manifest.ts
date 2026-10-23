@@ -40,6 +40,28 @@ export default function manifest(): MetadataRoute.Manifest {
         url: "url",
       },
     },
+    /* v4.3 — app shortcuts: long-press the installed icon to jump straight
+       to a view (page.tsx ingests ?view= and setView clamps per edition). */
+    shortcuts: [
+      {
+        name: IS_PRO ? "Week planner" : "Open GoalCheck",
+        short_name: "Planner",
+        url: `${BASE}/?view=week`,
+        icons: [{ src: `${BASE}/icons/icon-192.png`, sizes: "192x192" }],
+      },
+      {
+        name: "Month calendar",
+        short_name: "Calendar",
+        url: `${BASE}/?view=calendar`,
+        icons: [{ src: `${BASE}/icons/icon-192.png`, sizes: "192x192" }],
+      },
+      {
+        name: "Roadmap timeline",
+        short_name: "Roadmap",
+        url: `${BASE}/?view=timeline`,
+        icons: [{ src: `${BASE}/icons/icon-192.png`, sizes: "192x192" }],
+      },
+    ],
     icons: [
       {
         src: `${BASE}/icons/icon-192.png`,

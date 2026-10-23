@@ -18,15 +18,23 @@
    (/Goalcheck/).
    ========================================================= */
 
-const CACHE = "gc-shell-v1";
+const CACHE = "gc-shell-v2";
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches
       .open(CACHE)
       .then((c) => c.addAll([new URL("./", self.registration.scope).href]))
-      .then(() => self.skipWaiting())
+    /* v4.3 — no self.skipWaiting(): a newly-deployed SW WAITS while the
+       current tab keeps running. The page shows an "Update available —
+       Reload" toast (PwaBootstrap) and posts SKIP_WAITING when the user
+       accepts, so a deploy never yanks the app out from under someone
+       mid-edit. */
   );
+});
+
+self.addEventListener("message", (event) => {
+  if (event.data === "SKIP_WAITING") self.skipWaiting();
 });
 
 self.addEventListener("activate", (event) => {

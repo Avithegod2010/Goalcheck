@@ -29,7 +29,10 @@ const es: Catalog = {
   "views.matrix": "Matriz",
   "views.graph": "Mapa mental",
   "views.analytics": "Analíticas",
-  "views.week": "Esta semana",
+  "views.week": "Semana",
+  "views.calendar": "Calendario",
+  "views.timeline": "Hoja de ruta",
+  "views.deepFocus": "Enfoque profundo",
 
   /* ---- Filters ---- */
   "filters.all": "Todos los elementos",

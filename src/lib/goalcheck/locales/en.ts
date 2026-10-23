@@ -64,7 +64,10 @@ const en = {
   "views.matrix": "Matrix",
   "views.graph": "Mind Map",
   "views.analytics": "Analytics",
-  "views.week": "This Week",
+  "views.week": "Week",
+  "views.calendar": "Calendar",
+  "views.timeline": "Roadmap",
+  "views.deepFocus": "Deep Focus",
 
   /* ---- Filter bar pills (Hero.tsx) ---- */
   "filters.all": "All Items",

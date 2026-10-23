@@ -21,14 +21,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Slider } from "@/components/ui/slider";
 import { THEMES, ENGINES, ATMOSPHERE_PRESETS, availableThemes, availableEngines } from "@/lib/goalcheck/themes";
 import { hasFeature, IS_PRO, APP_NAME, BUILD_EDITION, setEditionOverride, type Edition } from "@/lib/goalcheck/editions";
-import { syncFileSupported, linkSyncFile, isSyncLinked, unlinkSyncFile, writeNow, setVaultPassphrase, pullFromSyncFile } from "@/lib/goalcheck/syncfile";
+import { syncFileSupported, linkSyncFile, isSyncLinked, unlinkSyncFile, writeNow, setVaultPassphrase, pullFromSyncFile, linkSnapshotFolder, unlinkSnapshotFolder, snapshotFolderLinked } from "@/lib/goalcheck/syncfile";
 import { isImageUrl, isMonoIcon } from "@/lib/goalcheck/presets";
-import { RPG_AURAS, RPG_SKILLS, ACHIEVEMENTS, buildMarkdownExport, buildPlainExport, localDateKey, rankForLevel, totalXpForLevel, xpForLevel, parseQuickPaste, calculateStats, habitStreak, levelFromXp } from "@/lib/goalcheck/logic";
+import { RPG_AURAS, RPG_SKILLS, ACHIEVEMENTS, buildMarkdownExport, buildPlainExport, localDateKey, rankForLevel, totalXpForLevel, xpForLevel, parseQuickPaste, calculateStats, habitStreak, levelFromXp, isValidRecurrence, isoWeekKey, collectYearRecap, shiftDays } from "@/lib/goalcheck/logic";
+import { Markdown, toggleMarkdownCheckbox } from "@/lib/goalcheck/markdown";
+import { detectAndParse, type ImportedGoal } from "@/lib/goalcheck/importers";
 import { encryptString, decryptString, isEncryptedPayload } from "@/lib/goalcheck/crypto";
 import { useT, getLocale, setLocale } from "@/lib/goalcheck/i18n";
 import { SUPPORTED_LOCALES, LOCALE_LABELS, type Locale } from "@/lib/goalcheck/locales";
 import { playChime } from "@/lib/goalcheck/audio";
-import type { ChimePack } from "@/lib/goalcheck/types";
+import type { ChimePack, Task } from "@/lib/goalcheck/types";
 import { Download, Upload, Copy } from "lucide-react";
 
 /* =========================================================
@@ -50,6 +52,10 @@ export function ModalHost() {
       {/* v4.2 — share card + community pack importer */}
       <ReportCardModal />
       <PackModal />
+      {/* v4.3 — weekly review ritual, year wrapped, other-app importer */}
+      <WeeklyReviewModal />
+      <WrappedModal />
+      <ImportModal />
       {/* Escape closes everything */}
       {ui.boardModal !== null && <EscapeHandler />}
     </>
@@ -457,6 +463,68 @@ function SettingsModal() {
           </div>
 
           {hasFeature("data-doctor") && <DataDoctorPanel />}
+
+          {/* v4.3 — rituals, reminders, snapshots, demo data */}
+          <div className="rounded-xl border p-3" style={{ borderColor: "var(--gc-border)" }}>
+            <p className="mb-2 flex items-center gap-2 text-sm font-extrabold"><GcIcon name="seed-grow" size={15} /> Rituals &amp; Imports</p>
+            <div className="grid grid-cols-2 gap-2">
+              <button type="button" className="flex items-center justify-center gap-1.5 rounded-lg border py-2 text-xs font-extrabold gc-btn" style={{ borderColor: "var(--gc-border)" }}
+                onClick={() => { useUi.setState({ settingsModal: false, reviewModal: true }); }}>
+                <GcIcon name="book-flutter" size={13} /> Weekly Review
+              </button>
+              <button type="button" className="flex items-center justify-center gap-1.5 rounded-lg border py-2 text-xs font-extrabold gc-btn" style={{ borderColor: "var(--gc-border)" }}
+                onClick={() => { useUi.setState({ settingsModal: false, wrappedModal: true }); }}>
+                <GcIcon name="trophy-star" size={13} /> Year Wrapped
+              </button>
+              <button type="button" className="flex items-center justify-center gap-1.5 rounded-lg border py-2 text-xs font-extrabold gc-btn" style={{ borderColor: "var(--gc-border)" }}
+                onClick={() => { useUi.setState({ settingsModal: false, importModal: true }); }}>
+                <GcIcon name="luggage-trip" size={13} /> Import from apps
+              </button>
+              <button type="button" className="flex items-center justify-center gap-1.5 rounded-lg border py-2 text-xs font-extrabold gc-btn" style={{ borderColor: "var(--gc-border)" }}
+                onClick={() => { if (window.confirm("Replace the current workspace with the sample demo data?")) useStore.getState().loadDemoData(); }}>
+                <GcIcon name="sparkle-star" size={13} /> Load demo data
+              </button>
+            </div>
+            <p className="mt-1.5 text-[0.65rem]" style={{ color: "var(--gc-muted)" }}>
+              Review ritual: /review in the command bar · Wrapped: shareable PNG · Demo: try the app with a full sample workspace.
+            </p>
+          </div>
+
+          <div className="rounded-xl border p-3" style={{ borderColor: "var(--gc-border)" }}>
+            <p className="mb-2 flex items-center gap-2 text-sm font-extrabold"><GcIcon name="chat-bell" size={15} /> Reminders &amp; Snapshots</p>
+            <div className="flex flex-col gap-2.5">
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <p className="text-xs font-bold">Due-date reminders</p>
+                  <p className="text-[0.65rem]" style={{ color: "var(--gc-muted)" }}>Local device notifications for today/overdue tasks while the app is open. Opt-in, no server.</p>
+                </div>
+                <Switch checked={s.remindersEnabled} onCheckedChange={async (on) => {
+                  if (on && typeof Notification !== "undefined" && Notification.permission !== "granted") {
+                    try { const p = await Notification.requestPermission(); if (p !== "granted") { toast.error("Notification permission denied."); return; } } catch { /* ignore */ }
+                  }
+                  useStore.getState().setReminders(on);
+                }} aria-label="Toggle due-date reminders" />
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <p className="text-xs font-bold">Auto-snapshots</p>
+                  <p className="text-[0.65rem]" style={{ color: "var(--gc-muted)" }}>Dated workspace snapshots into a folder you pick. Older ones rotate out automatically.</p>
+                </div>
+                <Select value={s.snapshotCadence} onValueChange={(v) => useStore.getState().setSnapshotConfig({ snapshotCadence: v as "off" | "daily" | "weekly" })}>
+                  <SelectTrigger className="gc-input h-8 w-24 text-xs" aria-label="Snapshot cadence"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="off">Off</SelectItem>
+                    <SelectItem value="daily">Daily</SelectItem>
+                    <SelectItem value="weekly">Weekly</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {s.snapshotCadence !== "off" && (
+                <SnapshotFolderRow keep={s.snapshotsToKeep} />
+              )}
+            </div>
+          </div>
+
           {!IS_PRO && <UpgradeCard />}
           {BUILD_EDITION === "pro" && <EditionSwitchCard />}
           <button
@@ -891,7 +959,7 @@ function TaskEditModal() {
 
   const close = () => useUi.setState({ taskEditModal: null });
 
-  const submit = (patch: { text: string; priority: string; pomos: number; dep: string; due: string; recurrence: string }) => {
+  const submit = (patch: { text: string; priority: string; pomos: number; dep: string; due: string; recurrence: string; notes: string }) => {
     if (!target || !item) return;
     setTaskAdvanced(target.catId, target.taskId, {
       text: patch.text.trim() || item.text,
@@ -899,9 +967,10 @@ function TaskEditModal() {
       pomosEstimate: Math.max(1, Math.min(20, patch.pomos)),
       dependsOn: patch.dep,
       dueDate: patch.due,
-      recurrence: patch.recurrence as "none" | "daily" | "weekly",
+      recurrence: (isValidRecurrence(patch.recurrence) ? patch.recurrence : "none") as Task["recurrence"],
+      notes: patch.notes,
     });
-    toast("Task updated (priority, estimate, lock, due date & recurrence saved).");
+    toast("Task updated (priority, estimate, lock, due date, notes & recurrence saved).");
     close();
   };
 
@@ -920,6 +989,8 @@ function TaskEditModal() {
             initialDep={item.dependsOn || ""}
             initialDue={item.dueDate || ""}
             initialRecurrence={item.recurrence || "none"}
+            initialNotes={item.notes || ""}
+            timeSpent={item.timeSpent || 0}
             excludeTaskId={item.id}
             goal={goal ?? null}
             onSubmit={submit}
@@ -931,10 +1002,10 @@ function TaskEditModal() {
   );
 }
 
-function TaskEditForm({ initialText, initialPriority, initialPomos, initialDep, initialDue, initialRecurrence, excludeTaskId, goal, onSubmit, onCancel }: {
-  initialText: string; initialPriority: string; initialPomos: number; initialDep: string; initialDue: string; initialRecurrence: string; excludeTaskId: string;
+function TaskEditForm({ initialText, initialPriority, initialPomos, initialDep, initialDue, initialRecurrence, initialNotes, timeSpent, excludeTaskId, goal, onSubmit, onCancel }: {
+  initialText: string; initialPriority: string; initialPomos: number; initialDep: string; initialDue: string; initialRecurrence: string; initialNotes: string; timeSpent: number; excludeTaskId: string;
   goal: ReturnType<typeof useActiveGoal>;
-  onSubmit: (patch: { text: string; priority: string; pomos: number; dep: string; due: string; recurrence: string }) => void;
+  onSubmit: (patch: { text: string; priority: string; pomos: number; dep: string; due: string; recurrence: string; notes: string }) => void;
   onCancel: () => void;
 }) {
   const [text, setText] = useState(initialText);
@@ -942,10 +1013,31 @@ function TaskEditForm({ initialText, initialPriority, initialPomos, initialDep, 
   const [pomos, setPomos] = useState(initialPomos);
   const [dep, setDep] = useState(initialDep);
   const [due, setDue] = useState(initialDue);
-  const [recurrence, setRecurrence] = useState(initialRecurrence);
+  const [notes, setNotes] = useState(initialNotes);
+  const [notesPreview, setNotesPreview] = useState(false);
+
+  /* v4.3 — smart recurrence: split the stored spec into select + params.
+     Supported: none | daily | weekly | weekdays | every:N | monthly:o:w */
+  const recKind = initialRecurrence.startsWith("every:") ? "every"
+    : initialRecurrence.startsWith("monthly:") ? "monthly"
+    : initialRecurrence;
+  const [recSel, setRecSel] = useState(recKind);
+  const [recEvery, setRecEvery] = useState(Math.max(2, parseInt(/^every:(\d+)$/.exec(initialRecurrence)?.[1] ?? "3", 10) || 3));
+  const [recOrd, setRecOrd] = useState(Math.min(4, Math.max(0, parseInt(/^monthly:(\d+):/.exec(initialRecurrence)?.[1] ?? "2", 10) - 1)));
+  const [recWd, setRecWd] = useState(Math.min(6, Math.max(0, parseInt(/^monthly:\d+:(\d+)$/.exec(initialRecurrence)?.[1] ?? "1", 10))));
+
+  const recValue = (): string => {
+    if (recSel === "every") return `every:${Math.max(2, Math.min(365, recEvery || 3))}`;
+    if (recSel === "monthly") return `monthly:${recOrd + 1}:${recWd}`;
+    return recSel;
+  };
+
+  const WD = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+  const ORD = ["first", "second", "third", "fourth", "last possible"];
+  const logged = timeSpent >= 3600 ? `${Math.floor(timeSpent / 3600)}h ${Math.round((timeSpent % 3600) / 60)}m` : `${Math.round(timeSpent / 60)}m`;
 
   return (
-    <form onSubmit={(e) => { e.preventDefault(); onSubmit({ text, priority, pomos, dep, due, recurrence }); }} className="flex flex-col gap-3">
+    <form onSubmit={(e) => { e.preventDefault(); onSubmit({ text, priority, pomos, dep, due, recurrence: recValue(), notes }); }} className="flex flex-col gap-3">
       <div>
         <label className="mb-1 block text-xs font-bold">Task Title</label>
         <Input value={text} onChange={(e) => setText(e.target.value)} className="gc-input" required />
@@ -993,16 +1085,73 @@ function TaskEditForm({ initialText, initialPriority, initialPomos, initialDep, 
           </div>
           <div>
             <label className="mb-1 flex items-center gap-1.5 text-xs font-bold"><GcIcon name="repeat-cycle" size={13} /> Repeats</label>
-            <Select value={recurrence} onValueChange={setRecurrence} disabled={!hasFeature("recurring-tasks")}>
+            <Select value={recSel} onValueChange={setRecSel} disabled={!hasFeature("recurring-tasks")}>
               <SelectTrigger className="gc-input"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="none">Never</SelectItem>
                 <SelectItem value="daily">Daily</SelectItem>
                 <SelectItem value="weekly">Weekly</SelectItem>
+                <SelectItem value="weekdays">Weekdays (Mon–Fri)</SelectItem>
+                <SelectItem value="every">Every N days…</SelectItem>
+                <SelectItem value="monthly">Monthly on…</SelectItem>
               </SelectContent>
             </Select>
           </div>
         </div>
+      )}
+      {hasFeature("recurring-tasks") && recSel === "every" && (
+        <div className="flex items-center gap-2 rounded-lg border p-2" style={{ borderColor: "var(--gc-border)", background: "var(--gc-surface-2)" }}>
+          <span className="text-xs font-bold">Repeat every</span>
+          <Input type="number" min={2} max={365} value={recEvery} onChange={(e) => setRecEvery(parseInt(e.target.value, 10) || 2)} className="gc-input h-8 w-16" aria-label="Repeat interval in days" />
+          <span className="text-xs font-bold">days</span>
+        </div>
+      )}
+      {hasFeature("recurring-tasks") && recSel === "monthly" && (
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border p-2" style={{ borderColor: "var(--gc-border)", background: "var(--gc-surface-2)" }}>
+          <span className="text-xs font-bold">Monthly on the</span>
+          <Select value={String(recOrd)} onValueChange={(v) => setRecOrd(parseInt(v, 10))}>
+            <SelectTrigger className="gc-input h-8 w-28 text-xs" aria-label="Monthly ordinal"><SelectValue /></SelectTrigger>
+            <SelectContent>{ORD.map((o, i) => <SelectItem key={o} value={String(i)}>{o}</SelectItem>)}</SelectContent>
+          </Select>
+          <Select value={String(recWd)} onValueChange={(v) => setRecWd(parseInt(v, 10))}>
+            <SelectTrigger className="gc-input h-8 w-28 text-xs" aria-label="Weekday"><SelectValue /></SelectTrigger>
+            <SelectContent>{WD.map((w, i) => <SelectItem key={w} value={String(i)}>{w}</SelectItem>)}</SelectContent>
+          </Select>
+        </div>
+      )}
+
+      {/* v4.3 — markdown notes with live preview + interactive checklist lines */}
+      <div>
+        <div className="mb-1 flex items-center justify-between">
+          <label className="flex items-center gap-1.5 text-xs font-bold"><GcIcon name="note-pen" size={13} /> Notes (Markdown, checklists work)</label>
+          <button type="button" className="rounded px-1.5 py-0.5 text-[0.65rem] font-extrabold uppercase tracking-wide underline-offset-2 hover:underline"
+            style={{ color: "var(--gc-text2)" }} aria-pressed={notesPreview}
+            onClick={() => setNotesPreview((p) => !p)}>
+            {notesPreview ? "Write" : "Preview"}
+          </button>
+        </div>
+        {notesPreview ? (
+          <div className="min-h-[70px] rounded-lg border p-2.5" style={{ borderColor: "var(--gc-border)", background: "var(--gc-surface-2)" }} aria-label="Notes preview">
+            {notes.trim()
+              ? <Markdown source={notes} onToggleLine={(i) => setNotes((n) => toggleMarkdownCheckbox(n, i))} />
+              : <p className="text-xs" style={{ color: "var(--gc-muted)" }}>Nothing to preview — write some notes first.</p>}
+          </div>
+        ) : (
+          <textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            className="gc-input min-h-[70px] w-full rounded-lg border p-2.5 text-xs"
+            style={{ borderColor: "var(--gc-border)", background: "var(--gc-input)" }}
+            placeholder={"- [x] researched options\n- [ ] call vendor Tuesday\n\n**Budget:** `~40k`"}
+            aria-label="Task notes (Markdown supported)"
+          />
+        )}
+      </div>
+
+      {timeSpent > 0 && (
+        <p className="flex items-center gap-1.5 text-[0.7rem] font-bold" style={{ color: "var(--gc-text2)" }}>
+          <GcIcon name="clock-hand" size={13} /> {logged} tracked on this task
+        </p>
       )}
       <DialogFooter>
         <Button type="button" variant="outline" className="gc-btn" onClick={onCancel}>Cancel</Button>
@@ -1257,6 +1406,43 @@ function AchievementsGrid() {
 }
 
 /* v4 — Advance: data doctor panel (settings) */
+/* v4.3 — snapshot-folder link row (directory handles are session-scoped) */
+function SnapshotFolderRow({ keep }: { keep: number }) {
+  /* module-level handle state: safe to read once at mount */
+  const [linked, setLinked] = useState(() => snapshotFolderLinked());
+  if (!syncFileSupported()) {
+    return <p className="text-[0.65rem]" style={{ color: "var(--gc-muted)" }}>Your browser doesn&apos;t support folder access (Chrome/Edge desktop required for snapshots).</p>;
+  }
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border p-2" style={{ borderColor: "var(--gc-border)" }}>
+      <div className="flex items-center gap-2">
+        <span className="text-xs font-bold">{linked ? "Snapshot folder linked ✓" : "No folder linked this session"}</span>
+      </div>
+      <div className="flex items-center gap-2">
+        <label className="text-[0.65rem] font-bold" htmlFor="gc-snap-keep">Keep</label>
+        <select
+          id="gc-snap-keep"
+          className="gc-input h-7 rounded-md px-1.5 text-xs"
+          value={keep}
+          onChange={(e) => useStore.getState().setSnapshotConfig({ snapshotsToKeep: parseInt(e.target.value, 10) || 5 })}
+        >
+          {[3, 5, 7, 10, 14].map((n) => <option key={n} value={n}>{n} files</option>)}
+        </select>
+        <Button type="button" size="sm" variant="outline" className="h-7 gc-btn"
+          onClick={async () => { const ok = await linkSnapshotFolder(); setLinked(ok); if (ok) toast.success("Snapshot folder linked — first snapshot writes on the next check."); }}>
+          {linked ? "Re-pick" : "Pick folder"}
+        </Button>
+        {linked && (
+          <Button type="button" size="sm" variant="outline" className="h-7 gc-btn"
+            onClick={() => { unlinkSnapshotFolder(); setLinked(false); }}>
+            Unlink
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function DataDoctorPanel() {
   const runDoctor = useStore((s) => s.runDoctor);
   const lastScanAt = useStore((s) => s.settings.lastDoctorScanAt);
@@ -1855,5 +2041,369 @@ function SeasonalChallenges() {
         })}
       </div>
     </div>
+  );
+}
+
+/* =========================================================
+   v4.3 — WEEKLY REVIEW RITUAL
+   Three guided steps: celebrate → carry over → next-week focus.
+   Saves a ReviewEntry into the journal (reviews[]).
+   ========================================================= */
+
+function WeeklyReviewModal() {
+  const open = useUi((s) => s.reviewModal);
+  const close = () => useUi.setState({ reviewModal: false });
+  const goals = useStore((s) => s.goals);
+  const reviews = useStore((s) => s.reviews);
+  const saveReview = useStore((s) => s.saveReview);
+  const setTaskAdvanced = useStore((s) => s.setTaskAdvanced);
+  const [step, setStep] = useState(0);
+  const [carried, setCarried] = useState<string[]>([]);
+  const [focus, setFocus] = useState<string[]>([]);
+  const [note, setNote] = useState("");
+
+  /* recompute fresh every open */
+  const weekAgo = shiftDays(new Date(), -7).getTime();
+  const data = useMemo(() => {
+    const completedNow: { goalId: string; catId: string; id: string; text: string }[] = [];
+    const overdue: { goalId: string; catId: string; id: string; text: string }[] = [];
+    const openTasks: { goalId: string; catId: string; id: string; text: string }[] = [];
+    const todayKey = localDateKey(new Date());
+    for (const g of goals) {
+      for (const c of g.categories) {
+        for (const it of c.items) {
+          if (it.completed && it.completedAt >= weekAgo) completedNow.push({ goalId: g.id, catId: c.id, id: it.id, text: it.text });
+          if (!it.completed && it.dueDate && it.dueDate.slice(0, 10) < todayKey) overdue.push({ goalId: g.id, catId: c.id, id: it.id, text: it.text });
+          if (!it.completed) openTasks.push({ goalId: g.id, catId: c.id, id: it.id, text: it.text });
+        }
+      }
+    }
+    return { completedNow, overdue, openTasks };
+  }, [goals, open, weekAgo]);
+
+  const reset = () => { setStep(0); setCarried([]); setFocus([]); setNote(""); };
+  const toggleIn = (arr: string[], setArr: (v: string[]) => void, text: string) =>
+    setArr(arr.includes(text) ? arr.filter((x) => x !== text) : [...arr, text]);
+
+  const save = () => {
+    saveReview({ weekKey: isoWeekKey(new Date()), completedCount: data.completedNow.length, carriedOver: carried, focus, note: note.trim() });
+    reset();
+    close();
+  };
+
+  const StepDots = (
+    <div className="flex items-center justify-center gap-1.5" aria-hidden="true">
+      {[0, 1, 2].map((i) => (
+        <span key={i} className="h-1.5 rounded-full transition-all" style={{ width: i === step ? 18 : 6, background: i <= step ? "var(--gc-accent)" : "var(--gc-border-strong)" }} />
+      ))}
+    </div>
+  );
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => { if (!o) { reset(); close(); } }}>
+      <DialogContent className="gc-modal max-h-[85vh] max-w-lg overflow-y-auto gc-scroll" aria-describedby={undefined}>
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2"><GcIcon name="book-flutter" size={17} /> Weekly Review</DialogTitle>
+          <DialogDescription>A 3-step reflection ritual — celebrate, reschedule, focus.</DialogDescription>
+        </DialogHeader>
+
+        {step === 0 && (
+          <div className="flex flex-col gap-3">
+            <p className="text-sm font-bold">1 · What you shipped this week 🎉</p>
+            {data.completedNow.length === 0 ? (
+              <p className="rounded-lg border p-3 text-xs" style={{ borderColor: "var(--gc-border)", color: "var(--gc-text2)" }}>
+                No completed tasks in the last 7 days. That&apos;s okay — the review is about looking forward too.
+              </p>
+            ) : (
+              <ul className="flex max-h-56 flex-col gap-1 overflow-y-auto gc-scroll">
+                {data.completedNow.map((t) => (
+                  <li key={t.id} className="flex items-center gap-2 rounded-lg px-2 py-1 text-xs font-bold" style={{ background: "var(--gc-success-soft)" }}>
+                    <GcIcon name="check-circle" size={13} /> <span className="min-w-0 flex-1 truncate">{t.text}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <p className="text-[0.68rem]" style={{ color: "var(--gc-muted)" }}>{data.completedNow.length} completed · {data.overdue.length} overdue · {data.openTasks.length} open overall</p>
+          </div>
+        )}
+
+        {step === 1 && (
+          <div className="flex flex-col gap-3">
+            <p className="text-sm font-bold">2 · Overdue — reschedule to next week or let go?</p>
+            {data.overdue.length === 0 ? (
+              <p className="rounded-lg border p-3 text-xs" style={{ borderColor: "var(--gc-border)", color: "var(--gc-text2)" }}>Nothing overdue. Clean slate! ✨</p>
+            ) : (
+              <ul className="flex max-h-56 flex-col gap-1 overflow-y-auto gc-scroll">
+                {data.overdue.map((t) => (
+                  <li key={t.id} className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs" style={{ background: "var(--gc-surface-2)" }}>
+                    <span className="min-w-0 flex-1 truncate font-bold">{t.text}</span>
+                    <Button type="button" size="sm" className="h-6 px-2 text-[0.62rem] gc-btn-primary"
+                      onClick={() => {
+                        const next = localDateKey(shiftDays(new Date(), 7));
+                        setTaskAdvanced(t.catId, t.id, { dueDate: next });
+                        setCarried((c) => (c.includes(t.text) ? c : [...c, t.text]));
+                        toast("Rescheduled to next week.");
+                      }}>
+                      +7d
+                    </Button>
+                    <Button type="button" size="sm" variant="outline" className="h-6 px-2 text-[0.62rem] gc-btn"
+                      onClick={() => setCarried((c) => (c.includes(t.text) ? c : [...c, t.text]))}>
+                      Keep
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {carried.length > 0 && <p className="text-[0.68rem]" style={{ color: "var(--gc-muted)" }}>Carried over: {carried.length}</p>}
+          </div>
+        )}
+
+        {step === 2 && (
+          <div className="flex flex-col gap-3">
+            <p className="text-sm font-bold">3 · Pick next week&apos;s focus (up to 3)</p>
+            <ul className="flex max-h-48 flex-col gap-1 overflow-y-auto gc-scroll">
+              {data.openTasks.slice(0, 40).map((t) => (
+                <li key={t.id}>
+                  <button type="button" onClick={() => toggleIn(focus, setFocus, t.text)}
+                    aria-pressed={focus.includes(t.text)}
+                    className="flex w-full items-center gap-2 rounded-lg px-2 py-1 text-left text-xs font-bold hover:bg-[var(--gc-surface-2)]">
+                    <span className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded border text-[9px]"
+                      style={{ borderColor: focus.includes(t.text) ? "var(--gc-accent)" : "var(--gc-border-strong)", background: focus.includes(t.text) ? "var(--gc-accent)" : "transparent", color: "#fff" }}>
+                      {focus.includes(t.text) ? "\u2713" : ""}
+                    </span>
+                    <span className="min-w-0 flex-1 truncate">{t.text}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+            <Textarea value={note} onChange={(e) => setNote(e.target.value)} className="gc-input min-h-[60px] text-xs"
+              placeholder="One line of reflection (optional)…" aria-label="Reflection note" />
+          </div>
+        )}
+
+        <div className="flex items-center justify-between gap-2">
+          {step > 0 ? (
+            <Button type="button" variant="outline" className="gc-btn" onClick={() => setStep((s) => s - 1)}>Back</Button>
+          ) : <span />}
+          {StepDots}
+          {step < 2 ? (
+            <Button type="button" className="gc-btn-primary" onClick={() => setStep((s) => s + 1)}>Next</Button>
+          ) : (
+            <Button type="button" className="gc-btn-primary" onClick={save} disabled={focus.length > 3}>Save review</Button>
+          )}
+        </div>
+
+        {reviews.length > 0 && (
+          <div className="border-t pt-2" style={{ borderColor: "var(--gc-border)" }}>
+            <p className="mb-1 text-[0.65rem] font-extrabold uppercase tracking-wide" style={{ color: "var(--gc-text2)" }}>Journal</p>
+            <ul className="flex max-h-32 flex-col gap-1 overflow-y-auto gc-scroll">
+              {[...reviews].reverse().slice(0, 8).map((r) => (
+                <li key={r.id} className="rounded-lg px-2 py-1 text-[0.68rem]" style={{ background: "var(--gc-surface-2)" }}>
+                  <span className="font-bold">{r.weekKey}</span> — {r.completedCount} shipped · {r.focus.length} focus · {r.carriedOver.length} carried
+                  {r.note && <span className="block truncate" style={{ color: "var(--gc-text2)" }}>“{r.note}”</span>}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/* =========================================================
+   v4.3 — YEAR IN REVIEW ("Wrapped") — shareable recap card
+   ========================================================= */
+
+function WrappedModal() {
+  const open = useUi((s) => s.wrappedModal);
+  const close = () => useUi.setState({ wrappedModal: false });
+  const goals = useStore((s) => s.goals);
+  const rpg = useStore((s) => s.rpg);
+  const analytics = useStore((s) => s.analytics);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  const recap = useMemo(() => collectYearRecap(goals, rpg, analytics), [goals, rpg, analytics]);
+
+  const draw = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    const W = 900, H = 560;
+    canvas.width = W; canvas.height = H;
+    const styles = getComputedStyle(document.documentElement);
+    const grad = ctx.createLinearGradient(0, 0, W, H);
+    grad.addColorStop(0, "#0b1020");
+    grad.addColorStop(1, "#1a1140");
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, W, H);
+    const accent = styles.getPropertyValue("--gc-accent").trim() || "#a78bfa";
+    const white = "#f4f4fb";
+    ctx.textBaseline = "top";
+    ctx.fillStyle = accent;
+    ctx.font = "800 22px system-ui, sans-serif";
+    ctx.fillText(`${APP_NAME.toUpperCase()} — YEAR IN REVIEW`, 48, 44);
+    ctx.fillStyle = white;
+    ctx.font = "900 64px system-ui, sans-serif";
+    ctx.fillText(String(recap.year), 48, 84);
+    const stats: [string, string][] = [
+      ["tasks completed", String(recap.completed)],
+      ["active days", String(recap.activeDays)],
+      ["longest streak", `${recap.longestStreak}d`],
+      ["focus hours", String(recap.focusHours)],
+      ["boards", String(recap.boards)],
+      ["level", String(recap.level)],
+    ];
+    stats.forEach(([label, value], i) => {
+      const x = 48 + (i % 3) * 270;
+      const y = 210 + Math.floor(i / 3) * 120;
+      ctx.fillStyle = "rgba(255,255,255,0.07)";
+      ctx.beginPath();
+      ctx.roundRect(x, y, 240, 96, 16);
+      ctx.fill();
+      ctx.fillStyle = white;
+      ctx.font = "900 40px system-ui, sans-serif";
+      ctx.fillText(value, x + 20, y + 14);
+      ctx.fillStyle = "rgba(255,255,255,0.6)";
+      ctx.font = "700 15px system-ui, sans-serif";
+      ctx.fillText(label.toUpperCase(), x + 20, y + 62);
+    });
+    ctx.fillStyle = "rgba(255,255,255,0.75)";
+    ctx.font = "700 17px system-ui, sans-serif";
+    ctx.fillText(`Peak month: ${recap.topMonth.label} · ${recap.xpTotal.toLocaleString()} XP total`, 48, 486);
+    ctx.fillStyle = "rgba(255,255,255,0.4)";
+    ctx.font = "600 13px system-ui, sans-serif";
+    ctx.fillText("made with GoalCheck — local-first, no account, no analytics", 48, 518);
+  };
+
+  useEffect(() => { if (open) requestAnimationFrame(draw); }, [open]);
+
+  const download = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const a = document.createElement("a");
+    a.download = `goalcheck-wrapped-${recap.year}.png`;
+    a.href = canvas.toDataURL("image/png");
+    a.click();
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => { if (!o) close(); }}>
+      <DialogContent className="gc-modal max-w-xl" aria-describedby={undefined}>
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2"><GcIcon name="trophy-star" size={17} /> Year in Review — {recap.year}</DialogTitle>
+          <DialogDescription>Your year, distilled. Download the card and share it anywhere.</DialogDescription>
+        </DialogHeader>
+        <canvas ref={canvasRef} className="w-full rounded-xl border" style={{ borderColor: "var(--gc-border)" }} aria-label={`Year in review card for ${recap.year}`} />
+        <DialogFooter>
+          <Button type="button" variant="outline" className="gc-btn" onClick={draw}>Redraw</Button>
+          <Button type="button" className="gc-btn-primary" onClick={download}><Download className="h-4 w-4" /> Download PNG</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/* =========================================================
+   v4.3 — IMPORT FROM OTHER APPS (Todoist / Google Tasks / TickTick)
+   Paste an export → detect format → preview → import as boards.
+   ========================================================= */
+
+function ImportModal() {
+  const open = useUi((s) => s.importModal);
+  const close = () => useUi.setState({ importModal: false });
+  const [raw, setRaw] = useState("");
+  const [detected, setDetected] = useState<{ format: string; goals: ImportedGoal[] } | null>(null);
+
+  const runDetect = () => {
+    const res = detectAndParse(raw);
+    setDetected(res);
+    if (res.format === "unknown") toast.error("Could not detect the format — paste a Todoist / Google Tasks / TickTick export.");
+  };
+
+  const commit = () => {
+    if (!detected || detected.goals.length === 0) return;
+    const now = localDateKey(new Date());
+    const weekKey = isoWeekKey(new Date());
+    const boards = detected.goals.map((g) => ({
+      id: `goal_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
+      title: g.title.slice(0, 80) || "Imported Goal",
+      subtitle: g.subtitle || "Imported workspace",
+      media: "mono:briefcase-check",
+      createdAt: Date.now(),
+      categories: g.categories.map((c) => ({
+        id: `cat_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
+        title: `${c.title.slice(0, 60)} -`,
+        media: "mono:clipboard-check",
+        recurrence: "none" as const,
+        lastResetDate: now,
+        lastWeekKey: weekKey,
+        items: c.items.map((t) => ({
+          id: `task_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
+          text: t.text.slice(0, 200),
+          completed: !!t.completed,
+          priority: t.priority,
+          notes: (t.notes || "").slice(0, 2000),
+          status: (t.completed ? "done" : "todo") as "done" | "todo",
+          subtasks: [],
+          pomosEstimate: 1,
+          pomoCount: 0,
+          dependsOn: "",
+          dueDate: t.dueDate || "",
+          timeSpent: 0,
+          recurrence: "none" as const,
+          respawnedFrom: "",
+          completedAt: t.completed ? Date.now() : 0,
+          createdAt: Date.now(),
+        })),
+      })),
+    }));
+    if (boards.length > 0) {
+      useStore.setState((s) => ({ goals: [...boards, ...s.goals], activeGoalId: boards[0].id }));
+      toast.success(`Imported ${boards.length} board${boards.length > 1 ? "s" : ""} from ${detected.format}.`);
+      setRaw(""); setDetected(null);
+      close();
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => { if (!o) { setDetected(null); close(); } }}>
+      <DialogContent className="gc-modal max-h-[85vh] max-w-lg overflow-y-auto gc-scroll" aria-describedby={undefined}>
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2"><GcIcon name="luggage-trip" size={17} /> Import from other apps</DialogTitle>
+          <DialogDescription>
+            Paste a <b>Todoist</b> backup JSON, <b>Google Tasks</b> Takeout JSON or <b>TickTick</b> backup CSV. Everything is parsed on-device — nothing is uploaded.
+          </DialogDescription>
+        </DialogHeader>
+        <Textarea
+          value={raw}
+          onChange={(e) => setRaw(e.target.value)}
+          className="gc-input min-h-[140px] font-mono text-[0.68rem]"
+          placeholder='{"projects":[{"name":"Work","items":[{"content":"Ship it","checked":false}]}]}   ← or CSV with projectName,title,…'
+          aria-label="Paste export content"
+        />
+        {detected && detected.format !== "unknown" && (
+          <div className="rounded-xl border p-3" style={{ borderColor: "var(--gc-border)", background: "var(--gc-surface-2)" }}>
+            <p className="mb-1.5 text-xs font-extrabold">
+              Detected: <span style={{ color: "var(--gc-accent)" }}>{detected.format}</span> — {detected.goals.length} board{detected.goals.length > 1 ? "s" : ""},{" "}
+              {detected.goals.reduce((n, g) => n + g.categories.reduce((m, c) => m + c.items.length, 0), 0)} tasks
+            </p>
+            <ul className="flex max-h-40 flex-col gap-1 overflow-y-auto gc-scroll">
+              {detected.goals.map((g, gi) => (
+                <li key={gi} className="text-[0.7rem] font-bold" style={{ color: "var(--gc-text2)" }}>
+                  📋 {g.title} <span className="font-normal">({g.categories.reduce((m, c) => m + c.items.length, 0)} tasks)</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        <DialogFooter>
+          <Button type="button" variant="outline" className="gc-btn" onClick={() => { setRaw(""); setDetected(null); }}>Clear</Button>
+          <Button type="button" variant="outline" className="gc-btn" onClick={runDetect} disabled={!raw.trim()}>Detect format</Button>
+          <Button type="button" className="gc-btn-primary" onClick={commit} disabled={!detected || detected.goals.length === 0}>Import</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

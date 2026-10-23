@@ -30,7 +30,10 @@ const de: Catalog = {
   "views.matrix": "Matrix",
   "views.graph": "Mindmap",
   "views.analytics": "Analysen",
-  "views.week": "Diese Woche",
+  "views.week": "Woche",
+  "views.calendar": "Kalender",
+  "views.timeline": "Roadmap",
+  "views.deepFocus": "Tiefenfokus",
 
   /* ---- Filters ---- */
   "filters.all": "Alle Einträge",
