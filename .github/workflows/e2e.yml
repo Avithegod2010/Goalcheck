@@ -1,0 +1,43 @@
+name: E2E
+
+# v4.2 — Playwright golden-path suite against the real dev-rendered app.
+# Every push to main and every PR: boots the dev server (Advance edition)
+# and drives onboarding → board → task → views → themes → palette →
+# edition switch → encrypted export → report card → mobile smoke.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    name: Golden path (chromium)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Install Playwright chromium
+        run: bunx playwright install --with-deps chromium
+
+      - name: Run golden-path suite
+        run: bunx playwright test
+
+      - name: Upload failure traces
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces
+          path: test-results/
+          retention-days: 7
