@@ -216,3 +216,30 @@
 - **F-Droid build purity**: the Google-Fonts dependency (`next/font/google`) must be removed before any F-Droid MR — bundle fonts locally.
 - **Mic feature**: dropping `RECORD_AUDIO` keeps the "zero permissions" story clean; the synthesized streams already carry the audio-reactive experience.
 - **Two products, one maintainer**: keep every shared change in `packages/core` and let the edition shells stay thin — the moment edition logic forks, the data-schema guarantee dies.
+
+## v4.2 — the 17-feature drop ✅ (2026-10-23)
+
+All 17 community ideas shipped (some with honest scoping):
+
+| # | Feature | Status |
+|---|---------|--------|
+| 1 | Code-split Advance views (`next/dynamic` + skeletons) | ✅ |
+| 2 | Week view (7-day planner over due/recurrence engine) | ✅ |
+| 3 | Streak freezes (earn every 7 periods, max 2, settings toggle) | ✅ |
+| 4 | Encrypted export — AES-256-GCM `.gcenc` vault (WebCrypto/PBKDF2) | ✅ |
+| 5 | NL/external intake everywhere (PWA share_target + native share sheet + Quick Tile → Quick Paste) | ✅ |
+| 6 | Report card — shareable canvas (week/month/all) | ✅ |
+| 7 | Community packs — URL/paste import, sanitized, sidebar-integrated | ✅ (QR display dropped: no scan path in a zero-network app) |
+| 8 | i18n foundation — typed catalogs en/hi/es/de + picker (`gc_locale`) | ✅ (shell strings; per-screen extraction ongoing) |
+| 9 | Android home-screen widget (board, next task, progress, pomo) | ✅ CI-compiled |
+| 10 | Quick Settings tile + share-sheet intent | ✅ CI-compiled |
+| 11 | WebDAV vault sync (client-side, optional) | ✅ (CORS depends on the server) |
+| 12 | Self-hosted fonts (`geist` pkg) — F-Droid no-fetch rule met | ✅ |
+| 13 | Browser companion extension (MV3, context menu + popup) | ✅ loadable source |
+| 14 | Playwright golden-path E2E (9 tests) + CI gate | ✅ |
+| 15 | High-contrast theme (both editions) + text-size 90–130% | ✅ |
+| 16 | Data Doctor: storage meter + 30-day scheduled scan + auto-repair | ✅ |
+| 17 | Seasonal challenges (monthly XP/streak/percent) in RPG modal | ✅ |
+
+New gates: `E2E` workflow (chromium) on every push/PR; Android collect step fixed
+for debug-only builds (no signing secrets → no .aab → `ls` glob guard).
