@@ -19,6 +19,14 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+
+            <!-- GC-NATIVE-GLUE:SEND-FILTER — accept ACTION_SEND text/plain shares
+                 (re-injected idempotently by scripts/native-glue.mjs) -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
         </activity>
 
         <provider
@@ -28,6 +36,34 @@
             android:grantUriPermissions="true">
             <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/file_paths" />
         </provider>
+
+        <!-- GC-NATIVE-GLUE:WIDGET-TILE — home-screen widget + quick-settings tile
+             (re-injected idempotently by scripts/native-glue.mjs; adds NO permissions —
+             BIND_QUICK_SETTINGS_TILE is held by the system, not requested by the app) -->
+        <receiver
+            android:name=".GoalCheckWidgetProvider"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="android.appwidget.action.APPWIDGET_ENABLED" />
+                <action android:name="android.appwidget.action.APPWIDGET_DISABLED" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/goalcheck_widget_info" />
+        </receiver>
+
+        <service
+            android:name=".GoalCheckTileService"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher"
+            android:label="Quick add"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+    <!-- GC-NATIVE-GLUE -->
     </application>
 
     <!-- Permissions -->

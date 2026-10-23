@@ -15,8 +15,9 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, Palette, Settings, Download, ClipboardPaste, Plus } from "lucide-react";
+import { MoreHorizontal, Palette, Settings, Download, ClipboardPaste, Plus, Camera } from "lucide-react";
 import { APP_NAME, APP_TAGLINE, IS_PRO, hasFeature } from "@/lib/goalcheck/editions";
+import { useT } from "@/lib/goalcheck/i18n";
 
 export function Header() {
   const brandMedia = useStore((s) => s.brandMedia);
@@ -26,6 +27,7 @@ export function Header() {
   const combo = useStore((s) => s.rpg.combo);
   const comboMult = 1 + Math.min(4, Math.floor((combo || 0) / 5)) * 0.25;
   const ui = useUi();
+  const t = useT();
 
   return (
     <header
@@ -106,25 +108,26 @@ export function Header() {
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button type="button" variant="outline" size="icon" className="size-9 gc-btn" title="More actions" aria-label="More actions">
+              <Button type="button" variant="outline" size="icon" className="size-9 gc-btn" title={t("nav.more")} aria-label={t("nav.more")}>
                 <MoreHorizontal className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuItem onClick={() => ui.open("themeModal")}><Palette className="mr-2 h-4 w-4" /> Themes & Atmosphere</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => ui.open("settingsModal")}><Settings className="mr-2 h-4 w-4" /> Settings</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => ui.open("exportModal")}><Download className="mr-2 h-4 w-4" /> Export / Backup</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => ui.open("pasteModal")}><ClipboardPaste className="mr-2 h-4 w-4" /> Quick Paste Text</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => ui.open("themeModal")}><Palette className="mr-2 h-4 w-4" /> {t("nav.themes")}</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => ui.open("settingsModal")}><Settings className="mr-2 h-4 w-4" /> {t("nav.settings")}</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => ui.open("exportModal")}><Download className="mr-2 h-4 w-4" /> {t("nav.export")}</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => ui.open("pasteModal")}><ClipboardPaste className="mr-2 h-4 w-4" /> {t("nav.quickPaste")}</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => ui.open("reportCard")}><Camera className="mr-2 h-4 w-4" /> {t("nav.reportCard")}</DropdownMenuItem>
               <DropdownMenuSeparator />
               {hasFeature("command-palette") && (
-                <DropdownMenuItem onClick={() => ui.open("paletteOpen")}><GcIcon name="command-key" size={14} /><span className="ml-2">Command Bar (Ctrl+K)</span></DropdownMenuItem>
+                <DropdownMenuItem onClick={() => ui.open("paletteOpen")}><GcIcon name="command-key" size={14} /><span className="ml-2">{t("nav.commandBar")}</span></DropdownMenuItem>
               )}
               {hasFeature("zen") && (
-                <DropdownMenuItem onClick={() => ui.open("zenOpen")}><GcIcon name="lotus-zen" size={14} /><span className="ml-2">Zen Focus HUD</span></DropdownMenuItem>
+                <DropdownMenuItem onClick={() => ui.open("zenOpen")}><GcIcon name="lotus-zen" size={14} /><span className="ml-2">{t("nav.zen")}</span></DropdownMenuItem>
               )}
               <DropdownMenuSeparator />
               {hasFeature("rpg") && (
-                <DropdownMenuItem onClick={() => ui.open("rpgModal")}><GcIcon name="bolt-boost" size={14} /><span className="ml-2">RPG Progression</span></DropdownMenuItem>
+                <DropdownMenuItem onClick={() => ui.open("rpgModal")}><GcIcon name="bolt-boost" size={14} /><span className="ml-2">{t("nav.rpg")}</span></DropdownMenuItem>
               )}
             </DropdownMenuContent>
           </DropdownMenu>

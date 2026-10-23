@@ -108,3 +108,16 @@ try {
 } catch(Exception e) {
     logger.info("google-services.json not found, google-services plugin not applied. Push Notifications won't work")
 }
+
+// ═══ GC-NATIVE-GLUE (appended by scripts/native-glue.mjs — idempotent) ═══
+// Kotlin support for GoalCheckNativePlugin / GoalCheckWidgetProvider /
+// GoalCheckTileService, whose sources are re-injected by scripts/native-glue.mjs
+// after every 'cap add android' regeneration. jvmTarget must match the Java 21
+// compileOptions configured in capacitor.build.gradle.
+apply plugin: 'org.jetbrains.kotlin.android'
+
+android {
+    kotlinOptions {
+        jvmTarget = "21"
+    }
+}

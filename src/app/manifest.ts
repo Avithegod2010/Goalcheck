@@ -28,6 +28,18 @@ export default function manifest(): MetadataRoute.Manifest {
     background_color: "#060913",
     theme_color: "#060913",
     categories: ["productivity", "utilities"],
+    /* v4.2 — PWA share target: "Share → GoalCheck" from other apps lands on
+       start_url with ?title/&text/&url; page.tsx ingests them into the
+       Quick Paste modal (native Android uses the SEND intent instead). */
+    share_target: {
+      action: `${BASE}/`,
+      method: "GET",
+      params: {
+        title: "title",
+        text: "text",
+        url: "url",
+      },
+    },
     icons: [
       {
         src: `${BASE}/icons/icon-192.png`,

@@ -91,8 +91,8 @@ export const APP_TAGLINE = IS_PRO
   ? "Multi-goal checklists • Focus timer • Analytics"
   : "Multi-goal checklists • Focus timer";
 
-/** Themes the base edition ships with (one dark + one light). */
-export const BASE_THEMES = ["nebula", "nordic"] as const;
+/** Themes the base edition ships with (one dark + one light + the a11y contrast dark). */
+export const BASE_THEMES = ["nebula", "nordic", "contrast"] as const;
 
 /** Pro-only feature registry. Base = everything NOT listed here. */
 export type FeatureId =

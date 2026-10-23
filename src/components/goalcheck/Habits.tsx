@@ -16,7 +16,8 @@ import { GcIcon } from "@/lib/goalcheck/icons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { habitPeriodKey, habitRecentKeys, habitStreak } from "@/lib/goalcheck/logic";
+import { habitPeriodKey, habitRecentKeys, habitStreak, habitStreakWithFreezes } from "@/lib/goalcheck/logic";
+import { useT } from "@/lib/goalcheck/i18n";
 import type { HabitCadence } from "@/lib/goalcheck/types";
 
 export function HabitsWidget() {
@@ -24,6 +25,8 @@ export function HabitsWidget() {
   const addHabit = useStore((s) => s.addHabit);
   const removeHabit = useStore((s) => s.removeHabit);
   const toggleHabitPeriod = useStore((s) => s.toggleHabitPeriod);
+  const freezesOn = useStore((s) => s.settings.streakFreezes);
+  const t = useT();
 
   const [title, setTitle] = useState("");
   const [cadence, setCadence] = useState<HabitCadence>("daily");
@@ -51,7 +54,11 @@ export function HabitsWidget() {
           {habits.map((h, i) => {
             const key = habitPeriodKey(h.cadence, now);
             const doneNow = !!h.marks[key];
-            const streak = habitStreak(h.marks, h.cadence, now);
+            /* v4.2 — with freezes ON the shown streak bridges missed periods
+               using earned tokens; the raw flame keeps the exact count. */
+            const streak = freezesOn
+              ? habitStreakWithFreezes(h.marks, h.cadence, h.freezes ?? 0, now)
+              : habitStreak(h.marks, h.cadence, now);
             const keys = habitRecentKeys(h.cadence, 7, now);
             return (
               <motion.li
@@ -96,6 +103,15 @@ export function HabitsWidget() {
                       <GcIcon name="flame-ember" size={11} /> {streak}
                     </motion.span>
                   )}
+                  {(h.freezes ?? 0) > 0 && (
+                    <span
+                      className="flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[0.6rem] font-extrabold"
+                      style={{ background: "var(--gc-surface)", color: "color-mix(in srgb, var(--gc-accent) 55%, var(--gc-text))", border: "1px solid var(--gc-border)" }}
+                      title={`${h.freezes} freeze token${h.freezes > 1 ? "s" : ""} held — protects the streak from missed ${h.cadence === "daily" ? "days" : "weeks"}`}
+                    >
+                      <GcIcon name="lock-shield" size={11} /> {h.freezes}
+                    </span>
+                  )}
                   <button
                     type="button"
                     onClick={() => removeHabit(h.id)}
@@ -132,7 +148,7 @@ export function HabitsWidget() {
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
-          placeholder="New habit…"
+          placeholder={t("side.newHabitPlaceholder")}
           className="gc-input h-8 text-xs"
           aria-label="New habit name"
           maxLength={60}

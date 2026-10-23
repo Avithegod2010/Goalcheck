@@ -8,6 +8,7 @@
    ========================================================= */
 
 import { useEffect } from "react";
+import nextDynamic from "next/dynamic";
 import { motion, AnimatePresence, MotionConfig } from "framer-motion";
 import { useStore, useUi } from "@/lib/goalcheck/goalcheck-exports";
 import { useGlobalShortcuts } from "@/components/goalcheck/ui";
@@ -18,7 +19,6 @@ import { Header } from "@/components/goalcheck/Header";
 import { PomodoroWidget, GoalNav, Templates, AudioStudio } from "@/components/goalcheck/Sidebar";
 import { HeroCard, QuickAddBar, FilterBar } from "@/components/goalcheck/Hero";
 import { ChecklistGrid } from "@/components/goalcheck/Checklist";
-import { KanbanView, MatrixView, MindMapView, AnalyticsView, HeatmapCard } from "@/components/goalcheck/Views";
 import { ModalHost } from "@/components/goalcheck/modals";
 import { ZenHud, FloatingPill, CommandPalette } from "@/components/goalcheck/Overlays";
 import { HabitsWidget } from "@/components/goalcheck/Habits";
@@ -28,7 +28,26 @@ import { playChime } from "@/lib/goalcheck/audio";
 import { scheduleSyncWrite } from "@/lib/goalcheck/syncfile";
 import { DEFAULT_DARK_THEME, DEFAULT_LIGHT_THEME, isLightTheme } from "@/lib/goalcheck/themes";
 import { APP_NAME, BUILD_APP_NAME, APP_TITLE, BUILD_EDITION, EDITION, hasFeature } from "@/lib/goalcheck/editions";
+import { calculateStats, looksLikeQuickPaste } from "@/lib/goalcheck/logic";
+import { initShareIntake, pushWidgetState } from "@/lib/goalcheck/native";
 import { Skeleton } from "@/components/ui/skeleton";
+
+/* =========================================================
+   v4.2 — performance: the four Advance views (plus Week + the
+   heatmap) live in one heavy module. next/dynamic moves that
+   module out of the initial bundle — the default Checklist view
+   boots with a much smaller download; advanced views stream in
+   with a skeleton on first open.
+   ========================================================= */
+function ViewSkeleton() {
+  return <Skeleton className="h-[420px] w-full rounded-2xl" aria-busy="true" />;
+}
+const KanbanView = nextDynamic(() => import("@/components/goalcheck/Views").then((m) => m.KanbanView), { ssr: false, loading: ViewSkeleton });
+const MatrixView = nextDynamic(() => import("@/components/goalcheck/Views").then((m) => m.MatrixView), { ssr: false, loading: ViewSkeleton });
+const MindMapView = nextDynamic(() => import("@/components/goalcheck/Views").then((m) => m.MindMapView), { ssr: false, loading: ViewSkeleton });
+const AnalyticsView = nextDynamic(() => import("@/components/goalcheck/Views").then((m) => m.AnalyticsView), { ssr: false, loading: ViewSkeleton });
+const HeatmapCard = nextDynamic(() => import("@/components/goalcheck/Views").then((m) => m.HeatmapCard), { ssr: false, loading: ViewSkeleton });
+const WeekView = nextDynamic(() => import("@/components/goalcheck/WeekView").then((m) => m.WeekView), { ssr: false, loading: ViewSkeleton });
 
 export default function Page() {
   const hydrated = useStore((s) => s._hydrated);
@@ -44,6 +63,62 @@ export default function Page() {
     mq.addEventListener("change", apply);
     return () => mq.removeEventListener("change", apply);
   }, [colorMode, setTheme]);
+
+  /* v4.2 — UI font scale (Settings → Display) applied to the root font-size */
+  const fontScale = useStore((s) => s.settings.fontScale);
+  useEffect(() => {
+    document.documentElement.style.fontSize = `${Math.round(16 * fontScale)}px`;
+  }, [fontScale]);
+
+  /* v4.2 — external text intake: browser-extension handoff (?add=…),
+     Android share-sheet and the Quick-Settings tile all funnel here. */
+  useEffect(() => {
+    const ingest = (text: string) => {
+      const clean = (text || "").trim();
+      if (!clean) return;
+      if (looksLikeQuickPaste(clean)) useUi.setState({ pasteText: clean, pasteModal: true });
+      else window.dispatchEvent(new CustomEvent("gc-quick-add", { detail: clean }));
+    };
+    try {
+      const q = new URLSearchParams(window.location.search);
+      const add = q.get("add");
+      if (add) {
+        ingest(add);
+        q.delete("add");
+        const qs = q.toString();
+        window.history.replaceState(null, "", window.location.pathname + (qs ? `?${qs}` : "") + window.location.hash);
+      }
+    } catch {
+      /* ignore malformed URLs */
+    }
+    return initShareIntake(
+      ingest,
+      () => window.dispatchEvent(new CustomEvent("gc-quick-add-focus")),
+    );
+  }, []);
+
+  /* v4.2 — mirror the active board onto the Android home-screen widget */
+  useEffect(() => {
+    if (!hydrated) return;
+    const push = () => {
+      const s = useStore.getState();
+      const goal = s.goals.find((g) => g.id === s.activeGoalId);
+      let firstTask = "";
+      for (const c of goal?.categories ?? []) {
+        const t = c.items.find((i) => !i.completed);
+        if (t) { firstTask = t.text; break; }
+      }
+      const stats = goal ? calculateStats(goal) : null;
+      pushWidgetState({
+        title: goal?.title ?? APP_NAME,
+        subtitle: firstTask || `${stats?.completed ?? 0}/${stats?.total ?? 0} done`,
+        progress: stats?.percent ?? 0,
+        running: s.pomo.running,
+      });
+    };
+    push();
+    return useStore.subscribe(push);
+  }, [hydrated]);
 
   /* pomodoro engine (drift-free completion) */
   usePomoCompletionDriver();
@@ -224,6 +299,7 @@ function MainBoard() {
             <ChecklistGrid />
           </>
         )}
+        {view === "week" && hasFeature("due-dates") && (<><FilterBar /><WeekView /></>)}
         {view === "kanban" && hasFeature("views.advanced") && (<><FilterBar /><KanbanView /></>)}
         {view === "matrix" && hasFeature("views.advanced") && (<><FilterBar /><MatrixView /></>)}
         {view === "graph" && hasFeature("views.advanced") && (<><FilterBar /><MindMapView /></>)}

@@ -24,6 +24,8 @@ export const THEMES: ThemeMeta[] = [
   { id: "nordic", label: "Nordic Light", swatch: "linear-gradient(135deg, #3b82f6, #f8fafc)", light: true },
   { id: "sakura", label: "Sakura Blossom", swatch: "linear-gradient(135deg, #ec4899, #fed7e2)", light: true },
   { id: "zen", label: "Zen Garden", swatch: "linear-gradient(135deg, #65a30d, #0d9488)", light: true },
+  // v4.2 — a11y: maximum-contrast dark palette (available in BOTH editions)
+  { id: "contrast", label: "High Contrast", swatch: "linear-gradient(135deg, #a5b4fc, #67e8f9)", light: false },
 ];
 
 export const DEFAULT_DARK_THEME = "nebula";
@@ -36,13 +38,14 @@ export function themeExists(id: string): boolean {
 /** Themes visible in the picker for the current edition. */
 export function availableThemes(): ThemeMeta[] {
   if (IS_PRO) return THEMES;
-  const base = new Set<string>(BASE_THEMES);
+  /* v4.2 — "contrast" is an accessibility theme: available in BOTH editions */
+  const base = new Set<string>([...BASE_THEMES, "contrast"]);
   return THEMES.filter((t) => base.has(t.id));
 }
 
 /** Clamp a persisted theme to this edition (keeps light/dark intent). */
 export function clampThemeForEdition(id: string): string {
-  if (IS_PRO || themeExists(id) && (BASE_THEMES as readonly string[]).includes(id)) return id;
+  if (IS_PRO || themeExists(id) && ((BASE_THEMES as readonly string[]).includes(id) || id === "contrast")) return id;
   return isLightTheme(id) ? DEFAULT_LIGHT_THEME : DEFAULT_DARK_THEME;
 }
 

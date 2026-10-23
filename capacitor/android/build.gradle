@@ -7,6 +7,11 @@ buildscript {
         mavenCentral()
     }
     dependencies {
+        // GC-NATIVE-GLUE — Kotlin compiler for the app module's native glue sources
+        // (GoalCheckNativePlugin / GoalCheckWidgetProvider / GoalCheckTileService).
+        // Version pinned to match Capacitor 7.x's own kotlin-bom (re-injected by
+        // scripts/native-glue.mjs).
+        classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.25'
         classpath 'com.android.tools.build:gradle:8.7.2'
         classpath 'com.google.gms:google-services:4.4.2'
 

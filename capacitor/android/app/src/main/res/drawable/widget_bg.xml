@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- GC-NATIVE-GLUE — widget background (re-injected by scripts/native-glue.mjs) -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="#060913" />
+    <corners android:radius="16dp" />
+</shape>

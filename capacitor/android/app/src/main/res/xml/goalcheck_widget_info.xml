@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- GC-NATIVE-GLUE — widget metadata (re-injected by scripts/native-glue.mjs) -->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="180dp"
+    android:minHeight="40dp"
+    android:updatePeriodMillis="0"
+    android:initialLayout="@layout/widget_goalcheck"
+    android:resizeMode="horizontal"
+    android:widgetCategory="home_screen" />

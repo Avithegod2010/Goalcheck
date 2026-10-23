@@ -6,15 +6,20 @@
    Fluidity: spring-driven ring, layoutId active pills, stagger.
    ========================================================= */
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useStore, useActiveGoal, useUi } from "@/lib/goalcheck/goalcheck-exports";
 import { Panel, PanelTitle, MediaBadge, AnimatedNumber, usePomoRemaining, formatMs } from "./atoms";
+import { useT } from "@/lib/goalcheck/i18n";
+import { makeTask, localDateKey } from "@/lib/goalcheck/logic";
+import { readPacks, type PackTemplate } from "@/components/goalcheck/modals";
 import { GcIcon } from "@/lib/goalcheck/icons";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { TEMPLATES } from "@/lib/goalcheck/presets";
+import type { Task } from "@/lib/goalcheck/types";
+import { toast } from "sonner";
 import { calculateStats } from "@/lib/goalcheck/logic";
 import { startAudioStream, stopAudioStream, readFft } from "@/lib/goalcheck/audio";
 import { Play, Pause, RotateCcw, Plus, Bell, Timer, Square } from "lucide-react";
@@ -61,7 +66,7 @@ export function PomodoroWidget() {
           </Button>
         }
       >
-        Pomodoro Focus
+        <T>Pomodoro Focus</T>
       </PanelTitle>
 
       {/* mode tabs with sliding pill */}
@@ -217,7 +222,7 @@ export function GoalNav() {
           </Button>
         }
       >
-        My Goal Boards
+        <T>My Goal Boards</T>
       </PanelTitle>
       <div className="flex flex-col gap-1">
         {goals.map((g, i) => {
@@ -275,15 +280,51 @@ export function GoalNav() {
 
 export function Templates() {
   const loadTemplate = useStore((s) => s.loadTemplate);
+  const activeGoalId = useActiveGoal();
+  const packModalOpen = useUi((s) => s.packModal);
+  const openPackModal = useUi((s) => s.open);
+  /* community packs re-read whenever the importer modal closes */
+  const packs = useMemo(() => (packModalOpen ? readPacks() : readPacks()), [packModalOpen]);
+  const packTemplates = packs.flatMap((p) => p.templates);
+
+  /* v4.2 — apply a community-pack template with the same category shape
+     the Quick Paste flow builds (validated upstream by the importer). */
+  const applyPack = (tpl: PackTemplate) => {
+    const gs = useStore.getState().goals.map((g) => {
+      if (g.id !== activeGoalId) return g;
+      const cats = tpl.categories.map((c) => ({
+        id: `cat_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
+        title: c.title,
+        media: c.media || "mono:clipboard-check",
+        recurrence: "none" as const,
+        lastResetDate: localDateKey(new Date()),
+        lastWeekKey: "",
+        items: c.items.map((it) => makeTask(it.text, { priority: (it.priority as Task["priority"]) || "normal", notes: it.notes || "" })),
+      }));
+      return { ...g, categories: [...g.categories, ...cats] };
+    });
+    useStore.setState({ goals: gs });
+    toast.success(`Loaded "${tpl.title}" from community pack.`);
+  };
+
   return (
     <Panel>
-      <PanelTitle icon={<GcIcon name="book-flutter" size={15} />}>1-Click Templates</PanelTitle>
+      <PanelTitle
+        icon={<GcIcon name="book-flutter" size={15} />}
+        right={
+          <Button type="button" variant="ghost" size="icon" className="size-7 gc-btn"
+            title="Import community pack" aria-label="Import community pack"
+            onClick={() => openPackModal("packModal")}>
+            <Plus className="h-3.5 w-3.5" />
+          </Button>
+        }
+      ><T>1-Click Templates</T></PanelTitle>
       <div className="flex flex-col gap-2">
-        {Object.values(TEMPLATES).map((tpl, i) => (
+        {[...Object.values(TEMPLATES), ...packTemplates].map((tpl, i) => (
           <motion.button
             key={tpl.key}
             type="button"
-            onClick={() => loadTemplate(tpl.key)}
+            onClick={() => ("subtitle" in tpl ? loadTemplate(tpl.key) : applyPack(tpl as PackTemplate))}
             className="flex w-full items-center justify-between gap-2 rounded-xl border p-2.5 text-left"
             style={{ borderColor: "var(--gc-border)", background: "var(--gc-surface-2)" }}
             initial={{ opacity: 0, y: 10 }}
@@ -399,7 +440,7 @@ export function AudioStudio() {
           </AnimatePresence>
         }
       >
-        Audio-Reactive Studio
+        <T>Audio-Reactive Studio</T>
       </PanelTitle>
       <div className="flex flex-col gap-3">
         <canvas ref={canvasRef} width={260} height={48} className="w-full rounded-lg" style={{ background: "var(--gc-input)" }} aria-hidden="true" />
@@ -451,4 +492,22 @@ function setMeter(kind: string, val: number) {
   const pct = Math.round(val * 100);
   if (fill) fill.style.width = `${pct}%`;
   if (valEl) valEl.textContent = `${pct}%`;
+}
+
+/* ---------------------------------------------------------
+   v4.2 — i18n: <T> renders the catalog entry for a default
+   English string when a key exists; falls back to the child
+   text itself (keeps untranslated copy intact).
+   --------------------------------------------------------- */
+const T_KEY_BY_TEXT: Record<string, string> = {
+  "Pomodoro Focus": "side.pomodoro",
+  "My Goal Boards": "side.boards",
+  "1-Click Templates": "side.templates",
+  "Audio-Reactive Studio": "side.audioStudio",
+};
+
+function T({ children }: { children: string }) {
+  const t = useT();
+  const key = T_KEY_BY_TEXT[children];
+  return <>{key ? t(key) : children}</>;
 }

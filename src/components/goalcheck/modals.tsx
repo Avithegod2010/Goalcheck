@@ -21,10 +21,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Slider } from "@/components/ui/slider";
 import { THEMES, ENGINES, ATMOSPHERE_PRESETS, availableThemes, availableEngines } from "@/lib/goalcheck/themes";
 import { hasFeature, IS_PRO, APP_NAME, BUILD_EDITION, setEditionOverride, type Edition } from "@/lib/goalcheck/editions";
-import { syncFileSupported, linkSyncFile, isSyncLinked, unlinkSyncFile, writeNow } from "@/lib/goalcheck/syncfile";
+import { syncFileSupported, linkSyncFile, isSyncLinked, unlinkSyncFile, writeNow, setVaultPassphrase, pullFromSyncFile } from "@/lib/goalcheck/syncfile";
 import { isImageUrl, isMonoIcon } from "@/lib/goalcheck/presets";
-import { RPG_AURAS, RPG_SKILLS, ACHIEVEMENTS, buildMarkdownExport, buildPlainExport, localDateKey, rankForLevel, totalXpForLevel, xpForLevel } from "@/lib/goalcheck/logic";
-import { parseQuickPaste } from "@/lib/goalcheck/logic";
+import { RPG_AURAS, RPG_SKILLS, ACHIEVEMENTS, buildMarkdownExport, buildPlainExport, localDateKey, rankForLevel, totalXpForLevel, xpForLevel, parseQuickPaste, calculateStats, habitStreak, levelFromXp } from "@/lib/goalcheck/logic";
+import { encryptString, decryptString, isEncryptedPayload } from "@/lib/goalcheck/crypto";
+import { useT, getLocale, setLocale } from "@/lib/goalcheck/i18n";
+import { SUPPORTED_LOCALES, LOCALE_LABELS, type Locale } from "@/lib/goalcheck/locales";
 import { playChime } from "@/lib/goalcheck/audio";
 import type { ChimePack } from "@/lib/goalcheck/types";
 import { Download, Upload, Copy } from "lucide-react";
@@ -45,6 +47,9 @@ export function ModalHost() {
       <GoalBoardModal />
       <TaskEditModal />
       <RpgModal />
+      {/* v4.2 — share card + community pack importer */}
+      <ReportCardModal />
+      <PackModal />
       {/* Escape closes everything */}
       {ui.boardModal !== null && <EscapeHandler />}
     </>
@@ -405,7 +410,10 @@ function SettingsModal() {
   const toggleReduceEffects = useStore((st) => st.toggleReduceEffects);
   const setColorMode = useStore((st) => st.setColorMode);
   const resetWorkspace = useStore((st) => st.resetWorkspace);
+  const setFontScale = useStore((st) => st.setFontScale);
+  const setStreakFreezes = useStore((st) => st.setStreakFreezes);
   const [confirmReset, setConfirmReset] = useState(false);
+  const t = useT();
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) useUi.setState({ settingsModal: false }); }}>
@@ -420,6 +428,33 @@ function SettingsModal() {
           {hasFeature("heatmap") && <SettingRow title="365-Day Activity Heatmap" icon="flame-ember" desc="Daily contribution intensity and streak counters." checked={s.heatmapEnabled} onCheckedChange={toggleHeatmap} />}
           <SettingRow title="Auto-Complete Parent on All Subtasks Done" icon="puzzle-piece" desc="Mark main task completed when micro-steps a, b, c are finished." checked={s.autoParent} onCheckedChange={toggleAutoParent} />
           <SettingRow title="Reduce Effects (battery saver)" icon="lotus-zen" desc="Disables particles, ripple & confetti. Also respects your system reduce-motion setting." checked={s.reduceEffects} onCheckedChange={toggleReduceEffects} />
+          {hasFeature("habits") && (
+            <SettingRow title="Streak freezes" icon="lock-shield" desc="Earn a freeze token every 7-period streak (hold up to 2). Missed days consume a token instead of breaking the streak." checked={s.streakFreezes} onCheckedChange={setStreakFreezes} />
+          )}
+
+          {/* v4.2 — language + display scale */}
+          <div className="rounded-xl border p-3" style={{ borderColor: "var(--gc-border)" }}>
+            <p className="mb-2 flex items-center gap-2 text-sm font-extrabold"><GcIcon name="globe-orbit" size={15} /> Language &amp; Display</p>
+            <div className="flex flex-col gap-3">
+              <div>
+                <label className="mb-1 block text-[0.68rem] font-bold uppercase tracking-wide" style={{ color: "var(--gc-text2)" }}>Language</label>
+                <Select value={getLocale()} onValueChange={(v) => setLocale(v as Locale)}>
+                  <SelectTrigger className="gc-input text-xs" aria-label="Interface language"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {SUPPORTED_LOCALES.map((l) => <SelectItem key={l} value={l}>{LOCALE_LABELS[l]}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <p className="mt-1 text-[0.65rem]" style={{ color: "var(--gc-muted)" }}>
+                  Applies instantly. Community translations welcome — English is the source of truth.
+                </p>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="w-24 shrink-0 text-xs font-bold">Text size</span>
+                <Slider value={[Math.round(s.fontScale * 100)]} min={90} max={130} step={5} onValueChange={([v]) => setFontScale(v / 100)} className="flex-1" aria-label="Text size" />
+                <span className="w-10 text-right font-mono text-xs" style={{ color: "var(--gc-text2)" }}>{Math.round(s.fontScale * 100)}%</span>
+              </div>
+            </div>
+          </div>
 
           {hasFeature("data-doctor") && <DataDoctorPanel />}
           {!IS_PRO && <UpgradeCard />}
@@ -505,7 +540,7 @@ function SettingsModal() {
   );
 }
 
-function SettingRow({ title, desc, icon, checked, onCheckedChange }: { title: string; desc: string; icon: string; checked: boolean; onCheckedChange: () => void }) {
+function SettingRow({ title, desc, icon, checked, onCheckedChange }: { title: string; desc: string; icon: string; checked: boolean; onCheckedChange: (on: boolean) => void }) {
   return (
     <div className="flex items-center justify-between gap-3 rounded-xl p-3" style={{ background: "var(--gc-surface-2)" }}>
       <div>
@@ -572,28 +607,45 @@ function ExportModal() {
   const goal = useActiveGoal();
   const exportWorkspace = useStore((st) => st.exportWorkspace);
   const importWorkspace = useStore((st) => st.importWorkspace);
-  const [format, setFormat] = useState<"plain" | "markdown" | "json">("plain");
+  const [format, setFormat] = useState<"plain" | "markdown" | "json" | "enc">("plain");
+  const [pass, setPass] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
 
   const text = useMemo(() => {
     if (!open) return "";
+    if (format === "enc") return "";
     if (format === "json") return exportWorkspace();
     if (goal && format === "markdown") return buildMarkdownExport(goal);
     if (goal) return buildPlainExport(goal);
     return "";
   }, [open, format, goal, exportWorkspace]);
 
-  const download = () => {
-    const ext = format === "json" ? "json" : format === "markdown" ? "md" : "txt";
-    const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+  const saveBlob = (content: string, name: string) => {
+    const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = format === "json" ? "goalcheck-backup.json" : `goalcheck-export.${ext}`;
+    a.download = name;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+  };
+
+  const download = async () => {
+    if (format === "enc") {
+      if (pass.trim().length < 4) { toast.error("Enter a passphrase (4+ characters) first."); return; }
+      try {
+        const enc = await encryptString(exportWorkspace(), pass.trim());
+        saveBlob(enc, "goalcheck-vault.gcenc");
+        toast.success("Encrypted vault downloaded — keep the passphrase safe!");
+      } catch {
+        toast.error("Encryption is not available in this browser.");
+      }
+      return;
+    }
+    const ext = format === "json" ? "json" : format === "markdown" ? "md" : "txt";
+    saveBlob(text, format === "json" ? "goalcheck-backup.json" : `goalcheck-export.${ext}`);
     toast.success("Downloaded file!");
   };
 
@@ -617,7 +669,7 @@ function ExportModal() {
         {hasFeature("sync-file") && <SyncFileSection />}
 
         <div className="flex flex-wrap gap-1 rounded-xl p-1" style={{ background: "var(--gc-surface-2)" }} role="tablist">
-          {([["plain", "Plain Text"], ["markdown", "Markdown (.md)"], ["json", "JSON Backup"]] as const).map(([id, label]) => (
+          {([["plain", "Plain Text"], ["markdown", "Markdown (.md)"], ["json", "JSON Backup"], ["enc", "Encrypted (.gcenc)"]] as const).map(([id, label]) => (
             <button key={id} type="button" role="tab" aria-selected={format === id} onClick={() => setFormat(id)}
               className="rounded-lg px-3 py-1.5 text-xs font-bold"
               style={format === id ? { background: "var(--gc-surface)", color: "color-mix(in srgb, var(--gc-accent) 55%, var(--gc-text))" } : { color: "var(--gc-text2)" }}>
@@ -626,7 +678,18 @@ function ExportModal() {
           ))}
         </div>
 
-        <Textarea value={text} readOnly className="gc-input h-52 resize-none font-mono text-xs" aria-label="Export content" />
+        {format === "enc" ? (
+          <div className="flex flex-col gap-2">
+            <p className="text-xs" style={{ color: "var(--gc-text2)" }}>
+              AES-256-GCM vault of the WHOLE workspace. The passphrase never leaves this device — there is no recovery, so keep it safe.
+            </p>
+            <Input type="password" value={pass} onChange={(e) => setPass(e.target.value)} className="gc-input"
+              placeholder="Vault passphrase (min 4 characters)" aria-label="Vault passphrase" autoComplete="new-password" />
+            <Textarea value={"\u2713 Ready to encrypt on download.\n\u2713 Import it back from any device with the same passphrase.\n\u2713 File stays opaque even inside cloud folders."} readOnly className="gc-input h-24 resize-none font-mono text-xs" aria-label="Encrypted export notes" />
+          </div>
+        ) : (
+          <Textarea value={text} readOnly className="gc-input h-52 resize-none font-mono text-xs" aria-label="Export content" />
+        )}
 
         <div className="flex flex-wrap justify-between gap-2">
           <div className="flex gap-2">
@@ -634,14 +697,25 @@ function ExportModal() {
             <Button type="button" className="gc-btn-primary" onClick={copy}><Copy className="mr-1 h-4 w-4" /> Copy</Button>
           </div>
           <div className="flex gap-2">
-            <input ref={fileRef} type="file" accept="application/json,.json" className="hidden" aria-label="Import backup file"
+            <input ref={fileRef} type="file" accept="application/json,.json,.gcenc" className="hidden" aria-label="Import backup file"
               onChange={async (e) => {
                 const f = e.target.files?.[0];
                 e.target.value = "";
                 if (!f) return;
                 try {
-                  const json = await f.text();
-                  const ok = importWorkspace(json);
+                  const raw = await f.text();
+                  if (isEncryptedPayload(raw)) {
+                    const pass = window.prompt("This vault is encrypted. Enter the passphrase:");
+                    if (!pass) return;
+                    try {
+                      const json = await decryptString(raw, pass);
+                      if (importWorkspace(json)) useUi.setState({ exportModal: false });
+                    } catch {
+                      toast.error("Wrong passphrase or corrupted vault.");
+                    }
+                    return;
+                  }
+                  const ok = importWorkspace(raw);
                   if (ok) useUi.setState({ exportModal: false });
                 } catch {
                   toast.error("Could not read that file.");
@@ -666,8 +740,19 @@ function QuickPasteModal() {
   const open = useUi((s) => s.pasteModal);
   const goals = useStore((s) => s.goals);
   const activeGoalId = useStore((s) => s.activeGoalId);
+  const pasteText = useUi((s) => s.pasteText);
   const [text, setText] = useState("");
   const [mode, setMode] = useState<"append" | "replace">("append");
+  const [seenPaste, setSeenPaste] = useState("");
+
+  /* v4.2 — external intake prefill (extension handoff / share-sheet / NL bar).
+     Adjust-state-during-render pattern (React-sanctioned) — keeps the
+     react-hooks/set-state-in-effect rule happy. */
+  if (open && pasteText && pasteText !== seenPaste) {
+    setSeenPaste(pasteText);
+    setText(pasteText);
+    useUi.setState({ pasteText: "" });
+  }
 
   const parsed = useMemo(() => parseQuickPaste(text), [text]);
   const taskCount = parsed.reduce((n, c) => n + c.items.length, 0);
@@ -991,6 +1076,8 @@ function RpgModal() {
           })}
         </div>
 
+        <SeasonalChallenges />
+
         <p className="text-xs font-extrabold uppercase tracking-wide" style={{ color: "var(--gc-text2)" }}>Equippable aura frames</p>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           {RPG_AURAS.map((au) => (
@@ -1025,7 +1112,11 @@ function RpgModal() {
 function SyncFileSection() {
   const syncFileEnabled = useStore((s) => s.settings.syncFileEnabled);
   const setSyncFileEnabled = useStore((s) => s.setSyncFileEnabled);
+  const syncFileEncrypted = useStore((s) => s.settings.syncFileEncrypted);
+  const setSyncFileEncrypted = useStore((s) => s.setSyncFileEncrypted);
   const [linked, setLinked] = useState(isSyncLinked());
+  const [vaultPass, setVaultPass] = useState("");
+  const [pulling, setPulling] = useState(false);
   const supported = syncFileSupported();
 
   if (!supported) {
@@ -1063,6 +1154,16 @@ function SyncFileSection() {
             <Button type="button" size="sm" variant="outline" className="gc-btn" onClick={() => { void writeNow(); toast.success("Written to sync file."); }}>
               Write now
             </Button>
+            <Button type="button" size="sm" variant="outline" className="gc-btn" disabled={pulling}
+              onClick={async () => {
+                setPulling(true);
+                const err = await pullFromSyncFile(vaultPass.trim() || undefined);
+                setPulling(false);
+                if (err) toast.error(err);
+                else toast.success("Workspace restored from sync file.");
+              }}>
+              {pulling ? "Restoring…" : "Pull from sync file"}
+            </Button>
             <Button type="button" size="sm" variant="ghost" className="gc-btn" onClick={() => { unlinkSyncFile(); setLinked(false); setSyncFileEnabled(false); toast("Sync file unlinked."); }}>
               Unlink
             </Button>
@@ -1071,6 +1172,35 @@ function SyncFileSection() {
             </span>
           </>
         )}
+      </div>
+
+      {/* v4.2 — vault mode: E2E-encrypt the sync file */}
+      <div className="mt-2 flex flex-col gap-2 rounded-lg p-2.5" style={{ background: "var(--gc-surface-2)" }}>
+        <span className="flex items-center gap-1.5 text-xs font-bold">
+          <Switch checked={syncFileEncrypted} onCheckedChange={(on) => {
+            setSyncFileEncrypted(on);
+            if (!on) setVaultPassphrase(null);
+            toast(on ? "Vault mode ON — new link writes a .gcenc file." : "Vault mode off — sync file will be plain JSON.");
+          }} aria-label="Encrypt sync file" />
+          Encrypt sync file (AES-256 vault)
+        </span>
+        {syncFileEncrypted && (
+          <div className="flex flex-wrap items-center gap-2">
+            <Input type="password" value={vaultPass} onChange={(e) => setVaultPass(e.target.value)}
+              className="gc-input h-8 w-56 text-xs" placeholder="Vault passphrase" aria-label="Vault passphrase" autoComplete="new-password" />
+            <Button type="button" size="sm" variant="outline" className="gc-btn"
+              onClick={() => {
+                if (vaultPass.trim().length < 4) { toast.error("Passphrase needs 4+ characters."); return; }
+                setVaultPassphrase(vaultPass.trim());
+                toast.success("Passphrase set for this session — re-link to write the encrypted file.");
+              }}>
+              Apply passphrase
+            </Button>
+          </div>
+        )}
+        <p className="text-[0.65rem]" style={{ color: "var(--gc-muted)" }}>
+          Vault files stay opaque even inside Dropbox/Drive/Nextcloud folders — the passphrase never leaves this device.
+        </p>
       </div>
       <p className="mt-2 text-[0.65rem]" style={{ color: "var(--gc-muted)" }}>
         The file link lasts for this browser session (a browser security rule) — re-link once when you reopen {APP_NAME}.
@@ -1129,20 +1259,68 @@ function AchievementsGrid() {
 /* v4 — Advance: data doctor panel (settings) */
 function DataDoctorPanel() {
   const runDoctor = useStore((s) => s.runDoctor);
+  const lastScanAt = useStore((s) => s.settings.lastDoctorScanAt);
+  const touchDoctorScan = useStore((s) => s.touchDoctorScan);
   const [report, setReport] = useState<{ issues: string[]; fixed: number } | null>(null);
+  const [storage, setStorage] = useState<{ usage: number; quota: number } | null>(null);
+  const t = useT();
+
+  const run = () => {
+    const r = runDoctor();
+    setReport(r);
+    touchDoctorScan();
+    if (r.fixed > 0) toast.success(`Data doctor fixed ${r.fixed} issue${r.fixed > 1 ? "s" : ""}.`);
+  };
+
+  /* v4.2 — storage meter + scheduled scan: silently runs (and repairs) once
+     when the panel opens if the last scan is older than 30 days. The scan is
+     deferred to a macrotask so the effect body stays setState-free. */
+  useEffect(() => {
+    if (typeof navigator !== "undefined" && navigator.storage?.estimate) {
+      navigator.storage.estimate().then((e) => setStorage({ usage: e.usage || 0, quota: e.quota || 0 })).catch(() => {});
+    }
+    let timer: number | undefined;
+    if (!lastScanAt || Date.now() - lastScanAt > 30 * 86_400_000) {
+      timer = window.setTimeout(() => {
+        const r = runDoctor();
+        touchDoctorScan();
+        if (r.fixed > 0) toast.success(`Data doctor auto-fixed ${r.fixed} issue${r.fixed > 1 ? "s" : ""}.`);
+        setReport(r);
+      }, 0);
+    }
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  const pct = storage && storage.quota > 0 ? Math.min(100, (storage.usage / storage.quota) * 100) : 0;
+  const mb = (n: number) => (n >= 1_048_576 ? `${(n / 1_048_576).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
 
   return (
     <div className="rounded-xl border p-3" style={{ borderColor: "var(--gc-border)" }}>
       <p className="mb-1 flex items-center gap-2 text-sm font-extrabold"><GcIcon name="tools-wrench" size={15} /> Data Doctor</p>
       <p className="mb-2 text-xs" style={{ color: "var(--gc-text2)" }}>
-        Scans for broken dependency locks, duplicate task ids, stale pomodoro bindings and oversized media — and repairs what is safe to repair.
+        Scans for broken dependency locks, duplicate task ids, stale pomodoro bindings and oversized media — and repairs what is safe to repair. Runs automatically every 30 days.
       </p>
-      <Button
-        type="button" size="sm" variant="outline" className="gc-btn"
-        onClick={() => { const r = runDoctor(); setReport(r); if (r.fixed > 0) toast.success(`Data doctor fixed ${r.fixed} issue${r.fixed > 1 ? "s" : ""}.`); }}
-      >
-        <GcIcon name="broom-sweep" size={13} /> Run integrity scan
-      </Button>
+      {storage && (
+        <div className="mb-2.5">
+          <div className="mb-1 flex items-center justify-between text-[0.68rem] font-bold" style={{ color: "var(--gc-text2)" }}>
+            <span>Device storage used by this app</span>
+            <span className="font-mono">{mb(storage.usage)} / {mb(storage.quota)} ({pct.toFixed(1)}%)</span>
+          </div>
+          <div className="h-1.5 overflow-hidden rounded-full" role="progressbar" aria-label={`Storage: ${pct.toFixed(1)} percent used`} aria-valuenow={Math.round(pct)} aria-valuemin={0} aria-valuemax={100} style={{ background: "var(--gc-surface-2)" }}>
+            <div className="h-full rounded-full" style={{ width: `${Math.max(2, pct)}%`, background: pct > 85 ? "var(--gc-danger)" : "var(--gc-grad)" }} />
+          </div>
+        </div>
+      )}
+      <div className="flex flex-wrap items-center gap-2">
+        <Button type="button" size="sm" variant="outline" className="gc-btn" onClick={run}>
+          <GcIcon name="broom-sweep" size={13} /> {t("settings.runScan")}
+        </Button>
+        {lastScanAt > 0 && (
+          <span className="text-[0.65rem]" style={{ color: "var(--gc-muted)" }}>
+            Last scan: {new Date(lastScanAt).toLocaleDateString()}
+          </span>
+        )}
+      </div>
       {report && (
         <motion.ul initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="mt-2 flex list-disc flex-col gap-0.5 pl-4 text-xs" style={{ color: "var(--gc-text2)" }} aria-live="polite">
           {report.issues.map((msg, i) => <li key={i}>{msg}</li>)}
@@ -1230,6 +1408,451 @@ function ThemeShareSection() {
             </button>
           </>
         )}
+      </div>
+    </div>
+  );
+}
+
+/* =========================================================
+   v4.2 — Report / Share card: an offline-rendered canvas card
+   (weekly report or achievement showcase) that can be
+   downloaded as PNG. Zero network — the share loop is a file.
+   ========================================================= */
+
+const CARD_W = 1000;
+const CARD_H = 1250;
+
+type CardMode = "week" | "badges";
+
+function drawCard(canvas: HTMLCanvasElement, mode: CardMode, data: {
+  appName: string; boardTitle: string; percent: number; completed: number; total: number;
+  level: number; xp: number; focusMinutes: number; sessions: number; bestStreak: number;
+  badges: { label: string; got: boolean }[]; unlocked: number; badgeTotal: number;
+}): void {
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+  const css = getComputedStyle(document.documentElement);
+  const v = (name: string, fb: string) => css.getPropertyValue(name).trim() || fb;
+
+  // background
+  const grad = ctx.createLinearGradient(0, 0, CARD_W, CARD_H);
+  grad.addColorStop(0, v("--gc-bg", "#060913"));
+  grad.addColorStop(1, "#0b1024");
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, CARD_W, CARD_H);
+
+  // glow blobs
+  const glow = ctx.createRadialGradient(820, 180, 40, 820, 180, 420);
+  glow.addColorStop(0, "rgba(99,102,241,0.35)");
+  glow.addColorStop(1, "rgba(99,102,241,0)");
+  ctx.fillStyle = glow;
+  ctx.fillRect(0, 0, CARD_W, CARD_H);
+  const glow2 = ctx.createRadialGradient(160, 1050, 40, 160, 1050, 380);
+  glow2.addColorStop(0, "rgba(6,182,212,0.28)");
+  glow2.addColorStop(1, "rgba(6,182,212,0)");
+  ctx.fillStyle = glow2;
+  ctx.fillRect(0, 0, CARD_W, CARD_H);
+
+  // frame
+  ctx.strokeStyle = "rgba(255,255,255,0.16)";
+  ctx.lineWidth = 3;
+  ctx.strokeRect(28, 28, CARD_W - 56, CARD_H - 56);
+
+  ctx.textBaseline = "top";
+  // app name
+  ctx.fillStyle = v("--gc-text", "#f8fafc");
+  ctx.font = "800 44px system-ui, sans-serif";
+  ctx.fillText(data.appName, 72, 84);
+  ctx.fillStyle = "rgba(255,255,255,0.55)";
+  ctx.font = "600 24px system-ui, sans-serif";
+  ctx.fillText(mode === "week" ? "Weekly report card" : "Achievement showcase", 72, 142);
+
+  // level chip
+  const accent = v("--gc-accent", "#6366f1");
+  ctx.fillStyle = accent;
+  ctx.beginPath();
+  ctx.roundRect(CARD_W - 330, 84, 258, 74, 37);
+  ctx.fill();
+  ctx.fillStyle = "#0b0b16";
+  ctx.font = "800 30px system-ui, sans-serif";
+  ctx.textAlign = "center";
+  ctx.fillText(`LVL ${data.level}`, CARD_W - 201, 104);
+  ctx.textAlign = "left";
+
+  // board title
+  ctx.fillStyle = "rgba(255,255,255,0.9)";
+  ctx.font = "800 34px system-ui, sans-serif";
+  ctx.fillText(data.boardTitle.slice(0, 38), 72, 210);
+
+  // stat blocks (2x2)
+  const stats: [string, string][] = mode === "week"
+    ? [
+        ["Completion", `${data.percent}%`],
+        ["Tasks done", `${data.completed}/${data.total}`],
+        ["Focus time", `${Math.round(data.focusMinutes / 60)}h ${data.focusMinutes % 60}m`],
+        ["Best habit streak", `${data.bestStreak}`],
+      ]
+    : [
+        ["Level", `${data.level}`],
+        ["Total XP", `${data.xp}`],
+        ["Focus sessions", `${data.sessions}`],
+        ["Best habit streak", `${data.bestStreak}`],
+      ];
+  const bw = (CARD_W - 72 * 2 - 24) / 2;
+  const bh = 190;
+  stats.forEach(([label, value], i) => {
+    const x = 72 + (i % 2) * (bw + 24);
+    const y = 290 + Math.floor(i / 2) * (bh + 24);
+    ctx.fillStyle = "rgba(255,255,255,0.055)";
+    ctx.beginPath();
+    ctx.roundRect(x, y, bw, bh, 22);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(255,255,255,0.12)";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.fillStyle = "rgba(255,255,255,0.55)";
+    ctx.font = "700 24px system-ui, sans-serif";
+    ctx.fillText(label.toUpperCase(), x + 28, y + 26);
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "800 64px system-ui, sans-serif";
+    ctx.fillText(value, x + 28, y + 64);
+  });
+
+  // progress ring or badges grid
+  if (mode === "week") {
+    const cx = CARD_W / 2, cy = 935, r = 150;
+    ctx.lineWidth = 26;
+    ctx.strokeStyle = "rgba(255,255,255,0.1)";
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.stroke();
+    const ring = ctx.createLinearGradient(cx - r, cy - r, cx + r, cy + r);
+    ring.addColorStop(0, v("--gc-accent", "#6366f1"));
+    ring.addColorStop(1, "#06b6d4");
+    ctx.strokeStyle = ring;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, -Math.PI / 2, -Math.PI / 2 + (Math.max(1, data.percent) / 100) * Math.PI * 2);
+    ctx.stroke();
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "800 66px system-ui, sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText(`${data.percent}%`, cx, cy - 40);
+    ctx.fillStyle = "rgba(255,255,255,0.55)";
+    ctx.font = "600 24px system-ui, sans-serif";
+    ctx.fillText("board completion", cx, cy + 34);
+    ctx.textAlign = "left";
+  } else {
+    ctx.fillStyle = "rgba(255,255,255,0.55)";
+    ctx.font = "700 24px system-ui, sans-serif";
+    ctx.fillText(`ACHIEVEMENTS ${data.unlocked}/${data.badgeTotal}`, 72, 740);
+    const cell = (CARD_W - 72 * 2 - 5 * 16) / 6;
+    data.badges.slice(0, 18).forEach((b, i) => {
+      const x = 72 + (i % 6) * (cell + 16);
+      const y = 786 + Math.floor(i / 6) * (cell + 16);
+      ctx.fillStyle = b.got ? accent : "rgba(255,255,255,0.07)";
+      ctx.beginPath();
+      ctx.roundRect(x, y, cell, cell, 16);
+      ctx.fill();
+      ctx.fillStyle = b.got ? "#0b0b16" : "rgba(255,255,255,0.4)";
+      ctx.font = "800 20px system-ui, sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText(b.label.slice(0, 8), x + cell / 2, y + cell / 2 - 10);
+      ctx.textAlign = "left";
+    });
+  }
+
+  // footer
+  ctx.fillStyle = "rgba(255,255,255,0.45)";
+  ctx.font = "600 22px system-ui, sans-serif";
+  ctx.fillText("local-first & FOSS — made with GoalCheck", 72, CARD_H - 88);
+}
+
+function ReportCardModal() {
+  const open = useUi((s) => s.reportCard);
+  const goals = useStore((s) => s.goals);
+  const activeGoalId = useStore((s) => s.activeGoalId);
+  const rpg = useStore((s) => s.rpg);
+  const analytics = useStore((s) => s.analytics);
+  const habits = useStore((s) => s.habits);
+  const achievements = useStore((s) => s.achievements);
+  const [mode, setMode] = useState<CardMode>("week");
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  const goal = goals.find((g) => g.id === activeGoalId);
+  const stats = goal ? calculateStats(goal) : { percent: 0, completed: 0, total: 0 };
+  const sessions = Object.values(analytics.hourCounts ?? {}).reduce<number>((a, b) => a + (Number(b) || 0), 0);
+  const bestStreak = habits.reduce((mx, h) => Math.max(mx, habitStreak(h.marks, h.cadence)), 0);
+  const unlocked = ACHIEVEMENTS.filter((a) => achievements[a.id]);
+
+  useEffect(() => {
+    if (!open) return;
+    const draw = () => {
+      const c = canvasRef.current;
+      if (!c) return;
+      drawCard(c, mode, {
+        appName: APP_NAME,
+        boardTitle: goal?.title ?? "My goals",
+        percent: stats.percent,
+        completed: stats.completed,
+        total: stats.total,
+        level: levelFromXp(rpg.xp),
+        xp: rpg.xp,
+        focusMinutes: Math.round((analytics.focusSeconds ?? 0) / 60),
+        sessions,
+        bestStreak,
+        badges: ACHIEVEMENTS.map((a) => ({ label: a.label, got: !!achievements[a.id] })),
+        unlocked: unlocked.length,
+        badgeTotal: ACHIEVEMENTS.length,
+      });
+    };
+    draw();
+  }, [open, mode, goal, stats.percent, stats.completed, stats.total, rpg.xp, analytics.focusSeconds, sessions, bestStreak, achievements, unlocked.length]);
+
+  const download = () => {
+    const c = canvasRef.current;
+    if (!c) return;
+    c.toBlob((blob) => {
+      if (!blob) return;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `goalcheck-card-${mode}.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success("Card downloaded — share it anywhere!");
+    }, "image/png");
+  };
+
+  const copy = async () => {
+    const c = canvasRef.current;
+    if (!c) return;
+    try {
+      const blob = await new Promise<Blob | null>((res) => c.toBlob(res, "image/png"));
+      if (!blob) throw new Error();
+      await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+      toast.success("Card copied to clipboard!");
+    } catch {
+      toast.error("Clipboard image copy not supported here — use Download.");
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => { if (!o) useUi.setState({ reportCard: false }); }}>
+      <DialogContent className="gc-modal max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2"><GcIcon name="camera-flash" size={17} /> Report card</DialogTitle>
+          <DialogDescription>An offline-rendered share card — nothing leaves this device.</DialogDescription>
+        </DialogHeader>
+        <div className="flex flex-wrap gap-1 rounded-xl p-1" style={{ background: "var(--gc-surface-2)" }} role="tablist" aria-label="Card mode">
+          {([["week", "Weekly report"], ["badges", "Achievements"]] as const).map(([id, label]) => (
+            <button key={id} type="button" role="tab" aria-selected={mode === id} onClick={() => setMode(id)}
+              className="rounded-lg px-3 py-1.5 text-xs font-bold"
+              style={mode === id ? { background: "var(--gc-surface)", color: "color-mix(in srgb, var(--gc-accent) 55%, var(--gc-text))" } : { color: "var(--gc-text2)" }}>
+              {label}
+            </button>
+          ))}
+        </div>
+        <div className="max-h-[46vh] overflow-y-auto rounded-xl gc-scroll" style={{ border: "1px solid var(--gc-border)" }}>
+          <canvas ref={canvasRef} width={CARD_W} height={CARD_H} className="h-auto w-full" aria-label={`${APP_NAME} share card preview`} />
+        </div>
+        <div className="flex justify-end gap-2">
+          <Button type="button" variant="outline" className="gc-btn" onClick={copy}><Copy className="mr-1 h-4 w-4" /> Copy</Button>
+          <Button type="button" className="gc-btn-primary" onClick={download}><Download className="mr-1 h-4 w-4" /> Download PNG</Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/* =========================================================
+   v4.2 — Community pack importer (marketplace): goal-template
+   packs as JSON, pasted inline or fetched from a user-provided
+   URL. Packs live in localStorage (gc_custom_packs) and merge
+   into the Templates sidebar panel.
+   ========================================================= */
+
+export interface PackTemplate {
+  key: string;
+  title: string;
+  icon?: string;
+  blurb?: string;
+  categories: { title: string; media?: string; items: { text: string; priority?: string; notes?: string }[] }[];
+}
+interface Pack { name: string; templates: PackTemplate[] }
+
+const PACK_KEY = "gc_custom_packs";
+
+export function readPacks(): Pack[] {
+  try {
+    const raw = localStorage.getItem(PACK_KEY);
+    const arr = raw ? JSON.parse(raw) : [];
+    return Array.isArray(arr) ? arr : [];
+  } catch {
+    return [];
+  }
+}
+
+function writePacks(packs: Pack[]): void {
+  try { localStorage.setItem(PACK_KEY, JSON.stringify(packs)); } catch { /* quota — ignore */ }
+}
+
+function PackModal() {
+  const open = useUi((s) => s.packModal);
+  const [text, setText] = useState("");
+  const [url, setUrl] = useState("");
+  const [packs, setPacks] = useState<Pack[]>([]);
+  const [packsLoaded, setPacksLoaded] = useState(false);
+
+  /* refresh the installed-pack list each time the modal opens (render-adjust) */
+  if (open && !packsLoaded) {
+    setPacksLoaded(true);
+    setPacks(readPacks());
+  }
+  if (!open && packsLoaded) {
+    setPacksLoaded(false);
+  }
+
+  const install = (raw: string) => {
+    try {
+      const parsed = JSON.parse(raw) as Pack;
+      if (!parsed || !Array.isArray(parsed.templates) || parsed.templates.length === 0) {
+        toast.error("Not a valid pack — expected { name, templates: [...] }.");
+        return;
+      }
+      const clean: Pack = {
+        name: String(parsed.name || "Community pack").slice(0, 60),
+        templates: parsed.templates.slice(0, 24).map((tp, i) => ({
+          key: `pack_${Date.now().toString(36)}_${i}`,
+          title: String(tp.title || "Imported template").slice(0, 60),
+          icon: typeof tp.icon === "string" ? tp.icon : "mono:rocket-launch",
+          blurb: String(tp.blurb || `${tp.categories?.length ?? 0} categories`).slice(0, 90),
+          categories: (tp.categories || []).slice(0, 12).map((c) => ({
+            title: String(c.title || "Category").slice(0, 60),
+            media: typeof c.media === "string" ? c.media : "mono:clipboard-check",
+            items: (c.items || []).slice(0, 40).map((it) => ({
+              text: String(it.text || "").slice(0, 200),
+              priority: it.priority === "high" || it.priority === "urgent" ? it.priority : "normal",
+              notes: typeof it.notes === "string" ? it.notes.slice(0, 300) : undefined,
+            })).filter((it) => it.text),
+          })).filter((c) => c.items.length > 0),
+        })).filter((tp) => tp.categories.length > 0),
+      };
+      if (clean.templates.length === 0) { toast.error("Pack has no usable templates."); return; }
+      const next = [...readPacks().filter((p) => p.name !== clean.name), clean];
+      writePacks(next);
+      setPacks(next);
+      setText("");
+      toast.success(`Installed "${clean.name}" — ${clean.templates.length} template(s) added to the sidebar.`);
+    } catch {
+      toast.error("That JSON could not be parsed.");
+    }
+  };
+
+  const fetchUrl = async () => {
+    const u = url.trim();
+    if (!/^https:\/\//i.test(u)) { toast.error("Enter an https:// URL to the pack JSON."); return; }
+    try {
+      const res = await fetch(u, { mode: "cors" });
+      const raw = await res.text();
+      install(raw);
+    } catch {
+      toast.error("Fetch failed (CORS or offline) — paste the JSON instead.");
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => { if (!o) useUi.setState({ packModal: false }); }}>
+      <DialogContent className="gc-modal max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2"><GcIcon name="globe-orbit" size={17} /> Community packs</DialogTitle>
+          <DialogDescription>Import template packs as JSON — from a URL or pasted inline. Installed packs appear in the sidebar.</DialogDescription>
+        </DialogHeader>
+        <div className="flex gap-2">
+          <Input value={url} onChange={(e) => setUrl(e.target.value)} className="gc-input flex-1"
+            placeholder="https://example.com/goalcheck-pack.json" aria-label="Pack JSON URL" />
+          <Button type="button" variant="outline" className="gc-btn shrink-0" onClick={() => void fetchUrl()}>Fetch</Button>
+        </div>
+        <Textarea value={text} onChange={(e) => setText(e.target.value)} className="gc-input h-32 resize-none font-mono text-xs"
+          placeholder={'{\n  "name": "Exam season",\n  "templates": [{ "title": "Exam prep", "categories": [{ "title": "Revision", "items": [{ "text": "Past papers" }] }] }]\n}'}
+          aria-label="Pack JSON" />
+        <div className="flex items-center justify-between gap-2">
+          <Button type="button" variant="outline" className="gc-btn" disabled={!text.trim()} onClick={() => install(text)}>Install pack</Button>
+          {packs.length > 0 && (
+            <button type="button" className="text-xs font-bold underline-offset-2 hover:underline" style={{ color: "var(--gc-text2)" }}
+              onClick={() => { writePacks([]); setPacks([]); toast("All community packs removed."); }}>
+              Remove all ({packs.length} pack{packs.length > 1 ? "s" : ""})
+            </button>
+          )}
+        </div>
+        {packs.map((p) => (
+          <div key={p.name} className="rounded-lg border p-2 text-xs" style={{ borderColor: "var(--gc-border)", color: "var(--gc-text2)" }}>
+            <b style={{ color: "var(--gc-text)" }}>{p.name}</b> — {p.templates.length} template(s)
+          </div>
+        ))}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/* =========================================================
+   v4.2 — Seasonal challenges: three deterministic, month-scoped
+   goals derived purely from existing data (monthly XP from the
+   RPG history, best habit streak, average board completion).
+   No servers, no new persistence — the calendar is the season.
+   ========================================================= */
+
+function SeasonalChallenges() {
+  const rpg = useStore((s) => s.rpg);
+  const habits = useStore((s) => s.habits);
+  const goals = useStore((s) => s.goals);
+  const now = new Date();
+  const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  const seed = now.getFullYear() * 12 + now.getMonth();
+
+  const monthXp = Object.entries(rpg.history ?? {}).reduce<number>((sum, [k, v]) => (k.startsWith(monthKey) ? sum + (Number(v) || 0) : sum), 0);
+  const bestStreak = habits.reduce((mx, h) => Math.max(mx, habitStreak(h.marks, h.cadence)), 0);
+  const avgPercent = goals.length
+    ? Math.round(goals.reduce((sum, g) => sum + calculateStats(g).percent, 0) / goals.length)
+    : 0;
+
+  const xpTarget = 300 + (seed % 5) * 150;
+  const streakTarget = 5 + (seed % 4);
+  const percentTarget = 60 + (seed % 5) * 5;
+
+  const challenges = [
+    { label: `Earn ${xpTarget} XP this month`, value: monthXp, target: xpTarget, icon: "bolt-boost" },
+    { label: `Hold a ${streakTarget}-period habit streak`, value: bestStreak, target: streakTarget, icon: "flame-ember" },
+    { label: `Keep boards at ${percentTarget}% average completion`, value: avgPercent, target: percentTarget, icon: "check-circle" },
+  ];
+
+  return (
+    <div className="rounded-xl border p-3" style={{ borderColor: "var(--gc-border)" }}>
+      <p className="mb-0.5 flex items-center gap-2 text-sm font-extrabold"><GcIcon name="trophy-star" size={15} /> Seasonal challenges</p>
+      <p className="mb-2 text-[0.68rem]" style={{ color: "var(--gc-muted)" }}>
+        {now.toLocaleString("en", { month: "long" })} {now.getFullYear()} — resets automatically each month, derived from your real activity.
+      </p>
+      <div className="flex flex-col gap-2">
+        {challenges.map((c) => {
+          const done = c.value >= c.target;
+          const pct = Math.min(100, Math.round((c.value / c.target) * 100));
+          return (
+            <div key={c.label} className="rounded-lg p-2" style={{ background: "var(--gc-surface-2)" }}>
+              <div className="mb-1 flex items-center justify-between gap-2 text-xs font-bold">
+                <span className="flex min-w-0 items-center gap-1.5">
+                  <GcIcon name={c.icon} size={12} /> {c.label}
+                </span>
+                <span className="shrink-0 font-mono" style={{ color: done ? "var(--gc-success)" : "var(--gc-text2)" }}>
+                  {done ? "DONE" : `${Math.min(c.value, c.target)}/${c.target}`}
+                </span>
+              </div>
+              <div className="h-1.5 overflow-hidden rounded-full" style={{ background: "var(--gc-input)" }} role="progressbar" aria-label={`${c.label}: ${pct}%`} aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
+                <div className="h-full rounded-full" style={{ width: `${Math.max(2, pct)}%`, background: done ? "var(--gc-success)" : "var(--gc-grad)" }} />
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

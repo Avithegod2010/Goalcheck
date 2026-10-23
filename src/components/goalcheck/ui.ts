@@ -23,10 +23,14 @@ interface UiState {
   rpgModal: boolean;
   zenOpen: boolean;
   paletteOpen: boolean;
+  /* v4.2 — report/share card + community pack importer + paste prefill */
+  reportCard: boolean;
+  packModal: boolean;
+  pasteText: string;
   openBoardModal: (m: "create" | "edit") => void;
   openMediaModal: (t: MediaTarget) => void;
   openTaskEditModal: (t: TaskEditTarget) => void;
-  open: (k: "themeModal" | "settingsModal" | "exportModal" | "pasteModal" | "rpgModal" | "zenOpen" | "paletteOpen") => void;
+  open: (k: "themeModal" | "settingsModal" | "exportModal" | "pasteModal" | "rpgModal" | "zenOpen" | "paletteOpen" | "reportCard" | "packModal") => void;
   closeAll: () => void;
 }
 
@@ -41,6 +45,9 @@ export const useUi = create<UiState>((set) => ({
   rpgModal: false,
   zenOpen: false,
   paletteOpen: false,
+  reportCard: false,
+  packModal: false,
+  pasteText: "",
   openBoardModal: (m) => set({ boardModal: m }),
   openMediaModal: (t) => set({ mediaModal: t }),
   openTaskEditModal: (t) => set({ taskEditModal: t }),
@@ -48,7 +55,7 @@ export const useUi = create<UiState>((set) => ({
   closeAll: () => set({
     boardModal: null, mediaModal: null, themeModal: false, settingsModal: false,
     exportModal: false, pasteModal: false, taskEditModal: null, rpgModal: false,
-    zenOpen: false, paletteOpen: false,
+    zenOpen: false, paletteOpen: false, reportCard: false, packModal: false,
   }),
 }));
 

@@ -201,6 +201,11 @@ export function CommandPalette() {
   );
 }
 
+/** v4.2 — run one /command from anywhere (quick-add bar routes here). */
+export function runCommand(line: string): string | null {
+  return execSingleCommand(line);
+}
+
 function execSingleCommand(line: string): string | null {
   const s = useStore.getState();
   const meta = /^\/(view|theme|engine|pomo|zen|atmosphere|rpg|export|done|goal|clear|help)\b\s*(.*)$/i.exec(line);

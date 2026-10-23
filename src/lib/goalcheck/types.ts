@@ -92,7 +92,7 @@ export type ParticleEngineId =
 
 export type CursorPhysics = "none" | "attract" | "repel" | "orbit";
 
-export type WorkspaceView = "checklist" | "kanban" | "matrix" | "graph" | "analytics";
+export type WorkspaceView = "checklist" | "kanban" | "matrix" | "graph" | "analytics" | "week";
 
 export type FilterId = "all" | "active" | "completed" | "priority" | "week";
 
@@ -120,6 +120,8 @@ export interface Habit {
   /** daily: localDateKey -> true ; weekly: isoWeekKey -> true */
   marks: Record<string, boolean>;
   createdAt: number;
+  /** v4.2 — streak-freeze tokens earned every 7-day streak (max 2 held) */
+  freezes: number;
 }
 
 export interface GoalCheckState {
@@ -168,6 +170,14 @@ export interface Settings {
   backupNudgeDismissedAt: number;
   /** v4 — auto-write workspace JSON to a linked local file (File System Access API) */
   syncFileEnabled: boolean;
+  /** v4.2 — encrypt the sync-file with a passphrase (vault mode) */
+  syncFileEncrypted: boolean;
+  /** v4.2 — auto-consume earned freeze tokens to protect habit streaks */
+  streakFreezes: boolean;
+  /** v4.2 — UI font scale multiplier (0.9 – 1.3), applied to html font-size */
+  fontScale: number;
+  /** v4.2 — epoch ms of the last Data Doctor scan (drives the monthly nudge) */
+  lastDoctorScanAt: number;
 }
 
 /* ---------- persistence envelope ---------- */

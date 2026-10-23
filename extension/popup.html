@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>GoalCheck Quick Add</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <main class="popup" aria-label="GoalCheck Quick Add">
+      <header class="popup__header">
+        <span class="popup__logo" aria-hidden="true"></span>
+        <div class="popup__titles">
+          <h1>GoalCheck</h1>
+          <p>Quick Add</p>
+        </div>
+      </header>
+
+      <label class="popup__label" for="goal-text">New goal</label>
+      <textarea
+        id="goal-text"
+        class="popup__textarea"
+        rows="4"
+        placeholder="e.g. Ship the v2 changelog by Friday"
+        spellcheck="false"
+      ></textarea>
+
+      <button id="add-btn" class="popup__add-btn" type="button" disabled>
+        Add to GoalCheck
+      </button>
+
+      <p id="status" class="popup__status" role="status" aria-live="polite"></p>
+
+      <section class="popup__settings" aria-label="Settings">
+        <div class="popup__settings-row">
+          <label class="popup__label popup__label--settings" for="site-url">Site URL</label>
+          <span id="target-host" class="popup__host" title="Where your goal will open"></span>
+        </div>
+        <input
+          id="site-url"
+          class="popup__input"
+          type="url"
+          spellcheck="false"
+          autocomplete="off"
+          placeholder="https://avithegod2010.github.io/Goalcheck/"
+        />
+      </section>
+
+      <footer class="popup__footer">
+        <span><kbd>Ctrl</kbd>+<kbd>Enter</kbd> to add</span>
+        <span aria-hidden="true">·</span>
+        <span>Or select text on a page → right-click → “Add selection to GoalCheck”</span>
+      </footer>
+    </main>
+
+    <script src="popup.js" defer></script>
+  </body>
+</html>

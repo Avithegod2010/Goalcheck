@@ -1,0 +1,35 @@
+{
+  "manifest_version": 3,
+  "name": "GoalCheck Quick Add",
+  "version": "1.0.0",
+  "description": "Capture goals from any page into GoalCheck — a local-first, no-account goal tracker. No network requests, no tracking.",
+  "permissions": ["contextMenus", "storage"],
+  "action": {
+    "default_title": "GoalCheck Quick Add",
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon-192.png",
+      "32": "icons/icon-192.png",
+      "48": "icons/icon-192.png",
+      "128": "icons/icon-192.png"
+    }
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "icons": {
+    "16": "icons/icon-192.png",
+    "32": "icons/icon-192.png",
+    "48": "icons/icon-192.png",
+    "128": "icons/icon-192.png"
+  },
+  "commands": {
+    "quick-add-open": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+Y",
+        "mac": "Command+Shift+Y"
+      },
+      "description": "Open GoalCheck quick add in a new tab"
+    }
+  }
+}

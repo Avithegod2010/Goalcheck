@@ -1,0 +1,201 @@
+/* GoalCheck Quick Add — popup styles.
+   Brand: dark navy #060913 · indigo accent #6366f1 · white text. */
+
+:root {
+  --bg: #060913;
+  --surface: rgba(255, 255, 255, 0.04);
+  --surface-strong: rgba(255, 255, 255, 0.07);
+  --border: rgba(99, 102, 241, 0.28);
+  --border-soft: rgba(255, 255, 255, 0.08);
+  --accent: #6366f1;
+  --accent-bright: #818cf8;
+  --text: #f3f4f6;
+  --text-muted: #94a3b8;
+  --radius: 12px;
+  --radius-sm: 8px;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  width: 340px;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
+    Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.popup {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+}
+
+/* --- header ------------------------------------------------------------ */
+
+.popup__header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.popup__logo {
+  width: 28px;
+  height: 28px;
+  flex: none;
+  border-radius: 8px;
+  background:
+    radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.35), transparent 45%),
+    linear-gradient(135deg, var(--accent) 0%, #4338ca 100%);
+  box-shadow: 0 0 12px rgba(99, 102, 241, 0.45);
+}
+
+.popup__titles h1 {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  color: var(--text);
+}
+
+.popup__titles p {
+  font-size: 11px;
+  color: var(--accent-bright);
+  font-weight: 600;
+}
+
+/* --- form --------------------------------------------------------------- */
+
+.popup__label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--text-muted);
+}
+
+.popup__textarea,
+.popup__input {
+  width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font: inherit;
+  padding: 9px 10px;
+  resize: vertical;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.popup__textarea::placeholder,
+.popup__input::placeholder {
+  color: rgba(148, 163, 184, 0.65);
+}
+
+.popup__textarea:focus,
+.popup__input:focus {
+  border-color: var(--accent-bright);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25);
+}
+
+.popup__add-btn {
+  width: 100%;
+  padding: 10px 12px;
+  border: none;
+  border-radius: var(--radius);
+  background: linear-gradient(135deg, var(--accent) 0%, #4f46e5 100%);
+  color: #ffffff;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  transition: filter 0.15s ease, transform 0.05s ease, opacity 0.15s ease;
+}
+
+.popup__add-btn:hover:not(:disabled) {
+  filter: brightness(1.15);
+}
+
+.popup__add-btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.popup__add-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.popup__add-btn:focus-visible {
+  outline: 2px solid var(--accent-bright);
+  outline-offset: 2px;
+}
+
+.popup__status {
+  min-height: 16px;
+  font-size: 11px;
+  color: var(--accent-bright);
+}
+
+/* --- settings ------------------------------------------------------------ */
+
+.popup__settings {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px;
+  background: var(--surface-strong);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+}
+
+.popup__settings-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.popup__label--settings {
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.popup__host {
+  font-size: 11px;
+  color: var(--accent-bright);
+  max-width: 55%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* --- footer --------------------------------------------------------------- */
+
+.popup__footer {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10.5px;
+  color: var(--text-muted);
+}
+
+.popup__footer kbd {
+  padding: 1px 4px;
+  border: 1px solid var(--border-soft);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: var(--surface);
+  font: inherit;
+  font-size: 10px;
+}

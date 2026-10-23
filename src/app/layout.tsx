@@ -1,19 +1,15 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+/* v4.2 — self-hosted fonts (geist npm package, OFL). Replaces next/font/google
+   so builds are fully offline/reproducible — a hard requirement for F-Droid
+   (no build-time fetching of Google-hosted resources). Same CSS variables
+   (--font-geist-sans / --font-geist-mono) are emitted, so globals.css is
+   untouched. */
+import { GeistSans } from "geist/font/sans";
+import { GeistMono } from "geist/font/mono";
 import "./globals.css";
 import { Toaster } from "sonner";
 import { APP_NAME, IS_PRO } from "@/lib/goalcheck/editions";
 import { PwaBootstrap } from "@/components/goalcheck/Pwa";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
 
 export const metadata: Metadata = {
   title: IS_PRO
@@ -56,7 +52,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+      <body className={`${GeistSans.variable} ${GeistMono.variable} antialiased`}>
         {children}
         <Toaster position="bottom-right" visibleToasts={3} gap={8} />
         <PwaBootstrap />

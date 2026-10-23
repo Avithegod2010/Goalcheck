@@ -262,6 +262,28 @@ html[data-gc-theme="sakura"] {
   --gc-shadow: 0 10px 28px -6px rgba(236,114,153,0.14), 0 0 0 1px var(--gc-border);
   --gc-light: 1;
 }
+/* v4.2 — High Contrast (a11y, both editions): guaranteed AA+/AAA text on near-black */
+html[data-gc-theme="contrast"] {
+  --gc-bg: #000008;
+  --gc-surface: rgba(6, 8, 16, 0.97);
+  --gc-surface-2: rgba(15, 18, 30, 0.98);
+  --gc-surface-hover: rgba(30, 34, 52, 1);
+  --gc-input: #050710;
+  --gc-text: #ffffff;
+  --gc-text2: #e6eaf2;
+  --gc-muted: #c4ccd9;
+  --gc-border: rgba(255, 255, 255, 0.38);
+  --gc-border-strong: rgba(255, 255, 255, 0.62);
+  --gc-accent: #a5b4fc;
+  --gc-glow: rgba(165, 180, 252, 0.55);
+  --gc-soft: rgba(165, 180, 252, 0.22);
+  --gc-grad: linear-gradient(135deg, #a5b4fc 0%, #67e8f9 100%);
+  --gc-danger: #fca5a5; --gc-danger-soft: rgba(252, 165, 165, 0.2);
+  --gc-success: #86efac; --gc-success-soft: rgba(134, 239, 172, 0.18);
+  --gc-warning: #fde68a; --gc-warning-soft: rgba(253, 230, 138, 0.2);
+  --gc-shadow: 0 12px 35px -8px rgba(165, 180, 252, 0.35), 0 0 0 1px var(--gc-border);
+  --gc-light: 0;
+}
 html[data-gc-theme="zen"] {
   --gc-bg: #f7f9f2; --gc-surface: rgba(255,255,255,0.9); --gc-surface-2: rgba(240,246,232,0.95);
   --gc-surface-hover: rgba(226,240,214,0.98); --gc-input: #ffffff;

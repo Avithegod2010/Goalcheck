@@ -6,12 +6,14 @@
    sliding pills on tabs, mono animated icons everywhere.
    ========================================================= */
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useStore, useActiveGoal, useUi } from "@/lib/goalcheck/goalcheck-exports";
 import { MediaBadge, AnimatedNumber } from "./atoms";
 import { GcIcon } from "@/lib/goalcheck/icons";
-import { calculateStats } from "@/lib/goalcheck/logic";
+import { calculateStats, looksLikeQuickPaste } from "@/lib/goalcheck/logic";
+import { runCommand } from "@/components/goalcheck/Overlays";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -169,6 +171,45 @@ export function QuickAddBar() {
   const openMediaModal = useUi((s) => s.openMediaModal);
   const [title, setTitle] = useState("");
   const [recurrence, setRecurrence] = useState("none");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  /* v4.2 — external intake: extension handoff / share-sheet prefill+focus */
+  useEffect(() => {
+    const onPrefill = (e: Event) => {
+      const text = (e as CustomEvent<string>).detail ?? "";
+      if (!text) return;
+      setTitle(text);
+      requestAnimationFrame(() => inputRef.current?.focus());
+    };
+    const onFocus = () => requestAnimationFrame(() => inputRef.current?.focus());
+    window.addEventListener("gc-quick-add", onPrefill);
+    window.addEventListener("gc-quick-add-focus", onFocus);
+    return () => {
+      window.removeEventListener("gc-quick-add", onPrefill);
+      window.removeEventListener("gc-quick-add-focus", onFocus);
+    };
+  }, []);
+
+  /* v4.2 — natural-language routing: /commands run inline; multi-task
+     snippets open the Quick Paste preview; plain text stays a category. */
+  const submitQuickAdd = () => {
+    const raw = title.trim();
+    if (!raw) return;
+    if (raw.startsWith("/")) {
+      const msg = runCommand(raw);
+      if (msg) toast(msg);
+      else toast("Unknown command — try /help");
+      setTitle("");
+      return;
+    }
+    if (looksLikeQuickPaste(raw)) {
+      useUi.setState({ pasteText: raw, pasteModal: true });
+      setTitle("");
+      return;
+    }
+    addCategory(raw, quickCatMedia, recurrence);
+    setTitle("");
+  };
 
   return (
     <motion.section
@@ -183,7 +224,7 @@ export function QuickAddBar() {
       <span className="flex items-center gap-2 text-sm font-bold"><GcIcon name="plus-round" size={17} /> Add Category Section</span>
       <form
         className="flex min-w-[260px] flex-1 items-center gap-2"
-        onSubmit={(e) => { e.preventDefault(); addCategory(title, quickCatMedia, recurrence); setTitle(""); }}
+        onSubmit={(e) => { e.preventDefault(); submitQuickAdd(); }}
       >
         <motion.button
           type="button"
@@ -199,11 +240,12 @@ export function QuickAddBar() {
           <MediaBadge value={quickCatMedia} fallback="mono:laptop-code" iconSize={22} />
         </motion.button>
         <Input
+          ref={inputRef}
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           className="gc-input flex-1"
-          placeholder="e.g. To do in laptop, Weekend study…"
-          aria-label="New category name"
+          placeholder="e.g. To do in laptop • errands; milk; gym • /pomo 25"
+          aria-label="New category name, quick-paste snippet, or /command"
           required
         />
         <div className="w-[10.5rem] shrink-0">
@@ -228,15 +270,19 @@ export function QuickAddBar() {
 
 const VIEWS: [WorkspaceView, string, string][] = [
   ["checklist", "Checklist", "clipboard-check"],
+  ["week", "Week", "calendar-tick"],
   ["kanban", "Kanban", "kanban-cols"],
   ["matrix", "Matrix", "compass-needle"],
   ["graph", "Mind Map", "network-nodes"],
   ["analytics", "Analytics", "chart-bars"],
 ];
 
-/* edition-aware view list (base edition = checklist only) */
+/* edition-aware view list (base = checklist; week rides the due-dates
+   feature; the other Advance views ride views.advanced) */
 const VIEWS_AVAILABLE: [WorkspaceView, string, string][] = VIEWS.filter(
-  ([id]) => id === "checklist" || hasFeature("views.advanced")
+  ([id]) =>
+    id === "checklist" ||
+    (id === "week" ? hasFeature("due-dates") : hasFeature("views.advanced"))
 );
 
 const FILTERS: [FilterId, string][] = [

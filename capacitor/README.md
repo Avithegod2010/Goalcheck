@@ -12,6 +12,10 @@ phone home" is enforced by the OS, not a policy page.
   `@capacitor/local-notifications` — a local device API, no Play Services.
   It is already wired in `capacitor.config.ts`
   (`plugins.LocalNotifications.smallIcon: "ic_launcher"`, `iconColor: "#a855f7"`).
+- Native glue features — **home-screen widget**, **"Quick add" quick-settings
+  tile** and **share-into-app intake** — live in a local Capacitor plugin named
+  `GoalCheckNative` (see "Native glue" below). All three are permission-free
+  and contribute zero network surface.
 - `server.androidScheme: "https"` is set explicitly so the WebView origin is
   `https://localhost` and **localStorage persists** across app restarts.
 - `android.allowMixedContent: false` — no cleartext content, ever.
@@ -95,11 +99,82 @@ and regenerates `android/` for the requested edition, then re-applies:
 
 1. the **zero-INTERNET manifest patch** (`scripts/sync-capacitor.mjs` holds
    the canonical comment — keep future native tweaks in that script so they
-   survive regeneration), and
-2. icon/splash generation from `capacitor/assets/` (edition-independent).
+   survive regeneration),
+2. the **native glue re-injection** (`scripts/native-glue.mjs` — see below),
+   and
+3. icon/splash generation from `capacitor/assets/` (edition-independent).
 
 `cap sync` alone never touches `AndroidManifest.xml`, so the patch also
 survives plain syncs of the same edition.
+
+## Native glue — home-screen widget, quick-settings tile, share-to-app
+
+Three native Android features are wired through a **local Capacitor plugin
+named `GoalCheckNative`**. Because `cap add android` wipes every custom native
+file on each edition switch, all of it is (re-)injected by
+**`scripts/native-glue.mjs`** on every `sync-capacitor` run (and after every
+regeneration). The module parses `applicationId` from `android/app/build.gradle`
+and templates the Java/Kotlin package to match, so the same injection works for
+both editions.
+
+Injected native pieces (all under the app package):
+
+| Piece | Kind | What it does |
+|---|---|---|
+| `GoalCheckNativePlugin.kt` | Capacitor plugin | JS ⇄ native bridge (methods + events below); persists widget/tile state in SharedPreferences `gc_widget` |
+| `GoalCheckWidgetProvider.kt` | `AppWidgetProvider` | Home-screen widget rendering `res/layout/widget_goalcheck.xml` (dark rounded card, bold title, subtitle, progress bar) from those prefs |
+| `GoalCheckTileService.kt` | `TileService` | "Quick add" QS tile: `onStartListening` mirrors stored state; tap flips it and launches the app with extra `gc_tile=quickadd` |
+| `MainActivity.java` patch | idempotent | `registerPlugin(GoalCheckNativePlugin.class)` in `onCreate` + `onNewIntent → GoalCheckNativePlugin.emitIntent(...)` |
+| `AndroidManifest.xml` patch | idempotent | `<receiver>` (APPWIDGET_UPDATE/ENABLED/DISABLED + `@xml/goalcheck_widget_info`), `<service>` (`BIND_QUICK_SETTINGS_TILE`, `QS_TILE` intent-filter, `@mipmap/ic_launcher`), and an `ACTION_SEND text/plain` intent-filter merged into the MAIN activity |
+
+Resources injected alongside: `res/layout/widget_goalcheck.xml`,
+`res/xml/goalcheck_widget_info.xml` (minWidth 180dp, resizeMode horizontal,
+`updatePeriodMillis` 0 — push-only updates) and `res/drawable/widget_bg.xml`
+(rounded 16dp `#060913` card background).
+
+The glue also patches the Gradle build idempotently (marked `GC-NATIVE-GLUE`):
+`org.jetbrains.kotlin:kotlin-gradle-plugin` classpath in `android/build.gradle`
+and the `org.jetbrains.kotlin.android` plugin + `jvmTarget 21` in
+`app/build.gradle` — the Capacitor template app module is Java-only, so the
+Kotlin sources need this wiring to compile.
+
+### JS contract (what the web layer codes against)
+
+```js
+// methods (plugin name: "GoalCheckNative")
+GoalCheckNative.updateWidget({ title: string, subtitle: string,
+                               progress: number /* 0-100, clamped */,
+                               running: boolean });   // push widget + persist
+GoalCheckNative.setTileActive({ active: boolean });   // store QS tile state
+GoalCheckNative.getPendingShare();                    // → { text: string | null }
+
+// listener events
+GoalCheckNative.addListener("shareText", ({ text }) => {}); // ACTION_SEND text/plain received
+GoalCheckNative.addListener("quickAdd", () => {});          // QS tile tapped
+```
+
+Notes:
+
+- `updateWidget` updates **all placed widget instances** via `AppWidgetManager`
+  (RemoteViews are rebuilt by `GoalCheckWidgetProvider.buildRemoteViews`).
+- `running: true` renders the widget's progress bar indeterminate (pomodoro in
+  flight); `progress` is clamped to 0–100 natively.
+- `shareText` is only delivered while a web listener exists; anything received
+  earlier (app cold-started by a share) stays retrievable via
+  `getPendingShare()` — call it once after startup.
+- The manifest additions add **no permissions**: `BIND_QUICK_SETTINGS_TILE` is
+  a permission the *system* holds to bind the tile service, not one the app
+  requests. The zero-INTERNET guarantee is untouched (and `native-glue.mjs`
+  re-asserts it after patching).
+
+### Status — honesty box
+
+The glue has been **applied to the committed `android/` tree and verified
+idempotent** (re-runs are byte-identical) and the injected XML is checked
+well-formed — but it has **not yet been compiled locally** (no Android SDK in
+this environment). The first `android/v*` tag build in GitHub Actions is the
+compile gate; expect any Kotlin/AGP fix-ups to land in `native-glue.mjs` so
+they survive regeneration.
 
 ## Zero-INTERNET guarantee — verify after every dependency change
 

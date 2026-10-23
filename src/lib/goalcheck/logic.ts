@@ -130,6 +130,20 @@ export function calculateStats(goal: GoalBoard | null | undefined): GoalStats {
 
 export interface ParsedCats { title: string; media: string; items: Task[]; }
 
+/**
+ * v4.2 — heuristic: does this snippet deserve the Quick Paste preview?
+ * Multi-line lists, semicolon runs, list bullets/numbering or inline
+ * priority tokens (!urgent/!high) all do; a plain phrase does not.
+ */
+export function looksLikeQuickPaste(text: string): boolean {
+  const t = (text || "").trim();
+  if (!t) return false;
+  if (/\n/.test(t)) return true;
+  if (/;/.test(t)) return true;
+  if (/^\s*(\d+[.)]|[-*•]|\[\s?[xX]?\s?\])\s+/m.test(t)) return true;
+  return /![a-z]+/i.test(t);
+}
+
 export function parseQuickPaste(text: string): ParsedCats[] {
   const lines = (text || "").split(/\r?\n/);
   const result: ParsedCats[] = [];
@@ -280,7 +294,7 @@ export function hourLabel(h: number): string {
    ========================================================= */
 
 /** offset a Date by n days (local-safe) */
-function shiftDays(d: Date, n: number): Date {
+export function shiftDays(d: Date, n: number): Date {
   const c = new Date(d);
   c.setDate(c.getDate() + n);
   return c;
@@ -317,6 +331,42 @@ export function habitPeriodKey(cadence: HabitCadence, now: Date = new Date()): s
 }
 
 /** Consecutive daily (or weekly) streak ending at the current (or last) period. */
+/**
+ * v4.2 — streak freezes: same walk-back as habitStreak, but up to `freezes`
+ * missed periods are bridged (consuming a token each) instead of breaking
+ * the streak. Pure — tests and UI can compare both variants.
+ */
+export function habitStreakWithFreezes(
+  marks: Record<string, boolean>,
+  cadence: HabitCadence,
+  freezes: number,
+  now: Date = new Date(),
+): number {
+  let tokens = Math.max(0, Math.min(2, freezes));
+  const step = cadence === "daily"
+    ? (d: Date) => shiftDays(d, -1)
+    : (d: Date) => shiftDays(d, -7);
+  const keyOf = cadence === "daily" ? localDateKey : isoWeekKey;
+
+  let cursor = new Date(now);
+  if (!marks[keyOf(cursor)]) {
+    // current period unmarked: a freeze can keep the streak alive
+    if (tokens > 0) tokens -= 1;
+    else cursor = step(cursor);
+    if (!marks[keyOf(cursor)]) return 0;
+  }
+  let streak = 0;
+  while (marks[keyOf(cursor)]) {
+    streak += 1;
+    cursor = step(cursor);
+    if (!marks[keyOf(cursor)] && tokens > 0) {
+      tokens -= 1;
+      cursor = step(cursor); // bridge one missed period per token
+    }
+  }
+  return streak;
+}
+
 export function habitStreak(marks: Record<string, boolean>, cadence: HabitCadence, now: Date = new Date()): number {
   let streak = 0;
   if (cadence === "daily") {

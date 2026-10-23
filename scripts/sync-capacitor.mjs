@@ -19,16 +19,20 @@
  *   4. If the native android/ project was scaffolded for a DIFFERENT edition
  *      (appId is baked into build.gradle / MainActivity package / strings.xml
  *      by `cap add`), regenerates it for the requested edition — including
- *      the zero-INTERNET manifest patch and icon/splash generation.
+ *      the zero-INTERNET manifest patch, the native glue re-injection
+ *      (widget/tile/share, via scripts/native-glue.mjs) and icon/splash
+ *      generation.
  *   5. Runs `cap sync android` (copies www → android assets, updates plugins).
  *   6. Re-applies the ZERO-INTERNET manifest patch (idempotent) and hard-fails
- *      if any INTERNET uses-permission survives.
+ *      if any INTERNET uses-permission survives, then re-injects the native
+ *      glue (idempotent — custom Kotlin/XML sources are wiped by any regen).
  */
 
 import { existsSync, mkdirSync, readFileSync, rmSync, cpSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { execSync } from "node:child_process";
+import { applyNativeGlue } from "./native-glue.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const CAP = join(ROOT, "capacitor");
@@ -197,6 +201,13 @@ if (baked !== edition) {
 
   // `cap add` restores the template manifest with INTERNET — patch before icons.
   applyZeroInternetPatch();
+
+  // `cap add` also wiped every custom native file — re-inject the widget /
+  // tile / share glue (Kotlin sources, res XMLs, manifest + gradle patches).
+  // Idempotent; parses applicationId so it bakes the right package per edition.
+  log("glue", "re-injecting native glue (widget/tile/share) after regen");
+  applyNativeGlue(ANDROID);
+
   patchAndroidGitignore();
 
   // Regenerate edition-independent icons/splash from capacitor/assets/.
@@ -216,16 +227,21 @@ log("sync", "cap sync android");
 run("bunx cap sync android", { env: { GC_EDITION: ed.gcEdition } });
 
 // 6. Always re-verify the zero-internet guarantee (idempotent patch) and
-//    keep the template .gitignore from excluding cap-sync output.
+//    keep the template .gitignore from excluding cap-sync output. Then make
+//    sure the native glue is present (no-op when already injected).
 log("manifest", "applying zero-internet patch");
 applyZeroInternetPatch();
 patchAndroidGitignore();
+
+log("glue", "native glue applied (widget/tile/share)");
+applyNativeGlue(ANDROID);
 
 console.log(`
 ✓ sync-capacitor done:
   - capacitor/www/                 ← out/ (${edition})
   - android appId                  ← ${ed.appId} ("${ed.appName}")
   - android assets/public          ← synced via cap sync
+  - native glue (widget/tile/share) ← re-injected via scripts/native-glue.mjs
   - INTERNET permission            ← absent (zero-internet guarantee)
 Next: cd capacitor/android && ./gradlew assembleDebug
 `);

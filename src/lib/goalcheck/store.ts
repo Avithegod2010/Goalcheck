@@ -160,6 +160,7 @@ function defaultState(): GoalCheckState {
       colorMode: "manual", cursorPhysics: "orbit", simSpeed: 1, simDensity: 70, audioGain: 1.5, audioStream: "lofi",
       chimePack: "glass", chimeVolume: 0.8,
       onboardingDone: false, lastBackupAt: 0, backupNudgeDismissedAt: 0, syncFileEnabled: false,
+      syncFileEncrypted: false, streakFreezes: true, fontScale: 1, lastDoctorScanAt: 0,
     },
     brandMedia: "mono:rocket-launch",
     habits: [],
@@ -257,6 +258,10 @@ function migrateLegacyV1(p: Record<string, unknown>): GoalCheckState {
       lastBackupAt: typeof legacySettings?.lastBackupAt === "number" ? legacySettings.lastBackupAt : 0,
       backupNudgeDismissedAt: typeof legacySettings?.backupNudgeDismissedAt === "number" ? legacySettings.backupNudgeDismissedAt : 0,
       syncFileEnabled: legacySettings?.syncFileEnabled === true,
+      syncFileEncrypted: p.syncFileEncrypted === true,
+      streakFreezes: p.streakFreezes !== false,
+      fontScale: typeof p.fontScale === "number" && p.fontScale >= 0.8 && p.fontScale <= 1.5 ? p.fontScale : 1,
+      lastDoctorScanAt: typeof p.lastDoctorScanAt === "number" ? p.lastDoctorScanAt : 0,
     },
     brandMedia: (p.brandMedia as string) || d.brandMedia,
     habits: (Array.isArray(p.habits) ? p.habits : []).map((raw): Habit => {
@@ -267,6 +272,7 @@ function migrateLegacyV1(p: Record<string, unknown>): GoalCheckState {
         cadence: h.cadence === "weekly" ? "weekly" : "daily",
         marks: (h.marks && typeof h.marks === "object" ? h.marks : {}) as Record<string, boolean>,
         createdAt: h.createdAt || Date.now(),
+        freezes: typeof h.freezes === "number" && h.freezes >= 0 ? Math.min(h.freezes, 2) : 0,
       };
     }),
     achievements: (p.achievements && typeof p.achievements === "object" ? p.achievements : {}) as Record<string, number>,
@@ -295,6 +301,11 @@ interface Store extends GoalCheckState, Transient {
   setParticles: (p: ParticleEngineId) => void;
   setPhysics: (p: CursorPhysics) => void;
   setSim: (patch: { simSpeed?: number; simDensity?: number }) => void;
+  /* v4.2 — font scale / streak freezes / vault sync / doctor */
+  setFontScale: (v: number) => void;
+  setStreakFreezes: (on: boolean) => void;
+  setSyncFileEncrypted: (on: boolean) => void;
+  touchDoctorScan: () => void;
 
   /* navigation */
   setView: (v: WorkspaceView) => void;
@@ -413,6 +424,10 @@ export const useStore = create<Store>()(
       setParticles: (p) => set({ particles: IS_PRO ? p : "off" }),
       setPhysics: (p) => set((s) => ({ settings: { ...s.settings, cursorPhysics: p } })),
       setSim: (patch) => set((s) => ({ settings: { ...s.settings, ...patch } })),
+      setFontScale: (v) => set((s) => ({ settings: { ...s.settings, fontScale: Math.min(1.3, Math.max(0.9, v)) } })),
+      setStreakFreezes: (on) => set((s) => ({ settings: { ...s.settings, streakFreezes: on } })),
+      setSyncFileEncrypted: (on) => set((s) => ({ settings: { ...s.settings, syncFileEncrypted: on } })),
+      touchDoctorScan: () => set((s) => ({ settings: { ...s.settings, lastDoctorScanAt: Date.now() } })),
 
       /* ---------- navigation ---------- */
       setView: (v) => set({ view: IS_PRO || v === "checklist" ? v : "checklist" }),
@@ -904,7 +919,7 @@ export const useStore = create<Store>()(
       addHabit: (title, cadence) => {
         const t = title.trim();
         if (!t) return;
-        const habit: Habit = { id: makeId("habit"), title: t, cadence, marks: {}, createdAt: Date.now() };
+        const habit: Habit = { id: makeId("habit"), title: t, cadence, marks: {}, freezes: 0, createdAt: Date.now() };
         set((s) => ({ habits: [...s.habits, habit] }));
         notify(`Habit added: ${t}`, "repeat-cycle");
         get().evaluateAndUnlockAchievements();
@@ -928,6 +943,16 @@ export const useStore = create<Store>()(
         if (hb?.marks[key]) {
           const streak = habitStreak(hb.marks, hb.cadence);
           if (streak >= 3) notify(`${streak}-period streak on "${hb.title}"!`, "flame-ember");
+          /* v4.2 — streak freezes: earn a token every 7 marked periods (hold max 2) */
+          if (get().settings.streakFreezes && streak > 0 && streak % 7 === 0) {
+            set((s2) => ({
+              habits: s2.habits.map((h2) =>
+                h2.id === id && h2.freezes < 2 ? { ...h2, freezes: h2.freezes + 1 } : h2,
+              ),
+            }));
+            const fresh = get().habits.find((h) => h.id === id);
+            if (fresh && fresh.freezes > (hb.freezes ?? 0)) notify("Freeze token earned (streak protection)!", "snow-crystal");
+          }
           get().evaluateAndUnlockAchievements();
         }
       },
