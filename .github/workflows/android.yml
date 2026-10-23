@@ -118,7 +118,10 @@ jobs:
             cp capacitor/android/app/build/outputs/bundle/release/app-release.aab \
                GoalCheck${{ matrix.label }}-v${VERSION}.aab
           fi
-          ls -la GoalCheck*.apk GoalCheck*.aab 2>/dev/null
+          # `ls` exits 2 when a glob matches nothing (release artifacts only
+          # exist when signing secrets are configured) — list each set safely.
+          ls -la GoalCheck*.apk 2>/dev/null || true
+          ls -la GoalCheck*.aab 2>/dev/null || true
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
