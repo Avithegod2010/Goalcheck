@@ -44,7 +44,10 @@ test("creates a board, adds a task and completes it", async ({ page }) => {
   const addBox = page.getByRole("textbox", { name: /Add task/ }).first();
   await addBox.fill("Ship the v4.2 release");
   await page.getByRole("button", { name: "Add task" }).first().click();
-  const task = page.getByRole("button", { name: /Ship the v4\.2 release/ });
+  /* v4.3: the row also carries "Track time …" and "Deep focus on: …" buttons whose
+     accessible names CONTAIN the task text — anchor on the toggle's "N. <text>"
+     name so the locator stays strict-mode unique. */
+  const task = page.getByRole("button", { name: /^\d+\.\s*Ship the v4\.2 release/ });
   await expect(task).toBeVisible();
 
   /* the task-name button is the completion toggle (aria-pressed reflects it) */
