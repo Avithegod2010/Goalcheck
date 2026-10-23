@@ -13,6 +13,7 @@ import { motion } from "framer-motion";
 import { useStore, useUi } from "@/lib/goalcheck/goalcheck-exports";
 import { localDateKey, shiftDays } from "@/lib/goalcheck/logic";
 import { GcIcon } from "@/lib/goalcheck/icons";
+import { useT } from "@/lib/goalcheck/i18n";
 
 const DAY_MS = 86_400_000;
 const WEEKS = 8;
@@ -47,6 +48,7 @@ export function TimelineView() {
   const setActiveGoal = useStore((s) => s.setActiveGoal);
   const toggleTask = useStore((s) => s.toggleTask);
   const openTaskEdit = useUi((s) => s.openTaskEditModal);
+  const t = useT();
 
   const weekStart = useMemo(() => startOfWeek(new Date()), []);
   const weekKeys = useMemo(
@@ -84,7 +86,7 @@ export function TimelineView() {
     });
   }, [goals, weekKeys]);
 
-  const beyondCount = lanes.reduce((n, l) => n + l.tasks.filter((t) => t.week === WEEKS).length, 0);
+  const beyondCount = lanes.reduce((n, l) => n + l.tasks.filter((task) => task.week === WEEKS).length, 0);
 
   return (
     <motion.section
@@ -92,14 +94,14 @@ export function TimelineView() {
       initial={{ opacity: 0, y: 14 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
-      aria-label="Roadmap timeline"
+      aria-label={t("timeline.title")}
     >
       <header className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <p className="flex items-center gap-2 text-sm font-extrabold tracking-wide">
-          <GcIcon name="network-nodes" size={16} /> ROADMAP — NEXT {WEEKS} WEEKS
+          <GcIcon name="network-nodes" size={16} /> {t("timeline.heading", { count: WEEKS })}
         </p>
         <p className="text-[0.68rem]" style={{ color: "var(--gc-muted)" }}>
-          Due-date roadmap across all boards · click a card to complete it
+          {t("timeline.sub")}
         </p>
       </header>
 
@@ -113,13 +115,13 @@ export function TimelineView() {
               return (
                 <div key={k} className="flex-1 border-l pl-1 text-[0.6rem] font-extrabold uppercase tracking-wide"
                   style={{ borderColor: "var(--gc-border)", color: isCurrent ? "var(--gc-accent)" : "var(--gc-muted)" }}>
-                  W{i + 1} · {d.toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                  {t("timeline.weekLabel", { index: i + 1, date: d.toLocaleDateString(undefined, { month: "short", day: "numeric" }) })}
                 </div>
               );
             })}
             {beyondCount > 0 && (
               <div className="border-l pl-1 text-[0.6rem] font-extrabold uppercase tracking-wide" style={{ borderColor: "var(--gc-border)", color: "var(--gc-muted)" }}>
-                Later
+                {t("timeline.later")}
               </div>
             )}
           </div>
@@ -131,7 +133,7 @@ export function TimelineView() {
                 onClick={() => setActiveGoal(g.id)}
                 className="mb-1 flex items-center gap-1.5 text-left text-xs font-extrabold hover:underline"
                 style={{ color: g.id === activeGoalId ? "var(--gc-accent)" : "var(--gc-text2)" }}
-                title={`Open board: ${g.title}`}
+                title={t("timeline.openBoard", { name: g.title })}
               >
                 <GcIcon name="folder-open" size={12} /> {g.title}
               </button>
@@ -143,7 +145,7 @@ export function TimelineView() {
                   if (pct < 0 || pct > 100) return null;
                   return (
                     <div aria-hidden="true" className="absolute bottom-0 top-0 w-px" style={{ left: `calc(9.5rem + (100% - 9.5rem) * ${pct / 100})`, background: "var(--gc-danger)", opacity: 0.55 }}>
-                      <span className="absolute -top-0.5 left-1 text-[0.52rem] font-black uppercase" style={{ color: "var(--gc-danger)" }}>today</span>
+                      <span className="absolute -top-0.5 left-1 text-[0.52rem] font-black uppercase" style={{ color: "var(--gc-danger)" }}>{t("timeline.today")}</span>
                     </div>
                   );
                 })()}
@@ -152,27 +154,29 @@ export function TimelineView() {
                     <div key={k} className="flex-1 border-l" style={{ borderColor: "var(--gc-border)", minHeight: 34 }} aria-hidden="true" />
                   ))}
                   {beyondCount > 0 && <div className="w-20 border-l" style={{ borderColor: "var(--gc-border)" }} aria-hidden="true" />}
-                  {tasks.map((t) => {
-                    const left = t.week <= 0 ? 0 : (t.week / (WEEKS + (beyondCount > 0 ? 1.4 : 0))) * 100;
-                    const overdue = t.week === -1;
+                  {tasks.map((task) => {
+                    const left = task.week <= 0 ? 0 : (task.week / (WEEKS + (beyondCount > 0 ? 1.4 : 0))) * 100;
+                    const overdue = task.week === -1;
                     return (
-                      <div key={t.id} className="group absolute top-1 z-10 max-w-[46%]" style={{ left: `calc(9.5rem + (100% - 9.5rem) * ${Math.min(96, Math.max(0, overdue ? 0 : left))} / 100)`, transform: "translateX(2px)" }}>
+                      <div key={task.id} className="group absolute top-1 z-10 max-w-[46%]" style={{ left: `calc(9.5rem + (100% - 9.5rem) * ${Math.min(96, Math.max(0, overdue ? 0 : left))} / 100)`, transform: "translateX(2px)" }}>
                         <button
                           type="button"
-                          onClick={() => toggleTask(t.catId, t.id)}
-                          className={`flex max-w-full items-center gap-1 truncate rounded-md px-1.5 py-0.5 text-left text-[0.6rem] font-bold hover:brightness-110 ${t.completed ? "line-through opacity-45" : ""}`}
-                          style={{ background: PRI_BG[t.priority] ?? PRI_BG.normal, color: "var(--gc-text)" }}
-                          title={`${t.text} · due ${t.dueDate}${t.prereqText ? ` · after: ${t.prereqText}` : ""}`}
+                          onClick={() => toggleTask(task.catId, task.id)}
+                          className={`flex max-w-full items-center gap-1 truncate rounded-md px-1.5 py-0.5 text-left text-[0.6rem] font-bold hover:brightness-110 ${task.completed ? "line-through opacity-45" : ""}`}
+                          style={{ background: PRI_BG[task.priority] ?? PRI_BG.normal, color: "var(--gc-text)" }}
+                          title={task.prereqText
+                            ? t("timeline.dueTitlePrereq", { name: task.text, date: task.dueDate, prereq: task.prereqText })
+                            : t("timeline.dueTitle", { name: task.text, date: task.dueDate })}
                         >
                           {overdue && <GcIcon name="flame-ember" size={9} />}
-                          {t.dependsOn && !overdue && <GcIcon name="link-combo" size={9} />}
-                          <span className="truncate">{t.text}</span>
+                          {task.dependsOn && !overdue && <GcIcon name="link-combo" size={9} />}
+                          <span className="truncate">{task.text}</span>
                         </button>
                         <button
                           type="button"
-                          aria-label={`Edit ${t.text}`}
+                          aria-label={t("week.editTask", { name: task.text })}
                           className="ml-1 opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100"
-                          onClick={() => openTaskEdit({ catId: t.catId, taskId: t.id })}
+                          onClick={() => openTaskEdit({ catId: task.catId, taskId: task.id })}
                         >
                           <GcIcon name="pencil-line" size={9} />
                         </button>
@@ -187,7 +191,7 @@ export function TimelineView() {
       </div>
 
       <p className="mt-2 text-[0.68rem]" style={{ color: "var(--gc-muted)" }}>
-        <GcIcon name="flame-ember" size={10} /> overdue · <GcIcon name="link-combo" size={10} /> has a dependency · board name opens the lane&apos;s workspace
+        <GcIcon name="flame-ember" size={10} /> {t("timeline.legendOverdue")} · <GcIcon name="link-combo" size={10} /> {t("timeline.legendDependency")} · {t("timeline.legendBoard")}
       </p>
     </motion.section>
   );

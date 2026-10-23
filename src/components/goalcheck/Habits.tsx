@@ -40,16 +40,16 @@ export function HabitsWidget() {
 
   return (
     <Panel className="flex flex-col gap-3">
-      <PanelTitle icon={<GcIcon name="repeat-cycle" size={15} />}>Habits & Streaks</PanelTitle>
+      <PanelTitle icon={<GcIcon name="repeat-cycle" size={15} />}>{t("side.habits")}</PanelTitle>
 
       {habits.length === 0 && (
         <p className="flex items-center gap-1.5 rounded-xl p-2.5 text-xs" style={{ background: "var(--gc-surface-2)", color: "var(--gc-text2)" }}>
           <GcIcon name="bulb-glow" size={13} />
-          No habits yet. Add one — checking it daily builds streak flames.
+          {t("habits.empty")}
         </p>
       )}
 
-      <ul className="flex flex-col gap-2" aria-label="Habit list">
+      <ul className="flex flex-col gap-2" aria-label={t("habits.listLabel")}>
         <AnimatePresence initial={false}>
           {habits.map((h, i) => {
             const key = habitPeriodKey(h.cadence, now);
@@ -78,7 +78,11 @@ export function HabitsWidget() {
                     whileTap={{ scale: 0.82 }}
                     whileHover={{ scale: 1.08 }}
                     aria-pressed={doneNow}
-                    aria-label={`${doneNow ? "Unmark" : "Mark"} "${h.title}" for this ${h.cadence === "daily" ? "day" : "week"}`}
+                    aria-label={t("habits.markAria", {
+                      action: doneNow ? t("habits.unmark") : t("habits.mark"),
+                      name: h.title,
+                      period: h.cadence === "daily" ? t("habits.day") : t("habits.week"),
+                    })}
                     className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 transition-colors"
                     style={{
                       borderColor: doneNow ? "var(--gc-accent)" : "var(--gc-border-strong)",
@@ -98,7 +102,7 @@ export function HabitsWidget() {
                       animate={{ scale: 1 }}
                       className="flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[0.6rem] font-extrabold"
                       style={{ background: "var(--gc-soft)", color: "var(--gc-accent)" }}
-                      title={`${streak}-period streak`}
+                      title={t("habits.streak", { count: streak })}
                     >
                       <GcIcon name="flame-ember" size={11} /> {streak}
                     </motion.span>
@@ -107,7 +111,9 @@ export function HabitsWidget() {
                     <span
                       className="flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[0.6rem] font-extrabold"
                       style={{ background: "var(--gc-surface)", color: "color-mix(in srgb, var(--gc-accent) 55%, var(--gc-text))", border: "1px solid var(--gc-border)" }}
-                      title={`${h.freezes} freeze token${h.freezes > 1 ? "s" : ""} held — protects the streak from missed ${h.cadence === "daily" ? "days" : "weeks"}`}
+                      title={h.freezes > 1
+                        ? t("habits.freezeTokensMany", { count: h.freezes, period: h.cadence === "daily" ? t("habits.days") : t("habits.weeks") })
+                        : t("habits.freezeTokensOne", { count: h.freezes, period: h.cadence === "daily" ? t("habits.days") : t("habits.weeks") })}
                     >
                       <GcIcon name="lock-shield" size={11} /> {h.freezes}
                     </span>
@@ -117,13 +123,13 @@ export function HabitsWidget() {
                     onClick={() => removeHabit(h.id)}
                     className="rounded-md p-1 transition-colors hover:text-[var(--gc-danger)] focus-visible:outline-2"
                     style={{ color: "var(--gc-muted)", outlineColor: "var(--gc-danger)" }}
-                    aria-label={`Delete habit ${h.title}`}
+                    aria-label={t("habits.deleteAria", { name: h.title })}
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
                 </div>
                 <div className="flex items-center justify-between pl-9">
-                  <div className="flex items-center gap-1" aria-label="Last 7 periods">
+                  <div className="flex items-center gap-1" aria-label={t("habits.recentLabel")}>
                     {keys.map((k) => (
                       <span
                         key={k}
@@ -150,17 +156,17 @@ export function HabitsWidget() {
           onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
           placeholder={t("side.newHabitPlaceholder")}
           className="gc-input h-8 text-xs"
-          aria-label="New habit name"
+          aria-label={t("habits.nameAria")}
           maxLength={60}
         />
         <Select value={cadence} onValueChange={(v) => setCadence(v as HabitCadence)}>
-          <SelectTrigger className="gc-input h-8 w-[92px] shrink-0 text-xs" aria-label="Habit cadence"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="gc-input h-8 w-[92px] shrink-0 text-xs" aria-label={t("habits.cadenceAria")}><SelectValue /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="daily">Daily</SelectItem>
-            <SelectItem value="weekly">Weekly</SelectItem>
+            <SelectItem value="daily">{t("side.daily")}</SelectItem>
+            <SelectItem value="weekly">{t("side.weekly")}</SelectItem>
           </SelectContent>
         </Select>
-        <Button type="button" size="icon" className="size-8 shrink-0 gc-btn-primary" onClick={submit} aria-label="Add habit">
+        <Button type="button" size="icon" className="size-8 shrink-0 gc-btn-primary" onClick={submit} aria-label={t("side.addHabit")}>
           <Plus className="h-4 w-4" />
         </Button>
       </div>

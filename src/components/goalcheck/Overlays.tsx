@@ -13,6 +13,7 @@ import { usePomoRemaining, formatMs } from "./atoms";
 import { GcIcon } from "@/lib/goalcheck/icons";
 import { isLightTheme, THEMES, ENGINES } from "@/lib/goalcheck/themes";
 import { makeTask, fuzzyScore } from "@/lib/goalcheck/logic";
+import { t, useT } from "@/lib/goalcheck/i18n";
 import type { Category } from "@/lib/goalcheck/types";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
@@ -30,6 +31,7 @@ export function ZenHud() {
   const goals = useStore((s) => s.goals);
   const activeGoalId = useStore((s) => s.activeGoalId);
   const theme = useStore((s) => s.theme);
+  const t = useT();
 
   const boundLabel = (() => {
     for (const g of goals) {
@@ -50,7 +52,7 @@ export function ZenHud() {
           }}
           role="dialog"
           aria-modal="true"
-          aria-label="Zen focus mode"
+          aria-label={t("focus.zenLabel")}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -69,20 +71,20 @@ export function ZenHud() {
               animate={{ scale: [1, 1.04, 1] }}
               transition={{ duration: 3.2, repeat: Infinity, ease: "easeInOut" }}
             >
-              <GcIcon name="lotus-zen" size={13} /> Distraction-Free Zen Focus
+              <GcIcon name="lotus-zen" size={13} /> {t("focus.zenBadge")}
             </motion.span>
-            <h2 className="text-2xl font-extrabold">{boundLabel || "Deep Work Session"}</h2>
+            <h2 className="text-2xl font-extrabold">{boundLabel || t("focus.deepWork")}</h2>
             <div className="font-mono text-6xl font-black tracking-tight" aria-live="polite">{formatMs(remaining)}</div>
             <div className="flex flex-wrap justify-center gap-2">
               <Button type="button" className="gc-btn-primary" onClick={startPause}>
                 {pomo.running ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-                {pomo.running ? "Pause" : "Start"}
+                {pomo.running ? t("focus.pause") : t("focus.start")}
               </Button>
               <Button type="button" variant="outline" className="gc-btn" onClick={completeBoundTask}>
-                <Check className="h-4 w-4" /> Complete Bound Task
+                <Check className="h-4 w-4" /> {t("focus.completeBound")}
               </Button>
               <Button type="button" variant="outline" className="gc-btn" onClick={() => useUi.setState({ zenOpen: false })}>
-                <X className="h-4 w-4" /> Exit Zen
+                <X className="h-4 w-4" /> {t("focus.exitZen")}
               </Button>
             </div>
             <p className="text-xs" style={{ color: "var(--gc-text2)" }}>{goal?.title}</p>
@@ -102,6 +104,7 @@ export function FloatingPill() {
   const [visible, setVisible] = useState(false);
   const goals = useStore((s) => s.goals);
   const activeGoalId = useStore((s) => s.activeGoalId);
+  const t = useT();
 
   useEffect(() => {
     const onScroll = () => {
@@ -133,7 +136,7 @@ export function FloatingPill() {
           className="gc-panel gc-blur fixed bottom-4 left-4 z-[150] flex items-center gap-3 rounded-full border px-3 py-2"
           style={{ borderColor: "var(--gc-border-strong)" }}
           role="status"
-          aria-label={`Pomodoro running, ${formatMs(remaining)} remaining`}
+          aria-label={t("focus.pillRunning", { time: formatMs(remaining) })}
           initial={{ y: 80, opacity: 0, scale: 0.85 }}
           animate={{ y: 0, opacity: 1, scale: 1 }}
           exit={{ y: 80, opacity: 0, scale: 0.85 }}
@@ -144,12 +147,12 @@ export function FloatingPill() {
           </span>
           <span className="min-w-0">
             <span className="block font-mono text-sm font-extrabold leading-tight">{formatMs(remaining)}</span>
-            <span className="block max-w-[140px] truncate text-[0.62rem]" style={{ color: "var(--gc-text2)" }}>{boundLabel || "No Task Attached"}</span>
+            <span className="block max-w-[140px] truncate text-[0.62rem]" style={{ color: "var(--gc-text2)" }}>{boundLabel || t("focus.noTaskAttached")}</span>
           </span>
-          <Button type="button" size="icon" className="size-8 rounded-full gc-btn-primary" onClick={startPause} aria-label={pomo.running ? "Pause pomodoro" : "Resume pomodoro"}>
+          <Button type="button" size="icon" className="size-8 rounded-full gc-btn-primary" onClick={startPause} aria-label={pomo.running ? t("focus.pausePomodoro") : t("focus.resumePomodoro")}>
             {pomo.running ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
           </Button>
-          <Button type="button" size="icon" variant="outline" className="size-8 rounded-full gc-btn" onClick={() => document.getElementById("pomodoroPanel")?.scrollIntoView({ behavior: "smooth" })} aria-label="Scroll back to Pomodoro card">
+          <Button type="button" size="icon" variant="outline" className="size-8 rounded-full gc-btn" onClick={() => document.getElementById("pomodoroPanel")?.scrollIntoView({ behavior: "smooth" })} aria-label={t("focus.scrollToPomo")}>
             <ArrowUp className="h-3.5 w-3.5" />
           </Button>
         </motion.div>
@@ -165,6 +168,7 @@ export function CommandPalette() {
   const inputRef = useRef<HTMLInputElement>(null);
   const [q, setQ] = useState("");
   const goals = useStore((s) => s.goals);
+  const t = useT();
 
   /* v4.3 — live fuzzy results while typing free text (not /commands) */
   const results = useMemo(() => {
@@ -204,25 +208,25 @@ export function CommandPalette() {
     if (inputRef.current) inputRef.current.value = "";
     setQ("");
     useUi.setState({ paletteOpen: false });
-    if (msgs.length) toast(msgs[0] + (msgs.length > 1 ? ` (+${msgs.length - 1} more)` : ""));
+    if (msgs.length) toast(msgs[0] + (msgs.length > 1 ? t("palette.moreToast", { count: msgs.length - 1 }) : ""));
   };
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) useUi.setState({ paletteOpen: false }); }}>
       <DialogContent className="gc-modal max-w-xl !gap-0 overflow-hidden p-0" aria-describedby={undefined}>
-        <DialogTitle className="sr-only">Command Bar</DialogTitle>
+        <DialogTitle className="sr-only">{t("palette.title")}</DialogTitle>
         <input
           ref={inputRef}
           onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); run(); } }}
           onChange={(e) => setQ(e.target.value)}
           className="w-full border-b bg-transparent p-4 text-base outline-none"
           style={{ borderColor: "var(--gc-border)" }}
-          placeholder="/view kanban  •  /theme inferno  •  /laptop Fix bug !urgent ~2 #25m  •  or just search…"
-          aria-label="Command input"
+          placeholder={t("palette.placeholder")}
+          aria-label={t("palette.inputLabel")}
           autoFocus
         />
         {results.length > 0 && (
-          <ul className="max-h-72 overflow-y-auto border-b p-1.5" style={{ borderColor: "var(--gc-border)" }} aria-label="Search results">
+          <ul className="max-h-72 overflow-y-auto border-b p-1.5" style={{ borderColor: "var(--gc-border)" }} aria-label={t("palette.results")}>
             {results.map((h, i) => (
               <li key={`${h.taskId ?? h.goalId}-${i}`}>
                 <button
@@ -241,9 +245,9 @@ export function CommandPalette() {
         )}
         <div className="flex items-center justify-between gap-2 px-4 py-3 text-[0.72rem]" style={{ color: "var(--gc-text2)" }}>
           <span>
-            Syntax: <code>/category Task !priority ~pomos #minutes</code> — or <code>/view</code>, <code>/theme</code>, <code>/pomo 25</code>, <code>/done 3</code>, <code>/goal exam</code>, <code>/review</code>, <code>/demo</code>, <code>/help</code>
+            {t("palette.syntax")} <code>/category Task !priority ~pomos #minutes</code> {t("palette.or")} <code>/view</code>, <code>/theme</code>, <code>/pomo 25</code>, <code>/done 3</code>, <code>/goal exam</code>, <code>/review</code>, <code>/demo</code>, <code>/help</code>
           </span>
-          <Button type="button" size="sm" className="gc-btn-primary" onClick={run}>↵ Run</Button>
+          <Button type="button" size="sm" className="gc-btn-primary" onClick={run}>{t("palette.run")}</Button>
         </div>
       </DialogContent>
     </Dialog>
@@ -265,57 +269,59 @@ function execSingleCommand(line: string): string | null {
       const v = arg.toLowerCase();
       if (["checklist", "week", "calendar", "timeline", "kanban", "matrix", "graph", "analytics"].includes(v)) {
         s.setView(v as never); // setView clamps to the edition
-        return `View switched → ${v}`;
+        return t("palette.viewSwitched", { name: v });
       }
-      return "Unknown view (checklist/week/calendar/timeline/kanban/matrix/graph/analytics)";
+      return t("palette.unknownView");
     }
     if (cmd === "theme") {
-      const t = THEMES.find((x) => x.id === arg.toLowerCase());
-      if (t) { s.setTheme(t.id); return `Theme → ${arg}`; }
-      return "Unknown theme (" + THEMES.map((x) => x.id).join(", ") + ")";
+      const t2 = THEMES.find((x) => x.id === arg.toLowerCase());
+      if (t2) { s.setTheme(t2.id); return t("palette.themeSet", { name: arg }); }
+      return t("palette.unknownTheme", { names: THEMES.map((x) => x.id).join(", ") });
     }
     if (cmd === "engine") {
-      if (ENGINES.some((e) => e.id === arg.toLowerCase())) { s.setParticles(arg.toLowerCase() as never); return `Particle engine → ${arg}`; }
-      return "Unknown engine";
+      if (ENGINES.some((e) => e.id === arg.toLowerCase())) { s.setParticles(arg.toLowerCase() as never); return t("palette.engineSet", { name: arg }); }
+      return t("palette.unknownEngine");
     }
     if (cmd === "pomo") {
       const mins = parseInt(arg, 10);
-      if (!isNaN(mins) && mins > 0 && mins <= 180) { s.setPomoMinutes(mins); return `Pomodoro set to ${mins} minutes`; }
-      if (["focus", "short", "long"].includes(arg.toLowerCase())) { s.setPomoMode(arg.toLowerCase() as never); return `Pomodoro mode → ${arg}`; }
-      return "Usage: /pomo 25 | focus | short | long";
+      if (!isNaN(mins) && mins > 0 && mins <= 180) { s.setPomoMinutes(mins); return t("palette.pomoSet", { count: mins }); }
+      if (["focus", "short", "long"].includes(arg.toLowerCase())) { s.setPomoMode(arg.toLowerCase() as never); return t("palette.pomoMode", { name: arg }); }
+      return t("palette.pomoUsage");
     }
-    if (cmd === "zen") { useUi.getState().open("zenOpen"); return "Zen Mode entered"; }
-    if (cmd === "atmosphere") { useUi.getState().open("themeModal"); return "Atmosphere Studio opened"; }
+    if (cmd === "zen") { useUi.getState().open("zenOpen"); return t("palette.zenEntered"); }
+    if (cmd === "atmosphere") { useUi.getState().open("themeModal"); return t("palette.atmosphereOpened"); }
     if (cmd === "rpg") {
       const a = arg.toLowerCase();
       const enabled = a === "on" ? true : a === "off" ? false : !s.settings.rpgEnabled;
       if (enabled !== s.settings.rpgEnabled) s.toggleRpg();
-      return `RPG → ${enabled ? "ON" : "OFF"}`;
+      return t("palette.rpgToggled", { state: enabled ? "ON" : "OFF" });
     }
-    if (cmd === "export") { useUi.getState().open("exportModal"); return "Export panel opened"; }
+    if (cmd === "export") { useUi.getState().open("exportModal"); return t("palette.exportOpened"); }
     /* v4 — Advance commands */
     if (cmd === "done") {
       const n = parseInt(arg, 10);
-      if (isNaN(n) || n < 1) return "Usage: /done 3 — completes the Nth visible task";
+      if (isNaN(n) || n < 1) return t("palette.doneUsage");
       const goal = s.goals.find((g) => g.id === s.activeGoalId);
-      if (!goal) return "No active board";
+      if (!goal) return t("palette.noBoard");
       const flat = goal.categories.flatMap((c) => c.items.filter((it) => !it.completed));
       const target = flat[n - 1];
-      if (!target) return `Only ${flat.length} remaining task${flat.length === 1 ? "" : "s"} — index ${n} is out of range`;
+      if (!target) return flat.length === 1
+        ? t("palette.rangeOne", { count: flat.length, index: n })
+        : t("palette.rangeMany", { count: flat.length, index: n });
       const cat = goal.categories.find((c) => c.items.some((it) => it.id === target.id));
-      if (cat) { s.toggleTask(cat.id, target.id); return `Completed: “${target.text}”`; }
-      return "Task not found";
+      if (cat) { s.toggleTask(cat.id, target.id); return t("palette.completed", { name: target.text }); }
+      return t("palette.taskNotFound");
     }
     if (cmd === "goal") {
       const q = arg.toLowerCase();
       const hit = s.goals.find((g) => g.title.toLowerCase().includes(q)) ?? s.goals.find((g) => q.split(/\s+/).some((w) => w.length > 2 && g.title.toLowerCase().includes(w)));
-      if (!hit) return `No board matches “${arg}” — boards: ${s.goals.map((g) => g.title).join(" • ")}`;
+      if (!hit) return t("palette.noBoardMatch", { name: arg, boards: s.goals.map((g) => g.title).join(" • ") });
       s.setActiveGoal(hit.id);
-      return `Switched to board “${hit.title}”`;
+      return t("palette.switchedBoard", { name: hit.title });
     }
     if (cmd === "clear") {
       const goal = s.goals.find((g) => g.id === s.activeGoalId);
-      if (!goal) return "No active board";
+      if (!goal) return t("palette.noBoard");
       let removed = 0;
       useStore.setState({
         goals: s.goals.map((g) => g.id !== goal.id ? g : {
@@ -329,30 +335,34 @@ function execSingleCommand(line: string): string | null {
           }),
         }),
       });
-      return removed > 0 ? `Cleared ${removed} completed task${removed > 1 ? "s" : ""}` : "Nothing completed to clear";
+      return removed > 0
+        ? (removed > 1 ? t("palette.clearedMany", { count: removed }) : t("palette.clearedOne", { count: removed }))
+        : t("palette.nothingToClear");
     }
     if (cmd === "review") {
       useUi.setState({ reviewModal: true });
-      return "Weekly Review opened";
+      return t("palette.reviewOpened");
     }
     if (cmd === "focus") {
       const n = parseInt(arg, 10);
-      if (isNaN(n) || n < 1) return "Usage: /focus 2 — enters Deep-Focus on the Nth remaining task";
+      if (isNaN(n) || n < 1) return t("palette.focusUsage");
       const goal = s.goals.find((g) => g.id === s.activeGoalId);
-      if (!goal) return "No active board";
-      const pairs = goal.categories.flatMap((c) => c.items.filter((t) => !t.completed).map((t) => ({ cat: c, t })));
+      if (!goal) return t("palette.noBoard");
+      const pairs = goal.categories.flatMap((c) => c.items.filter((task) => !task.completed).map((task) => ({ cat: c, t: task })));
       const hit = pairs[n - 1];
-      if (!hit) return `Only ${pairs.length} remaining task${pairs.length === 1 ? "" : "s"} — index ${n} is out of range`;
+      if (!hit) return pairs.length === 1
+        ? t("palette.rangeOne", { count: pairs.length, index: n })
+        : t("palette.rangeMany", { count: pairs.length, index: n });
       useUi.setState({ deepFocus: { catId: hit.cat.id, taskId: hit.t.id } });
-      return `Deep focus → “${hit.t.text}”`;
+      return t("palette.focusSet", { name: hit.t.text });
     }
     if (cmd === "demo") {
       s.loadDemoData();
-      return "Sample workspace loaded (Settings → Data → Clear demo data to reset)";
+      return t("palette.demoLoaded");
     }
     if (cmd === "help") {
       useUi.getState().open("settingsModal");
-      return "Commands: /view · /theme · /engine · /pomo 25 · /zen · /focus 2 · /review · /rpg on|off · /export · /done 3 · /goal exam · /clear · /demo · /category Task !urgent ~2 #25m";
+      return t("palette.help");
     }
   }
 
@@ -371,15 +381,15 @@ function execSingleCommand(line: string): string | null {
   const tm = /#(\d{1,3})\s*m\b/i.exec(rest);
   if (tm) { pomoStart = parseInt(tm[1], 10); rest = rest.replace(tm[0], ""); }
   const text = rest.trim();
-  if (!text) return "Nothing to add — try: /laptop Fix bug !urgent ~2 #25m";
+  if (!text) return t("palette.nothingToAdd");
 
   const goal = s.goals.find((g) => g.id === s.activeGoalId);
-  if (!goal) return "No active board";
+  if (!goal) return t("palette.noBoard");
   let targetCat: Category | null = null;
   if (catHint) {
     for (const c of goal.categories) {
-      const t = c.title.toLowerCase().replace(/[-:]/g, " ").replace(/\s+/g, " ").trim();
-      if (t.includes(catHint) || catHint.includes(t.split(" ")[0])) { targetCat = c; break; }
+      const ct = c.title.toLowerCase().replace(/[-:]/g, " ").replace(/\s+/g, " ").trim();
+      if (ct.includes(catHint) || catHint.includes(ct.split(" ")[0])) { targetCat = c; break; }
     }
   }
   if (!targetCat) targetCat = goal.categories[0] ?? null;
@@ -403,11 +413,12 @@ function execSingleCommand(line: string): string | null {
       }),
     });
   }
-  let msg = `Added → ${(targetCat?.title ?? catHint ?? "Inbox").replace(/[-:]$/, "").trim()}: ${text}${priority !== "normal" ? ` [${priority}]` : ""}`;
+  let msg = t("palette.added", { category: (targetCat?.title ?? catHint ?? "Inbox").replace(/[-:]$/, "").trim(), text });
+  if (priority !== "normal") msg += " " + t("palette.priorityTag", { priority });
   if (pomoStart > 0) {
     s.setPomoMinutes(pomoStart);
     useStore.setState({ pomo: { ...useStore.getState().pomo, attachedTaskId: newTask.id } });
-    msg += ` • ${pomoStart}m focus timer ready`;
+    msg += " " + t("palette.timerReady", { count: pomoStart });
   }
   return msg;
 }

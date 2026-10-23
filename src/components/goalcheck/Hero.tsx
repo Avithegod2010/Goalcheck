@@ -39,6 +39,7 @@ export function HeroCard() {
   const clearDone = useStore((s) => s.clearDone);
   const deleteBoard = useStore((s) => s.deleteBoard);
   const pomoCount = useStore((s) => s.goals);
+  const t = useT();
   if (!goal) return null;
   const stats = calculateStats(goal);
 
@@ -54,7 +55,7 @@ export function HeroCard() {
   return (
     <motion.section
       className="gc-panel gc-blur relative overflow-hidden rounded-3xl p-5 sm:p-6"
-      aria-label="Board progress"
+      aria-label={t("hero.boardProgress")}
       initial={{ opacity: 0, y: 18 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
@@ -67,8 +68,8 @@ export function HeroCard() {
             className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl border-2 text-2xl"
             style={{ borderColor: "var(--gc-border-strong)", background: "var(--gc-surface-2)", boxShadow: "0 4px 14px var(--gc-glow)" }}
             onClick={() => openMediaModal({ type: "goal" })}
-            title="Customize board icon"
-            aria-label="Customize board icon"
+            title={t("hero.customizeBoardIcon")}
+            aria-label={t("hero.customizeBoardIcon")}
             whileHover={{ scale: 1.07, rotate: -4 }}
             whileTap={{ scale: 0.93 }}
             transition={springy}
@@ -78,11 +79,11 @@ export function HeroCard() {
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="truncate text-xl font-extrabold tracking-tight sm:text-2xl">{goal.title}</h1>
-              <Button type="button" variant="ghost" size="icon" className="size-7 gc-btn" onClick={() => openBoardModal("edit")} title="Edit board title" aria-label="Edit board title">
+              <Button type="button" variant="ghost" size="icon" className="size-7 gc-btn" onClick={() => openBoardModal("edit")} title={t("hero.editBoardTitle")} aria-label={t("hero.editBoardTitle")}>
                 <Pencil className="h-3.5 w-3.5" />
               </Button>
             </div>
-            <p className="truncate text-sm" style={{ color: "var(--gc-text2)" }}>{goal.subtitle || "Categorized checklist workflow."}</p>
+            <p className="truncate text-sm" style={{ color: "var(--gc-text2)" }}>{goal.subtitle || t("hero.defaultSubtitle")}</p>
           </div>
         </div>
         <div className="flex flex-col items-end">
@@ -90,12 +91,12 @@ export function HeroCard() {
             <AnimatedNumber value={stats.percent} format={(n) => `${Math.round(n)}%`} />
           </span>
           <span className="mt-1 text-xs font-bold" style={{ color: "var(--gc-text2)" }}>
-            <AnimatedNumber value={stats.completed} /> / {stats.total} completed
+            <AnimatedNumber value={stats.completed} /> {t("hero.completedOf", { total: stats.total })}
           </span>
         </div>
       </div>
 
-      <div className="mt-5 h-[18px] overflow-hidden rounded-full border p-0.5" style={{ borderColor: "var(--gc-border)", background: "var(--gc-surface-2)" }} role="progressbar" aria-label={`Goal progress: ${stats.percent}% complete`} aria-valuenow={stats.percent} aria-valuemin={0} aria-valuemax={100}>
+      <div className="mt-5 h-[18px] overflow-hidden rounded-full border p-0.5" style={{ borderColor: "var(--gc-border)", background: "var(--gc-surface-2)" }} role="progressbar" aria-label={t("hero.goalProgressAria", { percent: stats.percent })} aria-valuenow={stats.percent} aria-valuemin={0} aria-valuemax={100}>
         <motion.div
           className="h-full rounded-full"
           style={{ background: "var(--gc-grad)", boxShadow: "0 0 14px var(--gc-glow)" }}
@@ -107,34 +108,34 @@ export function HeroCard() {
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">
-          <Chip icon="folder-open">{stats.catCount} Categories</Chip>
-          <Chip icon="hourglass-flow" tone="pending">{stats.remaining} Remaining</Chip>
-          <Chip icon="check-circle" tone="done">{stats.completed} Completed</Chip>
-          <Chip icon="tomato-timer">{pomos.done} / {pomos.est} Pomodoros</Chip>
+          <Chip icon="folder-open">{t("hero.chipCategories", { count: stats.catCount })}</Chip>
+          <Chip icon="hourglass-flow" tone="pending">{t("hero.chipRemaining", { count: stats.remaining })}</Chip>
+          <Chip icon="check-circle" tone="done">{t("hero.chipCompleted", { count: stats.completed })}</Chip>
+          <Chip icon="tomato-timer">{t("hero.chipPomodoros", { completed: pomos.done, total: pomos.est })}</Chip>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Button type="button" variant="outline" size="sm" className="gc-btn" onClick={checkAll}><Check className="h-3.5 w-3.5" /> Check All</Button>
-          <Button type="button" variant="outline" size="sm" className="gc-btn" onClick={resetAll}><RotateCcw className="h-3.5 w-3.5" /> Reset All</Button>
+          <Button type="button" variant="outline" size="sm" className="gc-btn" onClick={checkAll}><Check className="h-3.5 w-3.5" /> {t("hero.checkAll")}</Button>
+          <Button type="button" variant="outline" size="sm" className="gc-btn" onClick={resetAll}><RotateCcw className="h-3.5 w-3.5" /> {t("hero.resetAll")}</Button>
           <Button type="button" variant="outline" size="sm" className="gc-btn" onClick={clearDone}>
-            <GcIcon name="broom-sweep" size={14} /> Clear Done
+            <GcIcon name="broom-sweep" size={14} /> {t("hero.clearDone")}
           </Button>
           <AlertDialog>
             <AlertDialogTrigger asChild>
-              <Button type="button" variant="outline" size="icon" className="size-8 border-[var(--gc-danger-soft)] text-[var(--gc-danger)] gc-btn" title="Delete this board" aria-label="Delete this board">
+              <Button type="button" variant="outline" size="icon" className="size-8 border-[var(--gc-danger-soft)] text-[var(--gc-danger)] gc-btn" title={t("hero.deleteBoard")} aria-label={t("hero.deleteBoard")}>
                 <Trash2 className="h-4 w-4" />
               </Button>
             </AlertDialogTrigger>
             <AlertDialogContent className="gc-modal">
               <AlertDialogHeader>
-                <AlertDialogTitle>Delete board “{goal.title}”?</AlertDialogTitle>
+                <AlertDialogTitle>{t("hero.deleteBoardConfirm", { name: goal.title })}</AlertDialogTitle>
                 <AlertDialogDescription>
-                  This permanently removes the board with all its categories, tasks and notes. This cannot be undone.
+                  {t("hero.deleteBoardWarning")}
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
-                <AlertDialogCancel className="gc-btn">Cancel</AlertDialogCancel>
+                <AlertDialogCancel className="gc-btn">{t("common.cancel")}</AlertDialogCancel>
                 <AlertDialogAction className="bg-[var(--gc-danger)] text-white hover:bg-[var(--gc-danger)]/90" onClick={() => deleteBoard(goal.id)}>
-                  Delete permanently
+                  {t("hero.deletePermanently")}
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
@@ -170,6 +171,7 @@ export function QuickAddBar() {
   const addCategory = useStore((s) => s.addCategory);
   const quickCatMedia = useStore((s) => s.quickCatMedia);
   const openMediaModal = useUi((s) => s.openMediaModal);
+  const t = useT();
   const [title, setTitle] = useState("");
   const [recurrence, setRecurrence] = useState("none");
   const inputRef = useRef<HTMLInputElement>(null);
@@ -199,7 +201,7 @@ export function QuickAddBar() {
     if (raw.startsWith("/")) {
       const msg = runCommand(raw);
       if (msg) toast(msg);
-      else toast("Unknown command — try /help");
+      else toast(t("hero.unknownCommand"));
       setTitle("");
       return;
     }
@@ -216,13 +218,13 @@ export function QuickAddBar() {
     <motion.section
       className="gc-panel gc-blur flex flex-wrap items-center gap-3 rounded-2xl border-2 border-dashed p-3.5 sm:px-5"
       style={{ borderColor: "var(--gc-border-strong)" }}
-      aria-label="Add category"
+      aria-label={t("hero.addCategory")}
       initial={{ opacity: 0, y: 14 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay: 0.08, ease: [0.22, 1, 0.36, 1] }}
       whileHover={{ borderColor: "var(--gc-accent)" }}
     >
-      <span className="flex items-center gap-2 text-sm font-bold"><GcIcon name="plus-round" size={17} /> Add Category Section</span>
+      <span className="flex items-center gap-2 text-sm font-bold"><GcIcon name="plus-round" size={17} /> {t("hero.addCategorySection")}</span>
       <form
         className="flex min-w-[260px] flex-1 items-center gap-2"
         onSubmit={(e) => { e.preventDefault(); submitQuickAdd(); }}
@@ -232,8 +234,8 @@ export function QuickAddBar() {
           className="flex h-10 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl border"
           style={{ borderColor: "var(--gc-border-strong)", background: "var(--gc-input)" }}
           onClick={() => openMediaModal({ type: "quick" })}
-          title="Choose category icon"
-          aria-label="Choose category icon"
+          title={t("hero.chooseCategoryIcon")}
+          aria-label={t("hero.chooseCategoryIcon")}
           whileHover={{ scale: 1.07, rotate: 4 }}
           whileTap={{ scale: 0.92 }}
           transition={springy}
@@ -245,23 +247,23 @@ export function QuickAddBar() {
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           className="gc-input flex-1"
-          placeholder="e.g. To do in laptop • errands; milk; gym • /pomo 25"
-          aria-label="New category name, quick-paste snippet, or /command"
+          placeholder={t("hero.placeholder")}
+          aria-label={t("hero.inputAria")}
           required
         />
         <div className="w-[10.5rem] shrink-0">
           <Select value={recurrence} onValueChange={setRecurrence}>
-            <SelectTrigger className="gc-input text-xs" aria-label="Category recurrence">
+            <SelectTrigger className="gc-input text-xs" aria-label={t("hero.recurrence")}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="none">One-Time Category</SelectItem>
-              <SelectItem value="daily"><span className="flex items-center gap-2"><GcIcon name="repeat-cycle" size={13} /> Daily Auto-Reset</span></SelectItem>
-              <SelectItem value="weekly"><span className="flex items-center gap-2"><GcIcon name="calendar-tick" size={13} /> Weekly Auto-Reset</span></SelectItem>
+              <SelectItem value="none">{t("hero.oneTimeCategory")}</SelectItem>
+              <SelectItem value="daily"><span className="flex items-center gap-2"><GcIcon name="repeat-cycle" size={13} /> {t("hero.dailyAutoReset")}</span></SelectItem>
+              <SelectItem value="weekly"><span className="flex items-center gap-2"><GcIcon name="calendar-tick" size={13} /> {t("hero.weeklyAutoReset")}</span></SelectItem>
             </SelectContent>
           </Select>
         </div>
-        <Button type="submit" className="shrink-0 gc-btn-primary"><Plus className="h-4 w-4" /> Add</Button>
+        <Button type="submit" className="shrink-0 gc-btn-primary"><Plus className="h-4 w-4" /> {t("common.add")}</Button>
       </form>
     </motion.section>
   );
@@ -289,11 +291,11 @@ const VIEWS_AVAILABLE: [WorkspaceView, string, string][] = VIEWS.filter(
 );
 
 const FILTERS: [FilterId, string][] = [
-  ["all", "All Items"],
-  ["active", "Remaining"],
-  ["completed", "Completed"],
-  ["priority", "★ Priority"],
-  ...(hasFeature("due-dates") ? [["week", "This Week"] as [FilterId, string]] : []),
+  ["all", "filters.all"],
+  ["active", "filters.active"],
+  ["completed", "filters.completed"],
+  ["priority", "filters.priority"],
+  ...(hasFeature("due-dates") ? [["week", "filters.week"] as [FilterId, string]] : []),
 ];
 
 export function FilterBar() {
@@ -316,7 +318,7 @@ export function FilterBar() {
         transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
       >
         {VIEWS_AVAILABLE.length > 1 && (
-          <div className="flex flex-wrap items-center gap-1" role="tablist" aria-label="Workspace views">
+          <div className="flex flex-wrap items-center gap-1" role="tablist" aria-label={t("hero.workspaceViews")}>
             {VIEWS_AVAILABLE.map(([id, label, icon]) => (
             <button
               key={id}
@@ -344,15 +346,15 @@ export function FilterBar() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="gc-input pl-9 text-xs"
-            placeholder="Search tasks, notes, categories…"
-            aria-label="Search tasks"
+            placeholder={t("common.search")}
+            aria-label={t("hero.searchTasks")}
           />
         </div>
       </motion.div>
 
       <motion.div
         className="gc-panel gc-blur flex flex-wrap items-center justify-between gap-3 rounded-2xl p-2.5"
-        aria-label="Task filters"
+        aria-label={t("hero.taskFilters")}
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, delay: 0.05, ease: [0.22, 1, 0.36, 1] }}
@@ -370,7 +372,7 @@ export function FilterBar() {
               {filter === id && (
                 <motion.span layoutId="gcFilterPill" className="tab-pill-soft" transition={{ type: "spring", stiffness: 420, damping: 32 }} />
               )}
-              <span className="tab-label">{label}</span>
+              <span className="tab-label">{t(label)}</span>
             </button>
           ))}
         </div>
@@ -380,8 +382,8 @@ export function FilterBar() {
           size="icon"
           className="size-9 gc-btn"
           onClick={() => setLayout(layout === "grid" ? "single" : "grid")}
-          title={layout === "grid" ? "Switch to single column" : "Switch to two columns"}
-          aria-label="Toggle layout columns"
+          title={layout === "grid" ? t("hero.singleColumn") : t("hero.twoColumns")}
+          aria-label={t("hero.toggleLayout")}
         >
           <AnimatePresence mode="wait" initial={false}>
             <motion.span

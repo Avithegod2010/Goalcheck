@@ -14,6 +14,7 @@ import { useStore, useUi } from "@/lib/goalcheck/goalcheck-exports";
 import { usePomoRemaining, formatMs } from "@/components/goalcheck/atoms";
 import { GcIcon } from "@/lib/goalcheck/icons";
 import { isLightTheme } from "@/lib/goalcheck/themes";
+import { useT } from "@/lib/goalcheck/i18n";
 import { GC_STREAMS } from "@/components/goalcheck/Sidebar";
 import { Button } from "@/components/ui/button";
 import { Pause, Play, X, Check } from "lucide-react";
@@ -30,6 +31,7 @@ export function DeepFocus() {
   const setAudio = useStore((s) => s.setAudio);
   const audioStream = useStore((s) => s.settings.audioStream);
   const theme = useStore((s) => s.theme);
+  const t = useT();
 
   const ctx = useMemo(() => {
     if (!target) return null;
@@ -77,7 +79,7 @@ export function DeepFocus() {
           }}
           role="dialog"
           aria-modal="true"
-          aria-label={`Deep focus on: ${ctx.task.text}`}
+          aria-label={t("focus.onTask", { name: ctx.task.text })}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -91,7 +93,7 @@ export function DeepFocus() {
             transition={{ type: "spring", stiffness: 280, damping: 26 }}
           >
             <span className="flex items-center gap-2 rounded-full px-3 py-1 text-[0.68rem] font-extrabold uppercase tracking-widest text-white" style={{ background: "var(--gc-grad)" }}>
-              <GcIcon name="target-radar" size={13} /> Deep Focus
+              <GcIcon name="target-radar" size={13} /> {t("views.deepFocus")}
             </span>
 
             <h2 className="text-2xl font-extrabold leading-snug" style={{ textDecoration: ctx.task.completed ? "line-through" : undefined }}>
@@ -117,14 +119,14 @@ export function DeepFocus() {
 
             {ctx.locked && (
               <p className="flex items-center gap-1.5 text-xs font-bold" style={{ color: "color-mix(in srgb, var(--gc-warning) 62%, var(--gc-text))" }}>
-                <GcIcon name="lock-shield" size={13} /> Dependency not finished yet — finish the prerequisite first.
+                <GcIcon name="lock-shield" size={13} /> {t("focus.locked")}
               </p>
             )}
 
             <div className="flex flex-wrap justify-center gap-2">
               <Button type="button" className="gc-btn-primary" onClick={startPause} disabled={ctx.locked}>
                 {pomo.running ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-                {pomo.running ? "Pause" : "Start focus"}
+                {pomo.running ? t("focus.pause") : t("focus.startFocus")}
               </Button>
               <Button
                 type="button"
@@ -136,17 +138,17 @@ export function DeepFocus() {
                   toggleTask(ctx.cat.id, ctx.task.id);
                 }}
               >
-                <Check className="h-4 w-4" /> Done
+                <Check className="h-4 w-4" /> {t("common.done")}
               </Button>
               <Button type="button" variant="outline" className="gc-btn" onClick={close}>
-                <X className="h-4 w-4" /> Exit
+                <X className="h-4 w-4" /> {t("focus.exit")}
               </Button>
             </div>
 
             <div className="flex items-center gap-2 text-xs" style={{ color: "var(--gc-text2)" }}>
               <GcIcon name="headphones-beat" size={14} />
               <select
-                aria-label="Ambient stream"
+                aria-label={t("focus.ambient")}
                 value={audioStream}
                 onChange={(e) => setAudio({ audioStream: e.target.value })}
                 className="gc-input rounded-lg px-2 py-1 text-xs"

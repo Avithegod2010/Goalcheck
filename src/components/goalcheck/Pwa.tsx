@@ -20,6 +20,7 @@ import { GcIcon } from "@/lib/goalcheck/icons";
 import { notify } from "@/lib/goalcheck/notify";
 import { APP_NAME } from "@/lib/goalcheck/editions";
 import { initNativeShell } from "@/lib/goalcheck/native";
+import { t, useT } from "@/lib/goalcheck/i18n";
 
 export const INSTALL_DISMISS_KEY = "gc_install_dismissed_at";
 
@@ -42,10 +43,10 @@ export function PwaBootstrap() {
              is ready; never auto-reload, let the user choose the moment. */
           const announce = (sw: ServiceWorker | null) => {
             if (!sw) return;
-            notify("A new version of GoalCheck is ready.", "rocket-launch", {
-              description: "Reload to pick it up — your data is unaffected.",
+            notify(t("pwa.updateReady"), "rocket-launch", {
+              description: t("pwa.updateReload"),
               action: {
-                label: "Reload",
+                label: t("pwa.reload"),
                 onClick: () => {
                   sw.postMessage("SKIP_WAITING");
                   window.location.reload();
@@ -77,20 +78,20 @@ export function PwaBootstrap() {
     };
     const onInstalled = () => {
       (window as unknown as { __gcInstallPrompt?: BeforeInstallPromptEvent | null }).__gcInstallPrompt = null;
-      notify("App installed — find GoalCheck on your home screen!", "rocket-launch");
+      notify(t("pwa.installed"), "rocket-launch");
     };
     window.addEventListener("beforeinstallprompt", onInstallable);
     window.addEventListener("appinstalled", onInstalled);
 
     /* ---- storage-quota bridge (store.ts dispatches gc-storage-quota) ---- */
     const onQuota = () => {
-      notify("Storage was full — the largest embedded images were trimmed to save your data.", "image-pic", {
-        description: "Export a JSON backup to keep a full copy.",
+      notify(t("pwa.quotaTrimmed"), "image-pic", {
+        description: t("pwa.quotaTrimmedDesc"),
       });
     };
     const onQuotaFailed = () => {
-      notify("Storage is completely full and nothing could be trimmed.", "image-pic", {
-        description: "Export a backup now, then remove large images.",
+      notify(t("pwa.quotaFull"), "image-pic", {
+        description: t("pwa.quotaFullDesc"),
       });
     };
     window.addEventListener("gc-storage-quota", onQuota);
@@ -103,7 +104,7 @@ export function PwaBootstrap() {
     try {
       if (sessionStorage.getItem("gc_edition_switched") === "1") {
         sessionStorage.removeItem("gc_edition_switched");
-        notify(`Welcome to ${APP_NAME}!`, "rocket-launch");
+        notify(t("pwa.welcome", { name: APP_NAME }), "rocket-launch");
       }
     } catch {
       /* cosmetic only */
@@ -146,6 +147,7 @@ export function InstallCard() {
   }, [initialReady]);
 
   const [hidden, setHidden] = useState(false);
+  const t = useT();
 
   const install = async () => {
     const win = window as unknown as { __gcInstallPrompt?: BeforeInstallPromptEvent | null };
@@ -171,7 +173,7 @@ export function InstallCard() {
 
   return (
     <motion.section
-      aria-label="Install app"
+      aria-label={t("pwa.installApp")}
       className="gc-panel flex flex-wrap items-center justify-between gap-3 rounded-2xl border p-3.5"
       style={{ borderColor: "var(--gc-border)", background: "var(--gc-surface-2)" }}
       initial={{ opacity: 0, y: -10 }}
@@ -180,7 +182,7 @@ export function InstallCard() {
     >
       <p className="flex items-center gap-2 text-xs font-bold" style={{ color: "var(--gc-text)" }}>
         <GcIcon name="rocket-launch" size={15} />
-        Install GoalCheck as an app — full screen &amp; offline.
+        {t("pwa.installPitch")}
       </p>
       <div className="flex gap-2">
         <button
@@ -188,16 +190,16 @@ export function InstallCard() {
           className="gc-btn-primary rounded-lg px-3 py-1.5 text-xs font-extrabold text-white"
           onClick={install}
         >
-          Install
+          {t("pwa.installButton")}
         </button>
         <button
           type="button"
-          aria-label="Dismiss install suggestion"
+          aria-label={t("pwa.dismissAria")}
           className="rounded-lg px-3 py-1.5 text-xs font-bold transition-opacity hover:opacity-70"
           style={{ color: "var(--gc-text2)" }}
           onClick={dismiss}
         >
-          Not now
+          {t("pwa.notNow")}
         </button>
       </div>
     </motion.section>

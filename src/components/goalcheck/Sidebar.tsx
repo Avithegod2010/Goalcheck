@@ -29,6 +29,7 @@ import { Play, Pause, RotateCcw, Plus, Bell, Timer, Square } from "lucide-react"
 const RING_CIRCUMFERENCE = 2 * Math.PI * 75; // 471
 
 export function PomodoroWidget() {
+  const t = useT();
   const pomo = useStore((s) => s.pomo);
   const goals = useStore((s) => s.goals);
   const activeGoalId = useStore((s) => s.activeGoalId);
@@ -58,20 +59,20 @@ export function PomodoroWidget() {
             variant="ghost"
             size="icon"
             className="size-7 gc-btn"
-            title="Test chime"
-            aria-label="Test chime"
+            title={t("side.testChime")}
+            aria-label={t("side.testChime")}
             onClick={() => window.dispatchEvent(new CustomEvent("gc-test-chime"))}
           >
             <Bell className="h-4 w-4" />
           </Button>
         }
       >
-        <T>Pomodoro Focus</T>
+        {t("side.pomodoro")}
       </PanelTitle>
 
       {/* mode tabs with sliding pill */}
       <div className="grid w-full grid-cols-3 gap-1 rounded-xl border p-1" style={{ borderColor: "var(--gc-border)", background: "var(--gc-surface-2)" }}>
-        {([["focus", "Focus"], ["short", "Short 5m"], ["long", "Long 15m"]] as const).map(([mode, label]) => (
+        {([["focus", "side.focus"], ["short", "side.short5"], ["long", "side.long15"]] as const).map(([mode, label]) => (
           <button
             key={mode}
             type="button"
@@ -82,7 +83,7 @@ export function PomodoroWidget() {
             {pomo.mode === mode && (
               <motion.span layoutId="pomoModePill" className="tab-pill" transition={{ type: "spring", stiffness: 420, damping: 32 }} />
             )}
-            <span className="tab-label">{label}</span>
+            <span className="tab-label">{t(label)}</span>
           </button>
         ))}
       </div>
@@ -91,7 +92,7 @@ export function PomodoroWidget() {
       <motion.div
         className="relative flex h-40 w-40 items-center justify-center"
         role="timer"
-        aria-label={`Pomodoro ${formatMs(remaining)} remaining`}
+        aria-label={t("side.pomoRemaining", { name: formatMs(remaining) })}
         animate={pomo.running ? { scale: [1, 1.015, 1] } : { scale: 1 }}
         transition={pomo.running ? { duration: 2.4, repeat: Infinity, ease: "easeInOut" } : undefined}
       >
@@ -124,7 +125,7 @@ export function PomodoroWidget() {
             {formatMs(remaining)}
           </motion.span>
           <span className="mt-1 rounded-full px-2 py-0.5 text-[0.65rem] font-bold uppercase tracking-wide" style={{ background: "var(--gc-soft)", color: "color-mix(in srgb, var(--gc-accent) 55%, var(--gc-text))" }}>
-            {pomo.mode === "focus" ? "Focus Block" : pomo.mode === "short" ? "Short Break" : "Long Break"}
+            {pomo.mode === "focus" ? t("side.focusBlock") : pomo.mode === "short" ? t("side.shortBreak") : t("side.longBreak")}
           </span>
         </div>
       </motion.div>
@@ -148,7 +149,7 @@ export function PomodoroWidget() {
               transition={{ duration: 0.18 }}
             >
               {pomo.running ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-              {pomo.running ? "Pause Timer" : "Start Focus"}
+              {pomo.running ? t("side.pauseTimer") : t("side.startFocus")}
             </motion.span>
           </AnimatePresence>
         </motion.button>
@@ -156,8 +157,8 @@ export function PomodoroWidget() {
           type="button"
           className="gc-btn rounded-lg p-2.5"
           onClick={reset}
-          title="Reset timer"
-          aria-label="Reset timer"
+          title={t("side.resetTimer")}
+          aria-label={t("side.resetTimer")}
           whileHover={{ rotate: -140, scale: 1.08 }}
           whileTap={{ scale: 0.88 }}
           transition={{ type: "spring", stiffness: 300, damping: 18 }}
@@ -169,14 +170,14 @@ export function PomodoroWidget() {
       {/* task binding */}
       <div className="w-full rounded-xl border p-3" style={{ borderColor: "var(--gc-border)", background: "var(--gc-surface-2)" }}>
         <div className="mb-1.5 flex items-center justify-between text-[0.68rem] font-bold uppercase" style={{ color: "var(--gc-text2)" }}>
-          <span>Attached Task</span>
+          <span>{t("side.attachTask")}</span>
         </div>
         <Select value={pomo.attachedTaskId || "__none"} onValueChange={(v) => { if (v !== "__none") useStore.getState().bindPomo(v); else useStore.setState({ pomo: { ...useStore.getState().pomo, attachedTaskId: "" } }); }}>
-          <SelectTrigger aria-label="Attach a task to this focus session" className="w-full gc-input !h-auto py-2 text-xs">
-            <SelectValue placeholder="-- No task attached --" />
+          <SelectTrigger aria-label={t("side.attachSessionAria")} className="w-full gc-input !h-auto py-2 text-xs">
+            <SelectValue placeholder={t("side.noTask")} />
           </SelectTrigger>
           <SelectContent className="max-h-64">
-            <SelectItem value="__none">-- No specific task attached --</SelectItem>
+            <SelectItem value="__none">{t("side.noTaskSpecific")}</SelectItem>
             {(goal?.categories ?? []).flatMap((c) =>
               c.items.filter((it) => !it.completed).map((it) => (
                 <SelectItem key={it.id} value={it.id}>{c.title.replace(/[-:]$/, "").trim()}: {it.text}</SelectItem>
@@ -207,6 +208,7 @@ export function PomodoroWidget() {
 /* ---------------- Goal boards nav ---------------- */
 
 export function GoalNav() {
+  const t = useT();
   const goals = useStore((s) => s.goals);
   const activeGoalId = useStore((s) => s.activeGoalId);
   const setActive = useStore((s) => s.setActiveGoal);
@@ -217,12 +219,12 @@ export function GoalNav() {
       <PanelTitle
         icon={<GcIcon name="target-radar" size={15} />}
         right={
-          <Button type="button" variant="ghost" size="icon" className="size-7 gc-btn" aria-label="Create new board" onClick={() => openBoardModal("create")}>
+          <Button type="button" variant="ghost" size="icon" className="size-7 gc-btn" aria-label={t("side.createBoard")} onClick={() => openBoardModal("create")}>
             <Plus className="h-4 w-4" />
           </Button>
         }
       >
-        <T>My Goal Boards</T>
+        {t("side.boards")}
       </PanelTitle>
       <div className="flex flex-col gap-1">
         {goals.map((g, i) => {
@@ -255,7 +257,7 @@ export function GoalNav() {
                 </span>
                 <span className="min-w-0">
                   <span className="block truncate text-[0.82rem] font-bold">{g.title}</span>
-                  <span className="block text-[0.68rem]" style={{ color: "var(--gc-text2)" }}>{stats.completed}/{stats.total} completed</span>
+                  <span className="block text-[0.68rem]" style={{ color: "var(--gc-text2)" }}>{t("side.completedCount", { completed: stats.completed, total: stats.total })}</span>
                 </span>
               </span>
               <motion.span
@@ -279,6 +281,7 @@ export function GoalNav() {
 /* ---------------- Templates ---------------- */
 
 export function Templates() {
+  const t = useT();
   const loadTemplate = useStore((s) => s.loadTemplate);
   /* fix (v4.3): useActiveGoal() returns the board OBJECT — the pack-apply
      path needs the board ID, otherwise the comparison never matches and
@@ -307,7 +310,7 @@ export function Templates() {
       return { ...g, categories: [...g.categories, ...cats] };
     });
     useStore.setState({ goals: gs });
-    toast.success(`Loaded "${tpl.title}" from community pack.`);
+    toast.success(t("side.packLoaded", { name: tpl.title }));
   };
 
   return (
@@ -316,12 +319,12 @@ export function Templates() {
         icon={<GcIcon name="book-flutter" size={15} />}
         right={
           <Button type="button" variant="ghost" size="icon" className="size-7 gc-btn"
-            title="Import community pack" aria-label="Import community pack"
+            title={t("side.importPack")} aria-label={t("side.importPack")}
             onClick={() => openPackModal("packModal")}>
             <Plus className="h-3.5 w-3.5" />
           </Button>
         }
-      ><T>1-Click Templates</T></PanelTitle>
+      >{t("side.templates")}</PanelTitle>
       <div className="flex flex-col gap-2">
         {[...Object.values(TEMPLATES), ...packTemplates].map((tpl, i) => (
           <motion.button
@@ -345,7 +348,7 @@ export function Templates() {
                 <span className="block truncate text-[0.68rem]" style={{ color: "var(--gc-text2)" }}>{tpl.blurb}</span>
               </span>
             </span>
-            <span className="shrink-0 text-[0.72rem] font-extrabold" style={{ color: "var(--gc-text)" }}>＋ Load</span>
+            <span className="shrink-0 text-[0.72rem] font-extrabold" style={{ color: "var(--gc-text)" }}>{t("side.load")}</span>
           </motion.button>
         ))}
       </div>
@@ -368,7 +371,11 @@ const STREAMS = [
 /** Ambient stream registry (shared with Deep-Focus mode). */
 export const GC_STREAMS = STREAMS;
 
+/** Meter row labels resolve through the catalog (rendered uppercase via CSS). */
+const METER_KEYS = { bass: "side.bass", mid: "side.mid", treble: "side.treble" } as const;
+
 export function AudioStudio() {
+  const t = useT();
   const audioStream = useStore((s) => s.settings.audioStream);
   const audioGain = useStore((s) => s.settings.audioGain);
   const setAudio = useStore((s) => s.setAudio);
@@ -440,19 +447,19 @@ export function AudioStudio() {
                 exit={{ scale: 0, opacity: 0 }}
                 transition={{ scale: { duration: 1.2, repeat: Infinity } }}
               >
-                LIVE
+                {t("side.live")}
               </motion.span>
             )}
           </AnimatePresence>
         }
       >
-        <T>Audio-Reactive Studio</T>
+        {t("side.audioStudio")}
       </PanelTitle>
       <div className="flex flex-col gap-3">
         <canvas ref={canvasRef} width={260} height={48} className="w-full rounded-lg" style={{ background: "var(--gc-input)" }} aria-hidden="true" />
         {(["bass", "mid", "treble"] as const).map((k) => (
           <div key={k} className="flex items-center gap-2 text-[0.68rem] font-extrabold">
-            <span className="w-12 uppercase" style={{ color: k === "bass" ? "var(--gc-danger)" : k === "mid" ? "color-mix(in srgb, var(--gc-warning) 75%, white)" : "color-mix(in srgb, var(--gc-accent) 60%, white)" }}>{k}</span>
+            <span className="w-12 uppercase" style={{ color: k === "bass" ? "var(--gc-danger)" : k === "mid" ? "color-mix(in srgb, var(--gc-warning) 75%, white)" : "color-mix(in srgb, var(--gc-accent) 60%, white)" }}>{t(METER_KEYS[k])}</span>
             <div className="h-1.5 flex-1 overflow-hidden rounded-full" style={{ background: "var(--gc-surface-2)" }}>
               <div id={`${k}MeterFill`} className="h-full w-0 rounded-full transition-[width] duration-100" style={{ background: "var(--gc-grad)" }} />
             </div>
@@ -460,7 +467,7 @@ export function AudioStudio() {
           </div>
         ))}
         <Select value={audioStream} onValueChange={(v) => { setAudio({ audioStream: v }); if (running) { stopAudioStream(); startAudioStream(v).then(setRunning); } }}>
-          <SelectTrigger aria-label="Choose an ambient audio stream" className="w-full gc-input text-xs"><SelectValue /></SelectTrigger>
+          <SelectTrigger aria-label={t("side.chooseStream")} className="w-full gc-input text-xs"><SelectValue /></SelectTrigger>
           <SelectContent>
             {STREAMS.map((s) => (
               <SelectItem key={s.id} value={s.id}>
@@ -477,15 +484,15 @@ export function AudioStudio() {
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.94 }}
           >
-            {running ? <><Square className="h-3.5 w-3.5" /> Stop Beat</> : <><Play className="h-3.5 w-3.5" /> Start Beat</>}
+            {running ? <><Square className="h-3.5 w-3.5" /> {t("side.stopBeat")}</> : <><Play className="h-3.5 w-3.5" /> {t("side.startBeat")}</>}
           </motion.button>
           <div className="flex flex-1 items-center gap-2">
-            <span className="text-[0.65rem] font-bold" style={{ color: "var(--gc-text2)" }}>Gain</span>
-            <Slider value={[audioGain]} min={0.5} max={3} step={0.1} onValueChange={([v]) => setAudio({ audioGain: v })} className="flex-1" aria-label="Particle reactivity gain" />
+            <span className="text-[0.65rem] font-bold" style={{ color: "var(--gc-text2)" }}>{t("side.gain")}</span>
+            <Slider value={[audioGain]} min={0.5} max={3} step={0.1} onValueChange={([v]) => setAudio({ audioGain: v })} className="flex-1" aria-label={t("side.gainAria")} />
           </div>
         </div>
         <p className="text-[0.65rem]" style={{ color: "var(--gc-muted)" }}>
-          Synthesized locally with Web Audio — zero network. Particles dance to the beat.
+          {t("side.audioNote")}
         </p>
       </div>
     </Panel>
@@ -500,20 +507,5 @@ function setMeter(kind: string, val: number) {
   if (valEl) valEl.textContent = `${pct}%`;
 }
 
-/* ---------------------------------------------------------
-   v4.2 — i18n: <T> renders the catalog entry for a default
-   English string when a key exists; falls back to the child
-   text itself (keeps untranslated copy intact).
-   --------------------------------------------------------- */
-const T_KEY_BY_TEXT: Record<string, string> = {
-  "Pomodoro Focus": "side.pomodoro",
-  "My Goal Boards": "side.boards",
-  "1-Click Templates": "side.templates",
-  "Audio-Reactive Studio": "side.audioStudio",
-};
-
-function T({ children }: { children: string }) {
-  const t = useT();
-  const key = T_KEY_BY_TEXT[children];
-  return <>{key ? t(key) : children}</>;
-}
+/* v4.2 — i18n: the former <T> text→key shim (T_KEY_BY_TEXT) is retired;
+   widget titles now call t() directly via useT() in each component. */

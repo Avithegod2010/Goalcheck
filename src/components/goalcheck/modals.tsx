@@ -27,7 +27,7 @@ import { RPG_AURAS, RPG_SKILLS, ACHIEVEMENTS, buildMarkdownExport, buildPlainExp
 import { Markdown, toggleMarkdownCheckbox } from "@/lib/goalcheck/markdown";
 import { detectAndParse, type ImportedGoal } from "@/lib/goalcheck/importers";
 import { encryptString, decryptString, isEncryptedPayload } from "@/lib/goalcheck/crypto";
-import { useT, getLocale, setLocale } from "@/lib/goalcheck/i18n";
+import { useT, t, getLocale, setLocale } from "@/lib/goalcheck/i18n";
 import { SUPPORTED_LOCALES, LOCALE_LABELS, type Locale } from "@/lib/goalcheck/locales";
 import { playChime } from "@/lib/goalcheck/audio";
 import type { ChimePack, Task } from "@/lib/goalcheck/types";
@@ -90,6 +90,7 @@ function MediaPickerModal() {
   const setQuickCatMedia = useStore((s) => s.setQuickCatMedia);
   const setBoardMedia = useStore((s) => s.setBoardMedia);
   const setCategoryMedia = useStore((s) => s.setCategoryMedia);
+  const t = useT();
 
   const current = useMemo(() => {
     if (!target) return "mono:laptop-code";
@@ -106,7 +107,7 @@ function MediaPickerModal() {
 
   const apply = (chosen: string) => {
     if (!target) return close();
-    if (target.type === "quick") { setQuickCatMedia(chosen); toast("Updated quick category icon!"); }
+    if (target.type === "quick") { setQuickCatMedia(chosen); toast(t("modal.media.updatedQuickIcon")); }
     else if (target.type === "goal") { setBoardMedia(chosen); }
     else if (target.type === "category") { setCategoryMedia(target.catId, chosen); }
     close();
@@ -118,11 +119,11 @@ function MediaPickerModal() {
     <Dialog open={target !== null} onOpenChange={(o) => { if (!o) close(); }}>
       <DialogContent className="gc-modal max-w-lg">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2"><GcIcon name="image-pic" size={17} /> Customize Icon & Media</DialogTitle>
+          <DialogTitle className="flex items-center gap-2"><GcIcon name="image-pic" size={17} /> {t("modal.media.title")}</DialogTitle>
           <DialogDescription>
             {hasFeature("media-rich")
-              ? "Hand-crafted animated icons, an image URL, or an upload — auto-compressed."
-              : "Hand-crafted animated icons. Image URLs & uploads are part of GoalCheck Advance."}
+              ? t("modal.media.descPro")
+              : t("modal.media.descBase")}
           </DialogDescription>
         </DialogHeader>
         {target && <MediaPickerBody key={targetKey} initial={current} onApply={apply} onCancel={close} />}
@@ -134,6 +135,7 @@ function MediaPickerModal() {
 function MediaPickerBody({ initial, onApply, onCancel }: { initial: string; onApply: (chosen: string) => void; onCancel: () => void }) {
   const [draft, setDraft] = useState(initial);
   const [tab, setTab] = useState<"animated" | "url" | "upload">("animated");
+  const t = useT();
 
   return (
     <>
@@ -142,14 +144,14 @@ function MediaPickerBody({ initial, onApply, onCancel }: { initial: string; onAp
           <MediaBadge value={draft} fallback="mono:laptop-code" iconSize={34} />
         </span>
         <div>
-          <p className="text-sm font-extrabold">Badge Live Preview</p>
-          <p className="text-xs" style={{ color: "var(--gc-text2)" }}>Animated icons inherit your theme colour automatically</p>
+          <p className="text-sm font-extrabold">{t("modal.media.badgePreview")}</p>
+          <p className="text-xs" style={{ color: "var(--gc-text2)" }}>{t("modal.media.badgePreviewHint")}</p>
         </div>
       </div>
 
       <div className="flex flex-wrap gap-1 rounded-xl p-1" style={{ background: "var(--gc-surface-2)" }} role="tablist">
         {(["animated", ...(hasFeature("media-rich") ? (["url", "upload"] as const) : [])] as const).map((id) => {
-          const label = id === "animated" ? "Animated Icons" : id === "url" ? "Image URL" : "Upload";
+          const label = id === "animated" ? t("modal.media.tabAnimated") : id === "url" ? t("modal.media.tabUrl") : t("modal.media.tabUpload");
           return (
             <button key={id} type="button" role="tab" aria-selected={tab === id} onClick={() => setTab(id)}
               className="rounded-lg px-3 py-1.5 text-xs font-bold"
@@ -161,7 +163,7 @@ function MediaPickerBody({ initial, onApply, onCancel }: { initial: string; onAp
       </div>
 
       {tab === "animated" && (
-        <div className="flex max-h-64 flex-col gap-2 overflow-y-auto p-1 gc-scroll" role="listbox" aria-label="Animated icon gallery">
+        <div className="flex max-h-64 flex-col gap-2 overflow-y-auto p-1 gc-scroll" role="listbox" aria-label={t("modal.media.galleryAria")}>
           {GC_ICON_GROUPS.map((grp) => (
             <div key={grp.id}>
               <p className="sticky top-0 z-10 mb-1 py-0.5 text-[0.62rem] font-extrabold uppercase tracking-wider" style={{ color: "var(--gc-muted)", background: "var(--gc-background)" }}>
@@ -192,9 +194,9 @@ function MediaPickerBody({ initial, onApply, onCancel }: { initial: string; onAp
 
       {tab === "url" && (
         <div className="flex flex-col gap-2">
-          <Input value={/^https?:\/\//i.test(draft) ? draft : ""} onChange={(e) => setDraft(e.target.value.trim())} className="gc-input" placeholder="https://media.giphy.com/media/… or https://i.imgur.com/…" aria-label="Image or GIF URL" type="url" />
+          <Input value={/^https?:\/\//i.test(draft) ? draft : ""} onChange={(e) => setDraft(e.target.value.trim())} className="gc-input" placeholder="https://media.giphy.com/media/… or https://i.imgur.com/…" aria-label={t("modal.media.urlAria")} type="url" />
           <p className="flex items-center gap-1.5 text-xs" style={{ color: "var(--gc-text2)" }}>
-            <GcIcon name="bulb-glow" size={13} /> Paste direct links from Giphy, Tenor, Imgur, or Unsplash.
+            <GcIcon name="bulb-glow" size={13} /> {t("modal.media.urlHint")}
           </p>
         </div>
       )}
@@ -205,13 +207,13 @@ function MediaPickerBody({ initial, onApply, onCancel }: { initial: string; onAp
           style={{ borderColor: "var(--gc-border-strong)" }}
         >
           <GcIcon name="cloud-rain" size={30} />
-          <span className="text-sm font-bold">Click to choose a file from your device</span>
-          <span className="text-xs" style={{ color: "var(--gc-text2)" }}>PNG, JPG, GIF, WebP — auto-compressed before saving (quota-safe)</span>
+          <span className="text-sm font-bold">{t("modal.media.uploadPrompt")}</span>
+          <span className="text-xs" style={{ color: "var(--gc-text2)" }}>{t("modal.media.uploadFormats")}</span>
           <input
             type="file"
             accept="image/*"
             className="hidden"
-            aria-label="Upload image"
+            aria-label={t("modal.media.uploadAria")}
             onChange={(e) => {
               const file = e.target.files?.[0];
               if (file) handleImageUpload(file, setDraft);
@@ -222,9 +224,9 @@ function MediaPickerBody({ initial, onApply, onCancel }: { initial: string; onAp
       )}
 
       <DialogFooter>
-        <Button type="button" variant="outline" className="gc-btn" onClick={onCancel}>Cancel</Button>
+        <Button type="button" variant="outline" className="gc-btn" onClick={onCancel}>{t("common.cancel")}</Button>
         <Button type="button" className="gc-btn-primary" onClick={() => onApply((draft || "mono:laptop-code").trim())}>
-          <GcIcon name="check-circle" size={14} /> Apply Media
+          <GcIcon name="check-circle" size={14} /> {t("modal.media.apply")}
         </Button>
       </DialogFooter>
     </>
@@ -250,15 +252,15 @@ async function handleImageUpload(file: File, onReady: (dataUrl: string) => void)
         const isPhoto = /\.(jpe?g|webp)$/i.test(file.type) || file.type.startsWith("image/jpeg") || file.type.startsWith("image/webp");
         const dataUrl = canvas.toDataURL(isPhoto ? "image/jpeg" : "image/png", 0.85);
         onReady(dataUrl);
-        toast.success("Image ready! Click Apply Media to save.");
+        toast.success(t("modal.media.imageReady"));
       } catch {
-        toast.error("Could not process that image.");
+        toast.error(t("modal.media.processError"));
       }
     };
-    img.onerror = () => toast.error("Could not read that image file.");
+    img.onerror = () => toast.error(t("modal.media.readError"));
     img.src = String(reader.result);
   };
-  reader.onerror = () => toast.error("Could not read that file.");
+  reader.onerror = () => toast.error(t("modal.common.readFileError"));
   reader.readAsDataURL(file);
 }
 
@@ -277,35 +279,36 @@ function ThemeModal() {
   const simSpeed = useStore((s) => s.settings.simSpeed);
   const simDensity = useStore((s) => s.settings.simDensity);
   const setSim = useStore((s) => s.setSim);
+  const t = useT();
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) useUi.setState({ themeModal: false }); }}>
       <DialogContent className="gc-modal max-h-[85vh] max-w-2xl overflow-y-auto gc-scroll">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2"><GcIcon name="palette-dab" size={17} /> Themes{IS_PRO ? " & Ambient Particles" : ""}</DialogTitle>
+          <DialogTitle className="flex items-center gap-2"><GcIcon name="palette-dab" size={17} /> {IS_PRO ? t("modal.themes.titlePro") : t("modal.themes.title")}</DialogTitle>
           <DialogDescription>
             {IS_PRO
-              ? "11 palettes with radial ripple wipe • 13 particle engines • cursor physics."
-              : "Two curated palettes with auto light/dark. Particles, presets & 9 extra themes are part of GoalCheck Advance."}
+              ? t("modal.themes.descPro")
+              : t("modal.themes.descBase")}
           </DialogDescription>
         </DialogHeader>
 
-        <p className="text-xs font-extrabold uppercase tracking-wide" style={{ color: "var(--gc-text2)" }}>Color palette theme</p>
+        <p className="text-xs font-extrabold uppercase tracking-wide" style={{ color: "var(--gc-text2)" }}>{t("modal.themes.palette")}</p>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-          {availableThemes().map((t) => (
+          {availableThemes().map((th) => (
             <motion.button
-              key={t.id}
+              key={th.id}
               type="button"
-              onClick={(e) => setTheme(t.id, { x: e.clientX, y: e.clientY })}
+              onClick={(e) => setTheme(th.id, { x: e.clientX, y: e.clientY })}
               className="flex items-center gap-2.5 rounded-xl border-2 p-2.5 text-left"
-              style={{ borderColor: theme === t.id ? "var(--gc-accent)" : "var(--gc-border)", background: "var(--gc-surface-2)" }}
+              style={{ borderColor: theme === th.id ? "var(--gc-accent)" : "var(--gc-border)", background: "var(--gc-surface-2)" }}
               whileHover={{ y: -2, borderColor: "var(--gc-accent)" }}
               whileTap={{ scale: 0.97 }}
             >
-              <motion.span className="h-8 w-8 shrink-0 rounded-lg border" style={{ background: t.swatch, borderColor: "var(--gc-border)" }} whileHover={{ scale: 1.12, rotate: 6 }} />
+              <motion.span className="h-8 w-8 shrink-0 rounded-lg border" style={{ background: th.swatch, borderColor: "var(--gc-border)" }} whileHover={{ scale: 1.12, rotate: 6 }} />
               <span className="min-w-0">
-                <span className="block truncate text-xs font-bold">{t.label}</span>
-                <span className="block text-[0.62rem]" style={{ color: "var(--gc-text2)" }}>{t.light ? "Light" : "Dark"} theme</span>
+                <span className="block truncate text-xs font-bold">{th.label}</span>
+                <span className="block text-[0.62rem]" style={{ color: "var(--gc-text2)" }}>{th.light ? t("modal.themes.lightTheme") : t("modal.themes.darkTheme")}</span>
               </span>
             </motion.button>
           ))}
@@ -315,7 +318,7 @@ function ThemeModal() {
 
         {hasFeature("atmosphere-presets") && (
           <>
-            <p className="mt-2 text-xs font-extrabold uppercase tracking-wide" style={{ color: "var(--gc-text2)" }}>Coordinated presets</p>
+            <p className="mt-2 text-xs font-extrabold uppercase tracking-wide" style={{ color: "var(--gc-text2)" }}>{t("modal.themes.presets")}</p>
             <div className="grid grid-cols-2 gap-2">
               {ATMOSPHERE_PRESETS.map((p) => (
             <motion.button
@@ -340,7 +343,7 @@ function ThemeModal() {
 
         {hasFeature("particles") && (
           <>
-            <p className="mt-2 text-xs font-extrabold uppercase tracking-wide" style={{ color: "var(--gc-text2)" }}>Particle engine</p>
+            <p className="mt-2 text-xs font-extrabold uppercase tracking-wide" style={{ color: "var(--gc-text2)" }}>{t("modal.themes.engine")}</p>
             <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
               {availableEngines().map((e) => (
                 <motion.button
@@ -360,7 +363,7 @@ function ThemeModal() {
 
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border p-3" style={{ borderColor: "var(--gc-border)", background: "var(--gc-surface-2)" }}>
               <div className="flex items-center gap-1.5">
-                <span className="text-xs font-bold">Cursor:</span>
+                <span className="text-xs font-bold">{t("modal.themes.cursor")}</span>
                 {(["attract", "repel", "orbit", "none"] as const).map((m) => (
                   <button
                     key={m}
@@ -375,12 +378,12 @@ function ThemeModal() {
               </div>
               <div className="flex items-center gap-4">
                 <label className="flex items-center gap-2 text-xs font-bold">
-                  Speed
-                  <Slider value={[simSpeed]} min={0.2} max={2.5} step={0.1} onValueChange={([v]) => setSim({ simSpeed: v })} className="w-20" aria-label="Simulation speed" />
+                  {t("modal.themes.speed")}
+                  <Slider value={[simSpeed]} min={0.2} max={2.5} step={0.1} onValueChange={([v]) => setSim({ simSpeed: v })} className="w-20" aria-label={t("modal.themes.speedAria")} />
                 </label>
                 <label className="flex items-center gap-2 text-xs font-bold">
-                  Density
-                  <Slider value={[simDensity]} min={25} max={140} step={5} onValueChange={([v]) => setSim({ simDensity: v })} className="w-20" aria-label="Particle density" />
+                  {t("modal.themes.density")}
+                  <Slider value={[simDensity]} min={25} max={140} step={5} onValueChange={([v]) => setSim({ simDensity: v })} className="w-20" aria-label={t("modal.themes.densityAria")} />
                 </label>
               </div>
             </div>
@@ -388,7 +391,7 @@ function ThemeModal() {
         )}
 
         <DialogFooter>
-          <Button type="button" className="gc-btn-primary" onClick={() => useUi.setState({ themeModal: false })}>Done</Button>
+          <Button type="button" className="gc-btn-primary" onClick={() => useUi.setState({ themeModal: false })}>{t("common.done")}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -399,11 +402,13 @@ function ThemeModal() {
    SETTINGS (+ Sound Studio)
    ========================================================= */
 
+/* `label` holds a catalog key — resolved with t() at render time (module
+   consts evaluate once, so translating here would freeze the locale). */
 const CHIME_PACKS: { id: ChimePack; label: string }[] = [
-  { id: "glass", label: "Glass — pure & airy" },
-  { id: "marimba", label: "Marimba — warm & wooden" },
-  { id: "bell", label: "Bell — FM metallic" },
-  { id: "chip", label: "Chip — 8-bit retro" },
+  { id: "glass", label: "settings.chimePack.glass" },
+  { id: "marimba", label: "settings.chimePack.marimba" },
+  { id: "bell", label: "settings.chimePack.bell" },
+  { id: "chip", label: "settings.chimePack.chip" },
 ];
 
 function SettingsModal() {
@@ -425,38 +430,38 @@ function SettingsModal() {
     <Dialog open={open} onOpenChange={(o) => { if (!o) useUi.setState({ settingsModal: false }); }}>
       <DialogContent className="gc-modal max-h-[85vh] max-w-lg overflow-y-auto gc-scroll">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2"><GcIcon name="gear-wheel" size={17} /> Workspace Modules & Preferences</DialogTitle>
-          <DialogDescription>Toggle feature modules, sound design and performance options.</DialogDescription>
+          <DialogTitle className="flex items-center gap-2"><GcIcon name="gear-wheel" size={17} /> {t("settings.title")}</DialogTitle>
+          <DialogDescription>{t("settings.subtitle")}</DialogDescription>
         </DialogHeader>
 
         <div className="flex flex-col gap-2.5">
-          {hasFeature("rpg") && <SettingRow title="RPG Gamification, XP & Levels" icon="bolt-boost" desc="Level badge, XP rewards, combo gauge, floating popups." checked={s.rpgEnabled} onCheckedChange={toggleRpg} />}
-          {hasFeature("heatmap") && <SettingRow title="365-Day Activity Heatmap" icon="flame-ember" desc="Daily contribution intensity and streak counters." checked={s.heatmapEnabled} onCheckedChange={toggleHeatmap} />}
-          <SettingRow title="Auto-Complete Parent on All Subtasks Done" icon="puzzle-piece" desc="Mark main task completed when micro-steps a, b, c are finished." checked={s.autoParent} onCheckedChange={toggleAutoParent} />
-          <SettingRow title="Reduce Effects (battery saver)" icon="lotus-zen" desc="Disables particles, ripple & confetti. Also respects your system reduce-motion setting." checked={s.reduceEffects} onCheckedChange={toggleReduceEffects} />
+          {hasFeature("rpg") && <SettingRow title={t("settings.gamification")} icon="bolt-boost" desc={t("settings.rpgDesc")} checked={s.rpgEnabled} onCheckedChange={toggleRpg} />}
+          {hasFeature("heatmap") && <SettingRow title={t("settings.heatmap")} icon="flame-ember" desc={t("settings.heatmapDesc")} checked={s.heatmapEnabled} onCheckedChange={toggleHeatmap} />}
+          <SettingRow title={t("settings.autoParent")} icon="puzzle-piece" desc={t("settings.autoParentDesc")} checked={s.autoParent} onCheckedChange={toggleAutoParent} />
+          <SettingRow title={t("settings.reduceEffects")} icon="lotus-zen" desc={t("settings.reduceEffectsDesc")} checked={s.reduceEffects} onCheckedChange={toggleReduceEffects} />
           {hasFeature("habits") && (
-            <SettingRow title="Streak freezes" icon="lock-shield" desc="Earn a freeze token every 7-period streak (hold up to 2). Missed days consume a token instead of breaking the streak." checked={s.streakFreezes} onCheckedChange={setStreakFreezes} />
+            <SettingRow title={t("settings.streakFreezes")} icon="lock-shield" desc={t("settings.streakFreezesDesc")} checked={s.streakFreezes} onCheckedChange={setStreakFreezes} />
           )}
 
           {/* v4.2 — language + display scale */}
           <div className="rounded-xl border p-3" style={{ borderColor: "var(--gc-border)" }}>
-            <p className="mb-2 flex items-center gap-2 text-sm font-extrabold"><GcIcon name="globe-orbit" size={15} /> Language &amp; Display</p>
+            <p className="mb-2 flex items-center gap-2 text-sm font-extrabold"><GcIcon name="globe-orbit" size={15} /> {t("settings.languageDisplay")}</p>
             <div className="flex flex-col gap-3">
               <div>
-                <label className="mb-1 block text-[0.68rem] font-bold uppercase tracking-wide" style={{ color: "var(--gc-text2)" }}>Language</label>
+                <label className="mb-1 block text-[0.68rem] font-bold uppercase tracking-wide" style={{ color: "var(--gc-text2)" }}>{t("settings.language")}</label>
                 <Select value={getLocale()} onValueChange={(v) => setLocale(v as Locale)}>
-                  <SelectTrigger className="gc-input text-xs" aria-label="Interface language"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="gc-input text-xs" aria-label={t("settings.interfaceLanguage")}><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {SUPPORTED_LOCALES.map((l) => <SelectItem key={l} value={l}>{LOCALE_LABELS[l]}</SelectItem>)}
                   </SelectContent>
                 </Select>
                 <p className="mt-1 text-[0.65rem]" style={{ color: "var(--gc-muted)" }}>
-                  Applies instantly. Community translations welcome — English is the source of truth.
+                  {t("settings.languageHint")}
                 </p>
               </div>
               <div className="flex items-center gap-3">
-                <span className="w-24 shrink-0 text-xs font-bold">Text size</span>
-                <Slider value={[Math.round(s.fontScale * 100)]} min={90} max={130} step={5} onValueChange={([v]) => setFontScale(v / 100)} className="flex-1" aria-label="Text size" />
+                <span className="w-24 shrink-0 text-xs font-bold">{t("settings.textSize")}</span>
+                <Slider value={[Math.round(s.fontScale * 100)]} min={90} max={130} step={5} onValueChange={([v]) => setFontScale(v / 100)} className="flex-1" aria-label={t("settings.textSize")} />
                 <span className="w-10 text-right font-mono text-xs" style={{ color: "var(--gc-text2)" }}>{Math.round(s.fontScale * 100)}%</span>
               </div>
             </div>
@@ -466,56 +471,56 @@ function SettingsModal() {
 
           {/* v4.3 — rituals, reminders, snapshots, demo data */}
           <div className="rounded-xl border p-3" style={{ borderColor: "var(--gc-border)" }}>
-            <p className="mb-2 flex items-center gap-2 text-sm font-extrabold"><GcIcon name="seed-grow" size={15} /> Rituals &amp; Imports</p>
+            <p className="mb-2 flex items-center gap-2 text-sm font-extrabold"><GcIcon name="seed-grow" size={15} /> {t("settings.rituals")}</p>
             <div className="grid grid-cols-2 gap-2">
               <button type="button" className="flex items-center justify-center gap-1.5 rounded-lg border py-2 text-xs font-extrabold gc-btn" style={{ borderColor: "var(--gc-border)" }}
                 onClick={() => { useUi.setState({ settingsModal: false, reviewModal: true }); }}>
-                <GcIcon name="book-flutter" size={13} /> Weekly Review
+                <GcIcon name="book-flutter" size={13} /> {t("modal.review.title")}
               </button>
               <button type="button" className="flex items-center justify-center gap-1.5 rounded-lg border py-2 text-xs font-extrabold gc-btn" style={{ borderColor: "var(--gc-border)" }}
                 onClick={() => { useUi.setState({ settingsModal: false, wrappedModal: true }); }}>
-                <GcIcon name="trophy-star" size={13} /> Year Wrapped
+                <GcIcon name="trophy-star" size={13} /> {t("settings.yearWrapped")}
               </button>
               <button type="button" className="flex items-center justify-center gap-1.5 rounded-lg border py-2 text-xs font-extrabold gc-btn" style={{ borderColor: "var(--gc-border)" }}
                 onClick={() => { useUi.setState({ settingsModal: false, importModal: true }); }}>
-                <GcIcon name="luggage-trip" size={13} /> Import from apps
+                <GcIcon name="luggage-trip" size={13} /> {t("settings.importFromApps")}
               </button>
               <button type="button" className="flex items-center justify-center gap-1.5 rounded-lg border py-2 text-xs font-extrabold gc-btn" style={{ borderColor: "var(--gc-border)" }}
-                onClick={() => { if (window.confirm("Replace the current workspace with the sample demo data?")) useStore.getState().loadDemoData(); }}>
-                <GcIcon name="sparkle-star" size={13} /> Load demo data
+                onClick={() => { if (window.confirm(t("settings.demoConfirm"))) useStore.getState().loadDemoData(); }}>
+                <GcIcon name="sparkle-star" size={13} /> {t("settings.loadDemo")}
               </button>
             </div>
             <p className="mt-1.5 text-[0.65rem]" style={{ color: "var(--gc-muted)" }}>
-              Review ritual: /review in the command bar · Wrapped: shareable PNG · Demo: try the app with a full sample workspace.
+              {t("settings.ritualsHint")}
             </p>
           </div>
 
           <div className="rounded-xl border p-3" style={{ borderColor: "var(--gc-border)" }}>
-            <p className="mb-2 flex items-center gap-2 text-sm font-extrabold"><GcIcon name="chat-bell" size={15} /> Reminders &amp; Snapshots</p>
+            <p className="mb-2 flex items-center gap-2 text-sm font-extrabold"><GcIcon name="chat-bell" size={15} /> {t("settings.remindersSnapshots")}</p>
             <div className="flex flex-col gap-2.5">
               <div className="flex items-center justify-between gap-2">
                 <div>
-                  <p className="text-xs font-bold">Due-date reminders</p>
-                  <p className="text-[0.65rem]" style={{ color: "var(--gc-muted)" }}>Local device notifications for today/overdue tasks while the app is open. Opt-in, no server.</p>
+                  <p className="text-xs font-bold">{t("settings.remindersTitle")}</p>
+                  <p className="text-[0.65rem]" style={{ color: "var(--gc-muted)" }}>{t("settings.remindersDesc")}</p>
                 </div>
                 <Switch checked={s.remindersEnabled} onCheckedChange={async (on) => {
                   if (on && typeof Notification !== "undefined" && Notification.permission !== "granted") {
-                    try { const p = await Notification.requestPermission(); if (p !== "granted") { toast.error("Notification permission denied."); return; } } catch { /* ignore */ }
+                    try { const p = await Notification.requestPermission(); if (p !== "granted") { toast.error(t("settings.notifyDenied")); return; } } catch { /* ignore */ }
                   }
                   useStore.getState().setReminders(on);
-                }} aria-label="Toggle due-date reminders" />
+                }} aria-label={t("settings.remindersToggleAria")} />
               </div>
               <div className="flex items-center justify-between gap-2">
                 <div>
-                  <p className="text-xs font-bold">Auto-snapshots</p>
-                  <p className="text-[0.65rem]" style={{ color: "var(--gc-muted)" }}>Dated workspace snapshots into a folder you pick. Older ones rotate out automatically.</p>
+                  <p className="text-xs font-bold">{t("settings.autoSnapshots")}</p>
+                  <p className="text-[0.65rem]" style={{ color: "var(--gc-muted)" }}>{t("settings.autoSnapshotsDesc")}</p>
                 </div>
                 <Select value={s.snapshotCadence} onValueChange={(v) => useStore.getState().setSnapshotConfig({ snapshotCadence: v as "off" | "daily" | "weekly" })}>
-                  <SelectTrigger className="gc-input h-8 w-24 text-xs" aria-label="Snapshot cadence"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="gc-input h-8 w-24 text-xs" aria-label={t("settings.snapshotCadenceAria")}><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="off">Off</SelectItem>
-                    <SelectItem value="daily">Daily</SelectItem>
-                    <SelectItem value="weekly">Weekly</SelectItem>
+                    <SelectItem value="off">{t("settings.off")}</SelectItem>
+                    <SelectItem value="daily">{t("side.daily")}</SelectItem>
+                    <SelectItem value="weekly">{t("side.weekly")}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -536,72 +541,72 @@ function SettingsModal() {
               useUi.setState({ settingsModal: false });
             }}
           >
-            Replay the intro tour
+            {t("settings.replayTour")}
           </button>
 
           {/* Sound studio */}
           <div className="rounded-xl border p-3" style={{ borderColor: "var(--gc-border)" }}>
-            <p className="mb-2 flex items-center gap-2 text-sm font-extrabold"><GcIcon name="wave-sound" size={15} /> Sound Design</p>
+            <p className="mb-2 flex items-center gap-2 text-sm font-extrabold"><GcIcon name="wave-sound" size={15} /> {t("settings.soundDesign")}</p>
             <div className="flex flex-col gap-3">
               <div>
-                <label className="mb-1 block text-[0.68rem] font-bold uppercase tracking-wide" style={{ color: "var(--gc-text2)" }}>Chime voice pack</label>
+                <label className="mb-1 block text-[0.68rem] font-bold uppercase tracking-wide" style={{ color: "var(--gc-text2)" }}>{t("side.chimes")}</label>
                 {hasFeature("chime-packs") ? (
                   <Select value={s.chimePack} onValueChange={(v) => setAudio({ chimePack: v as ChimePack })}>
-                    <SelectTrigger className="gc-input text-xs" aria-label="Chime voice pack"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="gc-input text-xs" aria-label={t("side.chimes")}><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      {CHIME_PACKS.map((p) => <SelectItem key={p.id} value={p.id}>{p.label}</SelectItem>)}
+                      {CHIME_PACKS.map((p) => <SelectItem key={p.id} value={p.id}>{t(p.label)}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 ) : (
                   <p className="rounded-lg border px-3 py-2 text-xs font-bold" style={{ borderColor: "var(--gc-border)", color: "var(--gc-text2)" }}>
-                    Classic glass chime — 3 more voice packs are part of GoalCheck Advance.
+                    {t("settings.chimeClassic")}
                   </p>
                 )}
               </div>
               <div className="flex items-center gap-3">
-                <span className="w-24 shrink-0 text-xs font-bold">Chime volume</span>
-                <Slider value={[Math.round(s.chimeVolume * 100)]} min={0} max={100} step={5} onValueChange={([v]) => setAudio({ chimeVolume: v / 100 })} className="flex-1" aria-label="Chime volume" />
+                <span className="w-24 shrink-0 text-xs font-bold">{t("settings.chimeVolume")}</span>
+                <Slider value={[Math.round(s.chimeVolume * 100)]} min={0} max={100} step={5} onValueChange={([v]) => setAudio({ chimeVolume: v / 100 })} className="flex-1" aria-label={t("settings.chimeVolume")} />
                 <span className="w-9 text-right font-mono text-xs" style={{ color: "var(--gc-text2)" }}>{Math.round(s.chimeVolume * 100)}%</span>
                 <Button
                   type="button" size="sm" variant="outline" className="gc-btn shrink-0"
-                  title="Preview chime" aria-label="Preview chime"
+                  title={t("settings.previewChime")} aria-label={t("settings.previewChime")}
                   onClick={() => playChime("pomo-done", s.chimePack, s.chimeVolume)}
                 >
-                  <GcIcon name="tomato-timer" size={13} /> Test
+                  <GcIcon name="tomato-timer" size={13} /> {t("settings.test")}
                 </Button>
               </div>
               <p className="text-[0.65rem]" style={{ color: "var(--gc-muted)" }}>
-                Used for task completion, board celebrations and Pomodoro sessions. Music volume lives in the sidebar studio.
+                {t("settings.soundHint")}
               </p>
             </div>
           </div>
 
           <div className="flex items-center justify-between gap-3 rounded-xl p-3" style={{ background: "var(--gc-surface-2)" }}>
             <div>
-              <p className="flex items-center gap-2 text-sm font-extrabold"><GcIcon name="contrast-half" size={15} /> Theme follows system</p>
-              <p className="text-xs" style={{ color: "var(--gc-text2)" }}>Auto light/dark based on your device preference (light = Nordic, dark = Nebula).</p>
+              <p className="flex items-center gap-2 text-sm font-extrabold"><GcIcon name="contrast-half" size={15} /> {t("settings.followSystem")}</p>
+              <p className="text-xs" style={{ color: "var(--gc-text2)" }}>{t("settings.followSystemDesc")}</p>
             </div>
-            <Switch checked={s.colorMode === "system"} onCheckedChange={(v) => setColorMode(v ? "system" : "manual")} aria-label="Follow system theme" />
+            <Switch checked={s.colorMode === "system"} onCheckedChange={(v) => setColorMode(v ? "system" : "manual")} aria-label={t("settings.followSystemAria")} />
           </div>
 
           <div className="rounded-xl border p-3" style={{ borderColor: "var(--gc-danger-soft)" }}>
-            <p className="flex items-center gap-2 text-sm font-extrabold"><GcIcon name="trash-flame" size={15} /> Danger zone</p>
-            <p className="mb-2 text-xs" style={{ color: "var(--gc-text2)" }}>Reset the entire workspace to factory demo data. Export a backup first!</p>
+            <p className="flex items-center gap-2 text-sm font-extrabold"><GcIcon name="trash-flame" size={15} /> {t("settings.dangerZone")}</p>
+            <p className="mb-2 text-xs" style={{ color: "var(--gc-text2)" }}>{t("settings.dangerDesc")}</p>
             {confirmReset ? (
               <div className="flex gap-2">
                 <Button type="button" size="sm" className="bg-[var(--gc-danger)] text-white gc-btn" onClick={() => { resetWorkspace(); setConfirmReset(false); useUi.setState({ settingsModal: false }); }}>
-                  Yes, wipe everything
+                  {t("settings.wipeConfirm")}
                 </Button>
-                <Button type="button" size="sm" variant="outline" className="gc-btn" onClick={() => setConfirmReset(false)}>Cancel</Button>
+                <Button type="button" size="sm" variant="outline" className="gc-btn" onClick={() => setConfirmReset(false)}>{t("common.cancel")}</Button>
               </div>
             ) : (
-              <Button type="button" size="sm" variant="outline" className="gc-btn" onClick={() => setConfirmReset(true)}>Reset workspace…</Button>
+              <Button type="button" size="sm" variant="outline" className="gc-btn" onClick={() => setConfirmReset(true)}>{t("settings.resetWorkspace")}</Button>
             )}
           </div>
         </div>
 
         <DialogFooter>
-          <Button type="button" className="gc-btn-primary" onClick={() => useUi.setState({ settingsModal: false })}>Done</Button>
+          <Button type="button" className="gc-btn-primary" onClick={() => useUi.setState({ settingsModal: false })}>{t("common.done")}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -626,6 +631,7 @@ function SettingRow({ title, desc, icon, checked, onCheckedChange }: { title: st
    between editions by design — nothing is ever lost or migrated. */
 function EditionSwitchCard() {
   const [confirming, setConfirming] = useState(false);
+  const t = useT();
   const target: Edition = IS_PRO ? "base" : "pro";
   const targetName = IS_PRO ? "GoalCheck (Normal)" : "GoalCheck Advance";
 
@@ -641,25 +647,23 @@ function EditionSwitchCard() {
 
   return (
     <div className="rounded-xl border p-3" style={{ borderColor: "var(--gc-border)", background: "var(--gc-surface-2)" }}>
-      <p className="flex items-center gap-2 text-sm font-extrabold"><GcIcon name="puzzle-piece" size={15} /> Edition — {APP_NAME}</p>
+      <p className="flex items-center gap-2 text-sm font-extrabold"><GcIcon name="puzzle-piece" size={15} /> {t("settings.edition", { name: APP_NAME })}</p>
       <p className="mb-2 text-xs" style={{ color: "var(--gc-text2)" }}>
-        {IS_PRO
-          ? "You are running GoalCheck Advance (everything unlocked). Switch to Normal for the minimal planner experience."
-          : "You are running GoalCheck (Normal). Switch to Advance to unlock Kanban, habits, themes, audio and more."}{" "}
-        Your data is shared between editions — nothing is lost; Advance-only settings quietly pause while you are in Normal mode.
+        {IS_PRO ? t("settings.editionProDesc") : t("settings.editionBaseDesc")}{" "}
+        {t("settings.editionShared")}
       </p>
       {confirming ? (
         <div className="flex flex-wrap gap-2">
           <Button type="button" size="sm" className="gc-btn-primary text-white" onClick={doSwitch}>
-            Yes, switch to {targetName}
+            {t("settings.switchConfirm", { name: targetName })}
           </Button>
           <Button type="button" size="sm" variant="outline" className="gc-btn" onClick={() => setConfirming(false)}>
-            Cancel
+            {t("common.cancel")}
           </Button>
         </div>
       ) : (
         <Button type="button" size="sm" variant="outline" className="gc-btn" onClick={() => setConfirming(true)}>
-          Switch to {targetName}…
+          {t("settings.switchToNormal", { name: targetName })}
         </Button>
       )}
     </div>
@@ -678,6 +682,7 @@ function ExportModal() {
   const [format, setFormat] = useState<"plain" | "markdown" | "json" | "enc">("plain");
   const [pass, setPass] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
+  const t = useT();
 
   const text = useMemo(() => {
     if (!open) return "";
@@ -702,27 +707,27 @@ function ExportModal() {
 
   const download = async () => {
     if (format === "enc") {
-      if (pass.trim().length < 4) { toast.error("Enter a passphrase (4+ characters) first."); return; }
+      if (pass.trim().length < 4) { toast.error(t("modal.export.passphraseRequired")); return; }
       try {
         const enc = await encryptString(exportWorkspace(), pass.trim());
         saveBlob(enc, "goalcheck-vault.gcenc");
-        toast.success("Encrypted vault downloaded — keep the passphrase safe!");
+        toast.success(t("modal.export.vaultDownloaded"));
       } catch {
-        toast.error("Encryption is not available in this browser.");
+        toast.error(t("modal.export.encUnavailable"));
       }
       return;
     }
     const ext = format === "json" ? "json" : format === "markdown" ? "md" : "txt";
     saveBlob(text, format === "json" ? "goalcheck-backup.json" : `goalcheck-export.${ext}`);
-    toast.success("Downloaded file!");
+    toast.success(t("modal.export.downloaded"));
   };
 
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(text);
-      toast.success("Copied to clipboard!");
+      toast.success(t("modal.export.copied"));
     } catch {
-      toast.error("Clipboard unavailable — select the text and copy manually.");
+      toast.error(t("modal.export.clipboardUnavailable"));
     }
   };
 
@@ -730,18 +735,18 @@ function ExportModal() {
     <Dialog open={open} onOpenChange={(o) => { if (!o) useUi.setState({ exportModal: false }); }}>
       <DialogContent className="gc-modal max-w-xl">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2"><GcIcon name="doc-lines" size={17} /> Export, Backup & Restore</DialogTitle>
-          <DialogDescription>Export the active board, or a full workspace JSON backup you can re-import.</DialogDescription>
+          <DialogTitle className="flex items-center gap-2"><GcIcon name="doc-lines" size={17} /> {t("modal.export.title")}</DialogTitle>
+          <DialogDescription>{t("modal.export.desc")}</DialogDescription>
         </DialogHeader>
 
         {hasFeature("sync-file") && <SyncFileSection />}
 
         <div className="flex flex-wrap gap-1 rounded-xl p-1" style={{ background: "var(--gc-surface-2)" }} role="tablist">
-          {([["plain", "Plain Text"], ["markdown", "Markdown (.md)"], ["json", "JSON Backup"], ["enc", "Encrypted (.gcenc)"]] as const).map(([id, label]) => (
+          {([["plain", "modal.export.tabPlain"], ["markdown", "modal.export.tabMarkdown"], ["json", "modal.export.tabJson"], ["enc", "modal.export.tabEnc"]] as const).map(([id, label]) => (
             <button key={id} type="button" role="tab" aria-selected={format === id} onClick={() => setFormat(id)}
               className="rounded-lg px-3 py-1.5 text-xs font-bold"
               style={format === id ? { background: "var(--gc-surface)", color: "color-mix(in srgb, var(--gc-accent) 55%, var(--gc-text))" } : { color: "var(--gc-text2)" }}>
-              {label}
+              {t(label)}
             </button>
           ))}
         </div>
@@ -749,23 +754,23 @@ function ExportModal() {
         {format === "enc" ? (
           <div className="flex flex-col gap-2">
             <p className="text-xs" style={{ color: "var(--gc-text2)" }}>
-              AES-256-GCM vault of the WHOLE workspace. The passphrase never leaves this device — there is no recovery, so keep it safe.
+              {t("modal.export.encNote")}
             </p>
             <Input type="password" value={pass} onChange={(e) => setPass(e.target.value)} className="gc-input"
-              placeholder="Vault passphrase (min 4 characters)" aria-label="Vault passphrase" autoComplete="new-password" />
-            <Textarea value={"\u2713 Ready to encrypt on download.\n\u2713 Import it back from any device with the same passphrase.\n\u2713 File stays opaque even inside cloud folders."} readOnly className="gc-input h-24 resize-none font-mono text-xs" aria-label="Encrypted export notes" />
+              placeholder={t("modal.export.passphrasePlaceholder")} aria-label={t("modal.common.passphrase")} autoComplete="new-password" />
+            <Textarea value={t("modal.export.encNotes")} readOnly className="gc-input h-24 resize-none font-mono text-xs" aria-label={t("modal.export.encNotesAria")} />
           </div>
         ) : (
-          <Textarea value={text} readOnly className="gc-input h-52 resize-none font-mono text-xs" aria-label="Export content" />
+          <Textarea value={text} readOnly className="gc-input h-52 resize-none font-mono text-xs" aria-label={t("modal.export.contentAria")} />
         )}
 
         <div className="flex flex-wrap justify-between gap-2">
           <div className="flex gap-2">
-            <Button type="button" variant="outline" className="gc-btn" onClick={download}><Download className="mr-1 h-4 w-4" /> Download</Button>
-            <Button type="button" className="gc-btn-primary" onClick={copy}><Copy className="mr-1 h-4 w-4" /> Copy</Button>
+            <Button type="button" variant="outline" className="gc-btn" onClick={download}><Download className="mr-1 h-4 w-4" /> {t("modal.export.download")}</Button>
+            <Button type="button" className="gc-btn-primary" onClick={copy}><Copy className="mr-1 h-4 w-4" /> {t("modal.common.copy")}</Button>
           </div>
           <div className="flex gap-2">
-            <input ref={fileRef} type="file" accept="application/json,.json,.gcenc" className="hidden" aria-label="Import backup file"
+            <input ref={fileRef} type="file" accept="application/json,.json,.gcenc" className="hidden" aria-label={t("modal.export.importFileAria")}
               onChange={async (e) => {
                 const f = e.target.files?.[0];
                 e.target.value = "";
@@ -773,25 +778,25 @@ function ExportModal() {
                 try {
                   const raw = await f.text();
                   if (isEncryptedPayload(raw)) {
-                    const pass = window.prompt("This vault is encrypted. Enter the passphrase:");
+                    const pass = window.prompt(t("modal.export.vaultPrompt"));
                     if (!pass) return;
                     try {
                       const json = await decryptString(raw, pass);
                       if (importWorkspace(json)) useUi.setState({ exportModal: false });
                     } catch {
-                      toast.error("Wrong passphrase or corrupted vault.");
+                      toast.error(t("modal.export.wrongPassphrase"));
                     }
                     return;
                   }
                   const ok = importWorkspace(raw);
                   if (ok) useUi.setState({ exportModal: false });
                 } catch {
-                  toast.error("Could not read that file.");
+                  toast.error(t("modal.common.readFileError"));
                 }
               }}
             />
             <Button type="button" variant="outline" className="gc-btn" onClick={() => fileRef.current?.click()}>
-              <Upload className="mr-1 h-4 w-4" /> Import Backup
+              <Upload className="mr-1 h-4 w-4" /> {t("modal.export.importBackup")}
             </Button>
           </div>
         </div>
@@ -812,6 +817,7 @@ function QuickPasteModal() {
   const [text, setText] = useState("");
   const [mode, setMode] = useState<"append" | "replace">("append");
   const [seenPaste, setSeenPaste] = useState("");
+  const t = useT();
 
   /* v4.2 — external intake prefill (extension handoff / share-sheet / NL bar).
      Adjust-state-during-render pattern (React-sanctioned) — keeps the
@@ -826,7 +832,7 @@ function QuickPasteModal() {
   const taskCount = parsed.reduce((n, c) => n + c.items.length, 0);
 
   const apply = () => {
-    if (parsed.length === 0) { toast.error("Please enter at least one category or task."); return; }
+    if (parsed.length === 0) { toast.error(t("modal.quickPaste.emptyError")); return; }
     const gs = goals.map((g) => {
       if (g.id !== activeGoalId) return g;
       const cats = parsed.map((c) => ({
@@ -842,45 +848,46 @@ function QuickPasteModal() {
     });
     useStore.setState({ goals: gs });
     useUi.setState({ pasteModal: false });
-    toast.success(`Converted ${parsed.length} categories!`);
+    toast.success(t("modal.quickPaste.converted", { count: parsed.length }));
   };
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) useUi.setState({ pasteModal: false }); }}>
       <DialogContent className="gc-modal max-w-xl">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2"><GcIcon name="note-pen" size={17} /> Quick Paste Text to Checklist</DialogTitle>
+          <DialogTitle className="flex items-center gap-2"><GcIcon name="note-pen" size={17} /> {t("modal.quickPaste.title")}</DialogTitle>
           <DialogDescription>
-            Sections ending with <code>-</code> become categories; numbered/dash lines become tasks.
+            {t("modal.quickPaste.descBefore")} <code>-</code> {t("modal.quickPaste.descAfter")}
           </DialogDescription>
         </DialogHeader>
         <Textarea
           value={text}
           onChange={(e) => setText(e.target.value)}
           className="gc-input h-44 resize-none font-mono text-xs"
-          placeholder={"to do in laptop -\n1. Xyz\n2. Pyq\n\nTodo in phone -\n1. Call family\n2. Check flight tickets"}
-          aria-label="Text to convert"
+          placeholder={t("modal.quickPaste.placeholder")}
+          aria-label={t("modal.quickPaste.textAria")}
         />
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <span className="text-xs font-bold" style={{ color: "var(--gc-text2)" }}>{parsed.length} categories, {taskCount} tasks detected</span>
+          <span className="text-xs font-bold" style={{ color: "var(--gc-text2)" }}>{t("modal.quickPaste.detected", { count: parsed.length, tasks: taskCount })}</span>
+          {/* Sample paste data below is user content — intentionally not i18n-extracted. */}
           <Button type="button" variant="outline" size="sm" className="gc-btn" onClick={() => setText("to do in laptop -\n1. Xyz\n2. Pyq\n3. Setup development environment\n\nTodo in phone -\n1. Call family & sync photos\n2. Clear offline cache\n3. Check flight tickets")}>
-            Load Sample
+            {t("modal.quickPaste.loadSample")}
           </Button>
         </div>
         <div className="flex gap-4 text-xs">
           <label className="flex cursor-pointer items-center gap-1.5">
             <input type="radio" name="gc-paste-mode" checked={mode === "append"} onChange={() => setMode("append")} />
-            Append to current board
+            {t("modal.quickPaste.append")}
           </label>
           <label className="flex cursor-pointer items-center gap-1.5">
             <input type="radio" name="gc-paste-mode" checked={mode === "replace"} onChange={() => setMode("replace")} />
-            Replace existing categories
+            {t("modal.quickPaste.replace")}
           </label>
         </div>
         <DialogFooter>
-          <Button type="button" variant="outline" className="gc-btn" onClick={() => useUi.setState({ pasteModal: false })}>Cancel</Button>
+          <Button type="button" variant="outline" className="gc-btn" onClick={() => useUi.setState({ pasteModal: false })}>{t("common.cancel")}</Button>
           <Button type="button" className="gc-btn-primary" onClick={apply}>
-            <GcIcon name="clipboard-check" size={14} /> Convert to Checklist
+            <GcIcon name="clipboard-check" size={14} /> {t("modal.quickPaste.convert")}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -894,6 +901,7 @@ function QuickPasteModal() {
 
 function GoalBoardModal() {
   const mode = useUi((s) => s.boardModal);
+  const t = useT();
   const goal = useActiveGoal();
   const addBoard = useStore((s) => s.addBoard);
   const updateBoard = useStore((s) => s.updateBoard);
@@ -908,7 +916,7 @@ function GoalBoardModal() {
     <Dialog open={mode !== null} onOpenChange={(o) => { if (!o) useUi.setState({ boardModal: null }); }}>
       <DialogContent className="gc-modal max-w-md" aria-describedby={undefined}>
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2"><GcIcon name="target-radar" size={17} /> {mode === "edit" ? "Edit Goal Board" : "Create New Goal Board"}</DialogTitle>
+          <DialogTitle className="flex items-center gap-2"><GcIcon name="target-radar" size={17} /> {mode === "edit" ? t("modal.board.editTitle") : t("modal.board.createTitle")}</DialogTitle>
         </DialogHeader>
         <GoalBoardForm
           key={mode === "edit" ? `edit:${goal?.id}:${goal?.title}` : "create"}
@@ -925,19 +933,20 @@ function GoalBoardModal() {
 function GoalBoardForm({ initialTitle, initialSub, onSubmit, onCancel }: { initialTitle: string; initialSub: string; onSubmit: (title: string, sub: string) => void; onCancel: () => void }) {
   const [title, setTitle] = useState(initialTitle);
   const [sub, setSub] = useState(initialSub);
+  const t = useT();
   return (
     <form onSubmit={(e) => { e.preventDefault(); onSubmit(title, sub); }} className="flex flex-col gap-3">
       <div>
-        <label className="mb-1 block text-xs font-bold" style={{ color: "var(--gc-text2)" }}>BOARD TITLE</label>
-        <Input value={title} onChange={(e) => setTitle(e.target.value)} className="gc-input" placeholder="e.g. Device & Daily Tasks, Vacation Packing" required autoFocus />
+        <label className="mb-1 block text-xs font-bold" style={{ color: "var(--gc-text2)" }}>{t("modal.board.titleLabel")}</label>
+        <Input value={title} onChange={(e) => setTitle(e.target.value)} className="gc-input" placeholder={t("modal.board.titlePlaceholder")} required autoFocus />
       </div>
       <div>
-        <label className="mb-1 block text-xs font-bold" style={{ color: "var(--gc-text2)" }}>SUBTITLE / GOAL DESCRIPTION</label>
-        <Input value={sub} onChange={(e) => setSub(e.target.value)} className="gc-input" placeholder="Short description of this checklist board…" />
+        <label className="mb-1 block text-xs font-bold" style={{ color: "var(--gc-text2)" }}>{t("modal.board.subtitleLabel")}</label>
+        <Input value={sub} onChange={(e) => setSub(e.target.value)} className="gc-input" placeholder={t("modal.board.subtitlePlaceholder")} />
       </div>
       <DialogFooter>
-        <Button type="button" variant="outline" className="gc-btn" onClick={onCancel}>Cancel</Button>
-        <Button type="submit" className="gc-btn-primary">Save Goal Board</Button>
+        <Button type="button" variant="outline" className="gc-btn" onClick={onCancel}>{t("common.cancel")}</Button>
+        <Button type="submit" className="gc-btn-primary">{t("modal.board.save")}</Button>
       </DialogFooter>
     </form>
   );
@@ -952,6 +961,7 @@ function TaskEditModal() {
   const goals = useStore((s) => s.goals);
   const activeGoalId = useStore((s) => s.activeGoalId);
   const setTaskAdvanced = useStore((s) => s.setTaskAdvanced);
+  const t = useT();
   const goal = goals.find((g) => g.id === activeGoalId);
 
   const cat = target ? goal?.categories.find((c) => c.id === target.catId) : null;
@@ -970,7 +980,7 @@ function TaskEditModal() {
       recurrence: (isValidRecurrence(patch.recurrence) ? patch.recurrence : "none") as Task["recurrence"],
       notes: patch.notes,
     });
-    toast("Task updated (priority, estimate, lock, due date, notes & recurrence saved).");
+    toast(t("modal.task.saved"));
     close();
   };
 
@@ -978,7 +988,7 @@ function TaskEditModal() {
     <Dialog open={target !== null} onOpenChange={(o) => { if (!o) close(); }}>
       <DialogContent className="gc-modal max-w-md" aria-describedby={undefined}>
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2"><GcIcon name="pencil-line" size={17} /> Edit Task, Priority & Prerequisite Lock</DialogTitle>
+          <DialogTitle className="flex items-center gap-2"><GcIcon name="pencil-line" size={17} /> {t("modal.task.title")}</DialogTitle>
         </DialogHeader>
         {item && (
           <TaskEditForm
@@ -1015,6 +1025,7 @@ function TaskEditForm({ initialText, initialPriority, initialPomos, initialDep, 
   const [due, setDue] = useState(initialDue);
   const [notes, setNotes] = useState(initialNotes);
   const [notesPreview, setNotesPreview] = useState(false);
+  const t = useT();
 
   /* v4.3 — smart recurrence: split the stored spec into select + params.
      Supported: none | daily | weekly | weekdays | every:N | monthly:o:w */
@@ -1032,39 +1043,40 @@ function TaskEditForm({ initialText, initialPriority, initialPomos, initialDep, 
     return recSel;
   };
 
-  const WD = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-  const ORD = ["first", "second", "third", "fourth", "last possible"];
+  /* Weekday/ordinal option labels are catalog keys, resolved with t() at render. */
+  const WD = ["modal.recurrence.sunday", "modal.recurrence.monday", "modal.recurrence.tuesday", "modal.recurrence.wednesday", "modal.recurrence.thursday", "modal.recurrence.friday", "modal.recurrence.saturday"];
+  const ORD = ["modal.recurrence.first", "modal.recurrence.second", "modal.recurrence.third", "modal.recurrence.fourth", "modal.recurrence.last"];
   const logged = timeSpent >= 3600 ? `${Math.floor(timeSpent / 3600)}h ${Math.round((timeSpent % 3600) / 60)}m` : `${Math.round(timeSpent / 60)}m`;
 
   return (
     <form onSubmit={(e) => { e.preventDefault(); onSubmit({ text, priority, pomos, dep, due, recurrence: recValue(), notes }); }} className="flex flex-col gap-3">
       <div>
-        <label className="mb-1 block text-xs font-bold">Task Title</label>
+        <label className="mb-1 block text-xs font-bold">{t("modal.task.titleLabel")}</label>
         <Input value={text} onChange={(e) => setText(e.target.value)} className="gc-input" required />
       </div>
       <div className="grid grid-cols-2 gap-2">
         <div>
-          <label className="mb-1 block text-xs font-bold">Priority</label>
+          <label className="mb-1 block text-xs font-bold">{t("modal.task.priority")}</label>
           <Select value={priority} onValueChange={setPriority}>
             <SelectTrigger className="gc-input"><SelectValue /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="normal"><span className="flex items-center gap-2"><GcIcon name="sliders-tune" size={13} /> Normal (+10 XP)</span></SelectItem>
-              <SelectItem value="high"><span className="flex items-center gap-2"><GcIcon name="star-shine" size={13} /> High (+25 XP)</span></SelectItem>
-              <SelectItem value="urgent"><span className="flex items-center gap-2"><GcIcon name="flame-ember" size={13} /> Urgent (+50 XP)</span></SelectItem>
+              <SelectItem value="normal"><span className="flex items-center gap-2"><GcIcon name="sliders-tune" size={13} /> {t("modal.task.prioNormal")}</span></SelectItem>
+              <SelectItem value="high"><span className="flex items-center gap-2"><GcIcon name="star-shine" size={13} /> {t("modal.task.prioHigh")}</span></SelectItem>
+              <SelectItem value="urgent"><span className="flex items-center gap-2"><GcIcon name="flame-ember" size={13} /> {t("modal.task.prioUrgent")}</span></SelectItem>
             </SelectContent>
           </Select>
         </div>
         <div>
-          <label className="mb-1 flex items-center gap-1.5 text-xs font-bold"><GcIcon name="tomato-timer" size={13} /> Estimated Pomodoros</label>
+          <label className="mb-1 flex items-center gap-1.5 text-xs font-bold"><GcIcon name="tomato-timer" size={13} /> {t("modal.task.pomos")}</label>
           <Input type="number" min={1} max={20} value={pomos} onChange={(e) => setPomos(parseInt(e.target.value, 10) || 1)} className="gc-input" />
         </div>
       </div>
       <div>
-        <label className="mb-1 flex items-center gap-1.5 text-xs font-bold"><GcIcon name="lock-shield" size={13} /> Lock until prerequisite is completed</label>
+        <label className="mb-1 flex items-center gap-1.5 text-xs font-bold"><GcIcon name="lock-shield" size={13} /> {t("modal.task.lockLabel")}</label>
         <Select value={dep || "__none"} onValueChange={(v) => setDep(v === "__none" ? "" : v)}>
           <SelectTrigger className="gc-input"><SelectValue /></SelectTrigger>
           <SelectContent className="max-h-56">
-            <SelectItem value="__none">No lock (independent task)</SelectItem>
+            <SelectItem value="__none">{t("modal.task.noLock")}</SelectItem>
             {goal?.categories.flatMap((c) =>
               c.items
                 .filter((it) => it.id !== excludeTaskId)
@@ -1080,20 +1092,20 @@ function TaskEditForm({ initialText, initialPriority, initialPomos, initialDep, 
       {hasFeature("due-dates") && (
         <div className="grid grid-cols-2 gap-2">
           <div>
-            <label className="mb-1 flex items-center gap-1.5 text-xs font-bold"><GcIcon name="calendar-tick" size={13} /> Due date</label>
-            <Input type="date" value={due} onChange={(e) => setDue(e.target.value)} className="gc-input" aria-label="Task due date" />
+            <label className="mb-1 flex items-center gap-1.5 text-xs font-bold"><GcIcon name="calendar-tick" size={13} /> {t("modal.task.dueDate")}</label>
+            <Input type="date" value={due} onChange={(e) => setDue(e.target.value)} className="gc-input" aria-label={t("modal.task.dueAria")} />
           </div>
           <div>
-            <label className="mb-1 flex items-center gap-1.5 text-xs font-bold"><GcIcon name="repeat-cycle" size={13} /> Repeats</label>
+            <label className="mb-1 flex items-center gap-1.5 text-xs font-bold"><GcIcon name="repeat-cycle" size={13} /> {t("modal.task.repeats")}</label>
             <Select value={recSel} onValueChange={setRecSel} disabled={!hasFeature("recurring-tasks")}>
               <SelectTrigger className="gc-input"><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="none">Never</SelectItem>
-                <SelectItem value="daily">Daily</SelectItem>
-                <SelectItem value="weekly">Weekly</SelectItem>
-                <SelectItem value="weekdays">Weekdays (Mon–Fri)</SelectItem>
-                <SelectItem value="every">Every N days…</SelectItem>
-                <SelectItem value="monthly">Monthly on…</SelectItem>
+                <SelectItem value="none">{t("modal.recurrence.never")}</SelectItem>
+                <SelectItem value="daily">{t("side.daily")}</SelectItem>
+                <SelectItem value="weekly">{t("side.weekly")}</SelectItem>
+                <SelectItem value="weekdays">{t("modal.recurrence.weekdays")}</SelectItem>
+                <SelectItem value="every">{t("modal.recurrence.everyDays")}</SelectItem>
+                <SelectItem value="monthly">{t("modal.recurrence.monthly")}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -1101,21 +1113,21 @@ function TaskEditForm({ initialText, initialPriority, initialPomos, initialDep, 
       )}
       {hasFeature("recurring-tasks") && recSel === "every" && (
         <div className="flex items-center gap-2 rounded-lg border p-2" style={{ borderColor: "var(--gc-border)", background: "var(--gc-surface-2)" }}>
-          <span className="text-xs font-bold">Repeat every</span>
-          <Input type="number" min={2} max={365} value={recEvery} onChange={(e) => setRecEvery(parseInt(e.target.value, 10) || 2)} className="gc-input h-8 w-16" aria-label="Repeat interval in days" />
-          <span className="text-xs font-bold">days</span>
+          <span className="text-xs font-bold">{t("modal.recurrence.repeatEvery")}</span>
+          <Input type="number" min={2} max={365} value={recEvery} onChange={(e) => setRecEvery(parseInt(e.target.value, 10) || 2)} className="gc-input h-8 w-16" aria-label={t("modal.recurrence.intervalAria")} />
+          <span className="text-xs font-bold">{t("modal.recurrence.days")}</span>
         </div>
       )}
       {hasFeature("recurring-tasks") && recSel === "monthly" && (
         <div className="flex flex-wrap items-center gap-2 rounded-lg border p-2" style={{ borderColor: "var(--gc-border)", background: "var(--gc-surface-2)" }}>
-          <span className="text-xs font-bold">Monthly on the</span>
+          <span className="text-xs font-bold">{t("modal.recurrence.monthlyOnThe")}</span>
           <Select value={String(recOrd)} onValueChange={(v) => setRecOrd(parseInt(v, 10))}>
-            <SelectTrigger className="gc-input h-8 w-28 text-xs" aria-label="Monthly ordinal"><SelectValue /></SelectTrigger>
-            <SelectContent>{ORD.map((o, i) => <SelectItem key={o} value={String(i)}>{o}</SelectItem>)}</SelectContent>
+            <SelectTrigger className="gc-input h-8 w-28 text-xs" aria-label={t("modal.recurrence.ordinalAria")}><SelectValue /></SelectTrigger>
+            <SelectContent>{ORD.map((o, i) => <SelectItem key={o} value={String(i)}>{t(o)}</SelectItem>)}</SelectContent>
           </Select>
           <Select value={String(recWd)} onValueChange={(v) => setRecWd(parseInt(v, 10))}>
-            <SelectTrigger className="gc-input h-8 w-28 text-xs" aria-label="Weekday"><SelectValue /></SelectTrigger>
-            <SelectContent>{WD.map((w, i) => <SelectItem key={w} value={String(i)}>{w}</SelectItem>)}</SelectContent>
+            <SelectTrigger className="gc-input h-8 w-28 text-xs" aria-label={t("modal.recurrence.weekdayAria")}><SelectValue /></SelectTrigger>
+            <SelectContent>{WD.map((w, i) => <SelectItem key={w} value={String(i)}>{t(w)}</SelectItem>)}</SelectContent>
           </Select>
         </div>
       )}
@@ -1123,18 +1135,18 @@ function TaskEditForm({ initialText, initialPriority, initialPomos, initialDep, 
       {/* v4.3 — markdown notes with live preview + interactive checklist lines */}
       <div>
         <div className="mb-1 flex items-center justify-between">
-          <label className="flex items-center gap-1.5 text-xs font-bold"><GcIcon name="note-pen" size={13} /> Notes (Markdown, checklists work)</label>
+          <label className="flex items-center gap-1.5 text-xs font-bold"><GcIcon name="note-pen" size={13} /> {t("modal.notes.label")}</label>
           <button type="button" className="rounded px-1.5 py-0.5 text-[0.65rem] font-extrabold uppercase tracking-wide underline-offset-2 hover:underline"
             style={{ color: "var(--gc-text2)" }} aria-pressed={notesPreview}
             onClick={() => setNotesPreview((p) => !p)}>
-            {notesPreview ? "Write" : "Preview"}
+            {notesPreview ? t("modal.notes.write") : t("modal.notes.preview")}
           </button>
         </div>
         {notesPreview ? (
-          <div className="min-h-[70px] rounded-lg border p-2.5" style={{ borderColor: "var(--gc-border)", background: "var(--gc-surface-2)" }} aria-label="Notes preview">
+          <div className="min-h-[70px] rounded-lg border p-2.5" style={{ borderColor: "var(--gc-border)", background: "var(--gc-surface-2)" }} aria-label={t("modal.notes.previewAria")}>
             {notes.trim()
               ? <Markdown source={notes} onToggleLine={(i) => setNotes((n) => toggleMarkdownCheckbox(n, i))} />
-              : <p className="text-xs" style={{ color: "var(--gc-muted)" }}>Nothing to preview — write some notes first.</p>}
+              : <p className="text-xs" style={{ color: "var(--gc-muted)" }}>{t("modal.notes.emptyPreview")}</p>}
           </div>
         ) : (
           <textarea
@@ -1142,20 +1154,20 @@ function TaskEditForm({ initialText, initialPriority, initialPomos, initialDep, 
             onChange={(e) => setNotes(e.target.value)}
             className="gc-input min-h-[70px] w-full rounded-lg border p-2.5 text-xs"
             style={{ borderColor: "var(--gc-border)", background: "var(--gc-input)" }}
-            placeholder={"- [x] researched options\n- [ ] call vendor Tuesday\n\n**Budget:** `~40k`"}
-            aria-label="Task notes (Markdown supported)"
+            placeholder={t("modal.notes.placeholder")}
+            aria-label={t("modal.notes.textareaAria")}
           />
         )}
       </div>
 
       {timeSpent > 0 && (
         <p className="flex items-center gap-1.5 text-[0.7rem] font-bold" style={{ color: "var(--gc-text2)" }}>
-          <GcIcon name="clock-hand" size={13} /> {logged} tracked on this task
+          <GcIcon name="clock-hand" size={13} /> {t("modal.task.tracked", { time: logged })}
         </p>
       )}
       <DialogFooter>
-        <Button type="button" variant="outline" className="gc-btn" onClick={onCancel}>Cancel</Button>
-        <Button type="submit" className="gc-btn-primary">Save Changes</Button>
+        <Button type="button" variant="outline" className="gc-btn" onClick={onCancel}>{t("common.cancel")}</Button>
+        <Button type="submit" className="gc-btn-primary">{t("modal.task.saveChanges")}</Button>
       </DialogFooter>
     </form>
   );
@@ -1167,6 +1179,7 @@ function TaskEditForm({ initialText, initialPriority, initialPomos, initialDep, 
 
 function RpgModal() {
   const open = useUi((s) => s.rpgModal);
+  const t = useT();
   const rpg = useStore((s) => s.rpg);
   const unlockSkill = useStore((s) => s.unlockSkill);
   const equipAura = useStore((s) => s.equipAura);
@@ -1178,25 +1191,25 @@ function RpgModal() {
     <Dialog open={open} onOpenChange={(o) => { if (!o) useUi.setState({ rpgModal: false }); }}>
       <DialogContent className="gc-modal max-h-[85vh] max-w-xl overflow-y-auto gc-scroll" aria-describedby={undefined}>
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2"><GcIcon name="bolt-boost" size={17} /> RPG Progression, Skill Trees & Aura Frames</DialogTitle>
+          <DialogTitle className="flex items-center gap-2"><GcIcon name="bolt-boost" size={17} /> {t("modal.rpg.title")}</DialogTitle>
         </DialogHeader>
         {hasFeature("achievements") && <AchievementsGrid />}
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border p-4" style={{ borderColor: "var(--gc-border-strong)", background: "var(--gc-surface-2)" }}>
           <div>
             <div className="flex items-center gap-2">
-              <span className="rounded-full px-2 py-0.5 text-xs font-extrabold text-white" style={{ background: "var(--gc-grad)" }}>LV.{rpg.level}</span>
+              <span className="rounded-full px-2 py-0.5 text-xs font-extrabold text-white" style={{ background: "var(--gc-grad)" }}>{t("modal.rpg.lvl", { count: rpg.level })}</span>
               <span className="text-base font-extrabold">{rankForLevel(rpg.level)}</span>
             </div>
             <p className="mt-1 text-xs" style={{ color: "var(--gc-text2)" }}>
-              {cur} / {need} XP • {rpg.skillPoints} Skill Point{rpg.skillPoints === 1 ? "" : "s"} Available
+              {t(rpg.skillPoints === 1 ? "modal.rpg.pointsOne" : "modal.rpg.pointsMany", { cur, need, count: rpg.skillPoints })}
             </p>
           </div>
           <Button type="button" className="gc-btn-primary" onClick={testBoost}>
-            <GcIcon name="bolt-boost" size={14} /> +150 XP Boost (Test Level-Up)
+            <GcIcon name="bolt-boost" size={14} /> {t("modal.rpg.boost")}
           </Button>
         </div>
 
-        <p className="text-xs font-extrabold uppercase tracking-wide" style={{ color: "var(--gc-text2)" }}>Skill tree perks</p>
+        <p className="text-xs font-extrabold uppercase tracking-wide" style={{ color: "var(--gc-text2)" }}>{t("modal.rpg.skills")}</p>
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
           {RPG_SKILLS.map((sk) => {
             const owned = !!rpg.skills[sk.id];
@@ -1218,7 +1231,7 @@ function RpgModal() {
                 <span className="text-xs font-extrabold">{sk.name}</span>
                 <span className="text-[0.62rem]" style={{ color: "var(--gc-text2)" }}>{sk.desc}</span>
                 <span className="flex items-center gap-1 text-[0.62rem] font-extrabold" style={{ color: owned ? "var(--gc-success)" : "var(--gc-warning)" }}>
-                  {owned ? "OWNED" : <><GcIcon name="key-point" size={11} /> 1 Skill Point</>}
+                  {owned ? t("modal.rpg.owned") : <><GcIcon name="key-point" size={11} /> {t("modal.rpg.oneSkillPoint")}</>}
                 </span>
               </motion.button>
             );
@@ -1227,7 +1240,7 @@ function RpgModal() {
 
         <SeasonalChallenges />
 
-        <p className="text-xs font-extrabold uppercase tracking-wide" style={{ color: "var(--gc-text2)" }}>Equippable aura frames</p>
+        <p className="text-xs font-extrabold uppercase tracking-wide" style={{ color: "var(--gc-text2)" }}>{t("modal.rpg.auras")}</p>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           {RPG_AURAS.map((au) => (
             <motion.button
@@ -1250,7 +1263,7 @@ function RpgModal() {
         </div>
 
         <DialogFooter>
-          <Button type="button" className="gc-btn-primary" onClick={() => useUi.setState({ rpgModal: false })}>Done</Button>
+          <Button type="button" className="gc-btn-primary" onClick={() => useUi.setState({ rpgModal: false })}>{t("common.done")}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -1266,13 +1279,14 @@ function SyncFileSection() {
   const [linked, setLinked] = useState(isSyncLinked());
   const [vaultPass, setVaultPass] = useState("");
   const [pulling, setPulling] = useState(false);
+  const t = useT();
   const supported = syncFileSupported();
 
   if (!supported) {
     return (
       <div className="rounded-xl border p-3 text-xs" style={{ borderColor: "var(--gc-border)", color: "var(--gc-text2)" }}>
         <GcIcon name="link-combo" size={13} />{" "}
-        <b>Sync file</b> — your browser doesn&apos;t support the File System Access API (Chromium browsers do). JSON export above works everywhere.
+        <b>{t("modal.sync.title")}</b> — {t("modal.sync.unsupported")}
       </div>
     );
   }
@@ -1282,26 +1296,26 @@ function SyncFileSection() {
     setLinked(isSyncLinked());
     if (ok) {
       setSyncFileEnabled(true);
-      toast.success("Sync file linked — every change auto-saves to it.");
+      toast.success(t("modal.sync.linkedToast"));
     } else {
-      toast.error("Could not link the file (cancelled or permission denied).");
+      toast.error(t("modal.sync.linkErrorToast"));
     }
   };
 
   return (
     <div className="rounded-xl border p-3" style={{ borderColor: "var(--gc-border)" }}>
-      <p className="mb-1 flex items-center gap-1.5 text-sm font-extrabold"><GcIcon name="link-combo" size={14} /> Sync file (Syncthing / WebDAV friendly)</p>
+      <p className="mb-1 flex items-center gap-1.5 text-sm font-extrabold"><GcIcon name="link-combo" size={14} /> {t("modal.sync.header")}</p>
       <p className="mb-2 text-xs" style={{ color: "var(--gc-text2)" }}>
-        Link a .json file — ideally inside a synced folder. Every workspace change is auto-written to it (2.5s debounce), zero servers.
+        {t("modal.sync.desc")}
       </p>
       <div className="flex flex-wrap items-center gap-2">
         <Button type="button" size="sm" className="gc-btn-primary" onClick={link}>
-          {linked ? "Re-link file" : "Link sync file"}
+          {linked ? t("modal.sync.relink") : t("modal.sync.link")}
         </Button>
         {linked && (
           <>
-            <Button type="button" size="sm" variant="outline" className="gc-btn" onClick={() => { void writeNow(); toast.success("Written to sync file."); }}>
-              Write now
+            <Button type="button" size="sm" variant="outline" className="gc-btn" onClick={() => { void writeNow(); toast.success(t("modal.sync.writtenToast")); }}>
+              {t("modal.sync.writeNow")}
             </Button>
             <Button type="button" size="sm" variant="outline" className="gc-btn" disabled={pulling}
               onClick={async () => {
@@ -1309,15 +1323,15 @@ function SyncFileSection() {
                 const err = await pullFromSyncFile(vaultPass.trim() || undefined);
                 setPulling(false);
                 if (err) toast.error(err);
-                else toast.success("Workspace restored from sync file.");
+                else toast.success(t("modal.sync.restoredToast"));
               }}>
-              {pulling ? "Restoring…" : "Pull from sync file"}
+              {pulling ? t("modal.sync.restoring") : t("modal.sync.pull")}
             </Button>
-            <Button type="button" size="sm" variant="ghost" className="gc-btn" onClick={() => { unlinkSyncFile(); setLinked(false); setSyncFileEnabled(false); toast("Sync file unlinked."); }}>
-              Unlink
+            <Button type="button" size="sm" variant="ghost" className="gc-btn" onClick={() => { unlinkSyncFile(); setLinked(false); setSyncFileEnabled(false); toast(t("modal.sync.unlinkedToast")); }}>
+              {t("modal.common.unlink")}
             </Button>
             <span className="flex items-center gap-1.5 text-xs font-bold" style={{ color: "var(--gc-text2)" }}>
-              <Switch checked={syncFileEnabled} onCheckedChange={setSyncFileEnabled} aria-label="Toggle auto-save" /> auto-save
+              <Switch checked={syncFileEnabled} onCheckedChange={setSyncFileEnabled} aria-label={t("modal.sync.autoSaveAria")} /> {t("modal.sync.autoSave")}
             </span>
           </>
         )}
@@ -1329,30 +1343,30 @@ function SyncFileSection() {
           <Switch checked={syncFileEncrypted} onCheckedChange={(on) => {
             setSyncFileEncrypted(on);
             if (!on) setVaultPassphrase(null);
-            toast(on ? "Vault mode ON — new link writes a .gcenc file." : "Vault mode off — sync file will be plain JSON.");
-          }} aria-label="Encrypt sync file" />
-          Encrypt sync file (AES-256 vault)
+            toast(on ? t("modal.sync.vaultOn") : t("modal.sync.vaultOff"));
+          }} aria-label={t("modal.sync.encryptAria")} />
+          {t("modal.sync.encryptLabel")}
         </span>
         {syncFileEncrypted && (
           <div className="flex flex-wrap items-center gap-2">
             <Input type="password" value={vaultPass} onChange={(e) => setVaultPass(e.target.value)}
-              className="gc-input h-8 w-56 text-xs" placeholder="Vault passphrase" aria-label="Vault passphrase" autoComplete="new-password" />
+              className="gc-input h-8 w-56 text-xs" placeholder={t("modal.common.passphrase")} aria-label={t("modal.common.passphrase")} autoComplete="new-password" />
             <Button type="button" size="sm" variant="outline" className="gc-btn"
               onClick={() => {
-                if (vaultPass.trim().length < 4) { toast.error("Passphrase needs 4+ characters."); return; }
+                if (vaultPass.trim().length < 4) { toast.error(t("modal.sync.passphraseTooShort")); return; }
                 setVaultPassphrase(vaultPass.trim());
-                toast.success("Passphrase set for this session — re-link to write the encrypted file.");
+                toast.success(t("modal.sync.passphraseSet"));
               }}>
-              Apply passphrase
+              {t("modal.sync.applyPassphrase")}
             </Button>
           </div>
         )}
         <p className="text-[0.65rem]" style={{ color: "var(--gc-muted)" }}>
-          Vault files stay opaque even inside Dropbox/Drive/Nextcloud folders — the passphrase never leaves this device.
+          {t("modal.sync.vaultNote")}
         </p>
       </div>
       <p className="mt-2 text-[0.65rem]" style={{ color: "var(--gc-muted)" }}>
-        The file link lasts for this browser session (a browser security rule) — re-link once when you reopen {APP_NAME}.
+        {t("modal.sync.sessionNote", { name: APP_NAME })}
       </p>
     </div>
   );
@@ -1361,13 +1375,14 @@ function SyncFileSection() {
 /* v4 — Advance: achievements badge collection */
 function AchievementsGrid() {
   const achievements = useStore((s) => s.achievements);
+  const t = useT();
   const unlocked = ACHIEVEMENTS.filter((a) => achievements[a.id]);
   const pct = Math.round((unlocked.length / ACHIEVEMENTS.length) * 100);
 
   return (
     <div className="rounded-2xl border p-4" style={{ borderColor: "var(--gc-border)" }}>
       <div className="mb-2 flex items-center justify-between">
-        <p className="flex items-center gap-2 text-sm font-extrabold"><GcIcon name="gem-spark" size={15} /> Achievements</p>
+        <p className="flex items-center gap-2 text-sm font-extrabold"><GcIcon name="gem-spark" size={15} /> {t("modal.rpg.achievements")}</p>
         <span className="text-xs font-bold" style={{ color: "var(--gc-text2)" }}>{unlocked.length}/{ACHIEVEMENTS.length} • {pct}%</span>
       </div>
       <div className="mb-3 h-1.5 overflow-hidden rounded-full" style={{ background: "var(--gc-surface-2)" }}>
@@ -1391,7 +1406,7 @@ function AchievementsGrid() {
               transition={{ delay: i * 0.025 }}
               whileHover={{ y: -2, scale: 1.04 }}
               role="img"
-              aria-label={`${a.label}: ${got ? "unlocked" : "locked"}`}
+              aria-label={`${a.label}: ${got ? t("modal.rpg.unlocked") : t("modal.rpg.locked")}`}
             >
               <span style={{ color: got ? "var(--gc-accent)" : "var(--gc-muted)" }}>
                 <GcIcon name={a.icon} size={18} />
@@ -1410,32 +1425,33 @@ function AchievementsGrid() {
 function SnapshotFolderRow({ keep }: { keep: number }) {
   /* module-level handle state: safe to read once at mount */
   const [linked, setLinked] = useState(() => snapshotFolderLinked());
+  const t = useT();
   if (!syncFileSupported()) {
-    return <p className="text-[0.65rem]" style={{ color: "var(--gc-muted)" }}>Your browser doesn&apos;t support folder access (Chrome/Edge desktop required for snapshots).</p>;
+    return <p className="text-[0.65rem]" style={{ color: "var(--gc-muted)" }}>{t("settings.snapshotUnsupported")}</p>;
   }
   return (
     <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border p-2" style={{ borderColor: "var(--gc-border)" }}>
       <div className="flex items-center gap-2">
-        <span className="text-xs font-bold">{linked ? "Snapshot folder linked ✓" : "No folder linked this session"}</span>
+        <span className="text-xs font-bold">{linked ? t("settings.snapshotLinked") : t("settings.snapshotNone")}</span>
       </div>
       <div className="flex items-center gap-2">
-        <label className="text-[0.65rem] font-bold" htmlFor="gc-snap-keep">Keep</label>
+        <label className="text-[0.65rem] font-bold" htmlFor="gc-snap-keep">{t("modal.common.keep")}</label>
         <select
           id="gc-snap-keep"
           className="gc-input h-7 rounded-md px-1.5 text-xs"
           value={keep}
           onChange={(e) => useStore.getState().setSnapshotConfig({ snapshotsToKeep: parseInt(e.target.value, 10) || 5 })}
         >
-          {[3, 5, 7, 10, 14].map((n) => <option key={n} value={n}>{n} files</option>)}
+          {[3, 5, 7, 10, 14].map((n) => <option key={n} value={n}>{t("settings.filesCount", { count: n })}</option>)}
         </select>
         <Button type="button" size="sm" variant="outline" className="h-7 gc-btn"
-          onClick={async () => { const ok = await linkSnapshotFolder(); setLinked(ok); if (ok) toast.success("Snapshot folder linked — first snapshot writes on the next check."); }}>
-          {linked ? "Re-pick" : "Pick folder"}
+          onClick={async () => { const ok = await linkSnapshotFolder(); setLinked(ok); if (ok) toast.success(t("settings.snapshotLinkedToast")); }}>
+          {linked ? t("settings.repick") : t("settings.pickFolder")}
         </Button>
         {linked && (
           <Button type="button" size="sm" variant="outline" className="h-7 gc-btn"
             onClick={() => { unlinkSnapshotFolder(); setLinked(false); }}>
-            Unlink
+            {t("modal.common.unlink")}
           </Button>
         )}
       </div>
@@ -1455,7 +1471,7 @@ function DataDoctorPanel() {
     const r = runDoctor();
     setReport(r);
     touchDoctorScan();
-    if (r.fixed > 0) toast.success(`Data doctor fixed ${r.fixed} issue${r.fixed > 1 ? "s" : ""}.`);
+    if (r.fixed > 0) toast.success(t(r.fixed > 1 ? "settings.doctorFixedMany" : "settings.doctorFixedOne", { count: r.fixed }));
   };
 
   /* v4.2 — storage meter + scheduled scan: silently runs (and repairs) once
@@ -1470,7 +1486,7 @@ function DataDoctorPanel() {
       timer = window.setTimeout(() => {
         const r = runDoctor();
         touchDoctorScan();
-        if (r.fixed > 0) toast.success(`Data doctor auto-fixed ${r.fixed} issue${r.fixed > 1 ? "s" : ""}.`);
+        if (r.fixed > 0) toast.success(t(r.fixed > 1 ? "settings.doctorAutoFixedMany" : "settings.doctorAutoFixedOne", { count: r.fixed }));
         setReport(r);
       }, 0);
     }
@@ -1482,17 +1498,17 @@ function DataDoctorPanel() {
 
   return (
     <div className="rounded-xl border p-3" style={{ borderColor: "var(--gc-border)" }}>
-      <p className="mb-1 flex items-center gap-2 text-sm font-extrabold"><GcIcon name="tools-wrench" size={15} /> Data Doctor</p>
+      <p className="mb-1 flex items-center gap-2 text-sm font-extrabold"><GcIcon name="tools-wrench" size={15} /> {t("settings.dataDoctor")}</p>
       <p className="mb-2 text-xs" style={{ color: "var(--gc-text2)" }}>
-        Scans for broken dependency locks, duplicate task ids, stale pomodoro bindings and oversized media — and repairs what is safe to repair. Runs automatically every 30 days.
+        {t("settings.dataDoctorDesc")}
       </p>
       {storage && (
         <div className="mb-2.5">
           <div className="mb-1 flex items-center justify-between text-[0.68rem] font-bold" style={{ color: "var(--gc-text2)" }}>
-            <span>Device storage used by this app</span>
+            <span>{t("settings.storageUsed")}</span>
             <span className="font-mono">{mb(storage.usage)} / {mb(storage.quota)} ({pct.toFixed(1)}%)</span>
           </div>
-          <div className="h-1.5 overflow-hidden rounded-full" role="progressbar" aria-label={`Storage: ${pct.toFixed(1)} percent used`} aria-valuenow={Math.round(pct)} aria-valuemin={0} aria-valuemax={100} style={{ background: "var(--gc-surface-2)" }}>
+          <div className="h-1.5 overflow-hidden rounded-full" role="progressbar" aria-label={t("settings.storageAria", { percent: pct.toFixed(1) })} aria-valuenow={Math.round(pct)} aria-valuemin={0} aria-valuemax={100} style={{ background: "var(--gc-surface-2)" }}>
             <div className="h-full rounded-full" style={{ width: `${Math.max(2, pct)}%`, background: pct > 85 ? "var(--gc-danger)" : "var(--gc-grad)" }} />
           </div>
         </div>
@@ -1503,7 +1519,7 @@ function DataDoctorPanel() {
         </Button>
         {lastScanAt > 0 && (
           <span className="text-[0.65rem]" style={{ color: "var(--gc-muted)" }}>
-            Last scan: {new Date(lastScanAt).toLocaleDateString()}
+            {t("settings.lastScan", { date: new Date(lastScanAt).toLocaleDateString() })}
           </span>
         )}
       </div>
@@ -1518,6 +1534,7 @@ function DataDoctorPanel() {
 
 /* base edition: tasteful upgrade discoverability */
 function UpgradeCard() {
+  const t = useT();
   return (
     <div className="rounded-xl border p-3" style={{ borderColor: "var(--gc-border)" }}>
       <p className="flex items-center gap-2 text-sm font-extrabold"><GcIcon name="rocket-launch" size={15} /> GoalCheck Advance</p>
@@ -1525,7 +1542,7 @@ function UpgradeCard() {
         Kanban, Matrix, Mind-map &amp; Analytics views • habits &amp; achievements • 11 themes with particle atmospheres • audio studio • templates • command bar • due dates &amp; recurring tasks • theme sharing • sync file. Same storage schema — upgrade keeps every byte of your data.
       </p>
       <p className="text-[0.65rem] font-bold" style={{ color: "var(--gc-muted)" }}>
-        Available on the project&apos;s GitHub releases page.
+        {t("settings.upgradeWhere")}
       </p>
     </div>
   );
@@ -1538,6 +1555,7 @@ function ThemeShareSection() {
   const customTheme = useStore((s) => s.customTheme);
   const fileRef = useRef<HTMLInputElement>(null);
   const [imported, setImported] = useState(false);
+  const t = useT();
 
   const download = () => {
     const blob = new Blob([exportThemeJson()], { type: "application/json" });
@@ -1549,7 +1567,7 @@ function ThemeShareSection() {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-    toast.success("Theme file downloaded — share it with anyone!");
+    toast.success(t("modal.themes.shareDownloaded"));
   };
 
   const onFile = (file: File) => {
@@ -1558,39 +1576,39 @@ function ThemeShareSection() {
       const ok = importThemeJson(String(reader.result || ""));
       setImported(ok);
     };
-    reader.onerror = () => toast.error("Could not read that file.");
+    reader.onerror = () => toast.error(t("modal.common.readFileError"));
     reader.readAsText(file);
   };
 
   return (
     <div className="rounded-xl border p-3" style={{ borderColor: "var(--gc-border)" }}>
-      <p className="mb-1 flex items-center gap-2 text-sm font-extrabold"><GcIcon name="palette-dab" size={14} /> Share themes as files</p>
+      <p className="mb-1 flex items-center gap-2 text-sm font-extrabold"><GcIcon name="palette-dab" size={14} /> {t("modal.themes.shareTitle")}</p>
       <p className="mb-2 text-xs" style={{ color: "var(--gc-text2)" }}>
-        Export the current palette as a small JSON file — or import one from a friend. Validated against the app&apos;s color-token schema.
+        {t("modal.themes.shareDesc")}
       </p>
       <div className="flex flex-wrap items-center gap-2">
         <Button type="button" size="sm" variant="outline" className="gc-btn" onClick={download}>
-          <Download className="mr-1 h-3.5 w-3.5" /> Export theme JSON
+          <Download className="mr-1 h-3.5 w-3.5" /> {t("modal.themes.exportJson")}
         </Button>
         <Button type="button" size="sm" variant="outline" className="gc-btn" onClick={() => fileRef.current?.click()}>
-          <Upload className="mr-1 h-3.5 w-3.5" /> Import theme JSON
+          <Upload className="mr-1 h-3.5 w-3.5" /> {t("modal.themes.importJson")}
         </Button>
         <input
-          ref={fileRef} type="file" accept="application/json,.json" className="hidden" aria-label="Import theme JSON file"
+          ref={fileRef} type="file" accept="application/json,.json" className="hidden" aria-label={t("modal.themes.importJsonAria")}
           onChange={(e) => { const f = e.target.files?.[0]; if (f) onFile(f); e.target.value = ""; }}
         />
         {Object.keys(customTheme).length > 0 && (
           <>
             <span className="flex items-center gap-1 text-xs font-extrabold" style={{ color: imported ? "var(--gc-success)" : "var(--gc-accent)" }}>
-              <GcIcon name="check-circle" size={12} /> Custom theme active
+              <GcIcon name="check-circle" size={12} /> {t("modal.themes.customActive")}
             </span>
             <button
               type="button"
               className="text-xs font-bold underline-offset-2 hover:underline"
               style={{ color: "var(--gc-text2)" }}
-              onClick={() => { useStore.setState({ customTheme: {} }); setImported(false); toast("Custom theme cleared."); }}
+              onClick={() => { useStore.setState({ customTheme: {} }); setImported(false); toast(t("modal.themes.customCleared")); }}
             >
-              Clear
+              {t("modal.common.clear")}
             </button>
           </>
         )}
@@ -1651,7 +1669,7 @@ function drawCard(canvas: HTMLCanvasElement, mode: CardMode, data: {
   ctx.fillText(data.appName, 72, 84);
   ctx.fillStyle = "rgba(255,255,255,0.55)";
   ctx.font = "600 24px system-ui, sans-serif";
-  ctx.fillText(mode === "week" ? "Weekly report card" : "Achievement showcase", 72, 142);
+  ctx.fillText(mode === "week" ? t("modal.report.canvasWeek") : t("modal.report.canvasBadges"), 72, 142);
 
   // level chip
   const accent = v("--gc-accent", "#6366f1");
@@ -1662,7 +1680,7 @@ function drawCard(canvas: HTMLCanvasElement, mode: CardMode, data: {
   ctx.fillStyle = "#0b0b16";
   ctx.font = "800 30px system-ui, sans-serif";
   ctx.textAlign = "center";
-  ctx.fillText(`LVL ${data.level}`, CARD_W - 201, 104);
+  ctx.fillText(t("modal.report.lvl", { count: data.level }), CARD_W - 201, 104);
   ctx.textAlign = "left";
 
   // board title
@@ -1673,16 +1691,16 @@ function drawCard(canvas: HTMLCanvasElement, mode: CardMode, data: {
   // stat blocks (2x2)
   const stats: [string, string][] = mode === "week"
     ? [
-        ["Completion", `${data.percent}%`],
-        ["Tasks done", `${data.completed}/${data.total}`],
-        ["Focus time", `${Math.round(data.focusMinutes / 60)}h ${data.focusMinutes % 60}m`],
-        ["Best habit streak", `${data.bestStreak}`],
+        [t("modal.report.statCompletion"), `${data.percent}%`],
+        [t("modal.report.statTasksDone"), `${data.completed}/${data.total}`],
+        [t("modal.report.statFocusTime"), `${Math.round(data.focusMinutes / 60)}h ${data.focusMinutes % 60}m`],
+        [t("modal.report.statBestStreak"), `${data.bestStreak}`],
       ]
     : [
-        ["Level", `${data.level}`],
-        ["Total XP", `${data.xp}`],
-        ["Focus sessions", `${data.sessions}`],
-        ["Best habit streak", `${data.bestStreak}`],
+        [t("modal.report.statLevel"), `${data.level}`],
+        [t("modal.report.statTotalXp"), `${data.xp}`],
+        [t("modal.report.statFocusSessions"), `${data.sessions}`],
+        [t("modal.report.statBestStreak"), `${data.bestStreak}`],
       ];
   const bw = (CARD_W - 72 * 2 - 24) / 2;
   const bh = 190;
@@ -1725,12 +1743,12 @@ function drawCard(canvas: HTMLCanvasElement, mode: CardMode, data: {
     ctx.fillText(`${data.percent}%`, cx, cy - 40);
     ctx.fillStyle = "rgba(255,255,255,0.55)";
     ctx.font = "600 24px system-ui, sans-serif";
-    ctx.fillText("board completion", cx, cy + 34);
+    ctx.fillText(t("modal.report.boardCompletion"), cx, cy + 34);
     ctx.textAlign = "left";
   } else {
     ctx.fillStyle = "rgba(255,255,255,0.55)";
     ctx.font = "700 24px system-ui, sans-serif";
-    ctx.fillText(`ACHIEVEMENTS ${data.unlocked}/${data.badgeTotal}`, 72, 740);
+    ctx.fillText(t("modal.report.achievementsCount", { count: data.unlocked, total: data.badgeTotal }), 72, 740);
     const cell = (CARD_W - 72 * 2 - 5 * 16) / 6;
     data.badges.slice(0, 18).forEach((b, i) => {
       const x = 72 + (i % 6) * (cell + 16);
@@ -1750,7 +1768,7 @@ function drawCard(canvas: HTMLCanvasElement, mode: CardMode, data: {
   // footer
   ctx.fillStyle = "rgba(255,255,255,0.45)";
   ctx.font = "600 22px system-ui, sans-serif";
-  ctx.fillText("local-first & FOSS — made with GoalCheck", 72, CARD_H - 88);
+  ctx.fillText(t("modal.report.footer"), 72, CARD_H - 88);
 }
 
 function ReportCardModal() {
@@ -1763,6 +1781,7 @@ function ReportCardModal() {
   const achievements = useStore((s) => s.achievements);
   const [mode, setMode] = useState<CardMode>("week");
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const t = useT();
 
   const goal = goals.find((g) => g.id === activeGoalId);
   const stats = goal ? calculateStats(goal) : { percent: 0, completed: 0, total: 0 };
@@ -1777,7 +1796,7 @@ function ReportCardModal() {
       if (!c) return;
       drawCard(c, mode, {
         appName: APP_NAME,
-        boardTitle: goal?.title ?? "My goals",
+        boardTitle: goal?.title ?? t("modal.report.myGoals"),
         percent: stats.percent,
         completed: stats.completed,
         total: stats.total,
@@ -1807,7 +1826,7 @@ function ReportCardModal() {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-      toast.success("Card downloaded — share it anywhere!");
+      toast.success(t("modal.report.downloadedToast"));
     }, "image/png");
   };
 
@@ -1818,9 +1837,9 @@ function ReportCardModal() {
       const blob = await new Promise<Blob | null>((res) => c.toBlob(res, "image/png"));
       if (!blob) throw new Error();
       await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
-      toast.success("Card copied to clipboard!");
+      toast.success(t("modal.report.copiedToast"));
     } catch {
-      toast.error("Clipboard image copy not supported here — use Download.");
+      toast.error(t("modal.report.copyErrorToast"));
     }
   };
 
@@ -1828,24 +1847,24 @@ function ReportCardModal() {
     <Dialog open={open} onOpenChange={(o) => { if (!o) useUi.setState({ reportCard: false }); }}>
       <DialogContent className="gc-modal max-w-lg">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2"><GcIcon name="camera-flash" size={17} /> Report card</DialogTitle>
-          <DialogDescription>An offline-rendered share card — nothing leaves this device.</DialogDescription>
+          <DialogTitle className="flex items-center gap-2"><GcIcon name="camera-flash" size={17} /> {t("nav.reportCard")}</DialogTitle>
+          <DialogDescription>{t("modal.report.desc")}</DialogDescription>
         </DialogHeader>
-        <div className="flex flex-wrap gap-1 rounded-xl p-1" style={{ background: "var(--gc-surface-2)" }} role="tablist" aria-label="Card mode">
-          {([["week", "Weekly report"], ["badges", "Achievements"]] as const).map(([id, label]) => (
+        <div className="flex flex-wrap gap-1 rounded-xl p-1" style={{ background: "var(--gc-surface-2)" }} role="tablist" aria-label={t("modal.report.modeAria")}>
+          {([["week", "modal.report.tabWeek"], ["badges", "modal.rpg.achievements"]] as const).map(([id, label]) => (
             <button key={id} type="button" role="tab" aria-selected={mode === id} onClick={() => setMode(id)}
               className="rounded-lg px-3 py-1.5 text-xs font-bold"
               style={mode === id ? { background: "var(--gc-surface)", color: "color-mix(in srgb, var(--gc-accent) 55%, var(--gc-text))" } : { color: "var(--gc-text2)" }}>
-              {label}
+              {t(label)}
             </button>
           ))}
         </div>
         <div className="max-h-[46vh] overflow-y-auto rounded-xl gc-scroll" style={{ border: "1px solid var(--gc-border)" }}>
-          <canvas ref={canvasRef} width={CARD_W} height={CARD_H} className="h-auto w-full" aria-label={`${APP_NAME} share card preview`} />
+          <canvas ref={canvasRef} width={CARD_W} height={CARD_H} className="h-auto w-full" aria-label={t("modal.report.previewAria", { name: APP_NAME })} />
         </div>
         <div className="flex justify-end gap-2">
-          <Button type="button" variant="outline" className="gc-btn" onClick={copy}><Copy className="mr-1 h-4 w-4" /> Copy</Button>
-          <Button type="button" className="gc-btn-primary" onClick={download}><Download className="mr-1 h-4 w-4" /> Download PNG</Button>
+          <Button type="button" variant="outline" className="gc-btn" onClick={copy}><Copy className="mr-1 h-4 w-4" /> {t("modal.common.copy")}</Button>
+          <Button type="button" className="gc-btn-primary" onClick={download}><Download className="mr-1 h-4 w-4" /> {t("modal.common.downloadPng")}</Button>
         </div>
       </DialogContent>
     </Dialog>
@@ -1886,6 +1905,7 @@ function writePacks(packs: Pack[]): void {
 
 function PackModal() {
   const open = useUi((s) => s.packModal);
+  const t = useT();
   const [text, setText] = useState("");
   const [url, setUrl] = useState("");
   const [packs, setPacks] = useState<Pack[]>([]);
@@ -1904,7 +1924,7 @@ function PackModal() {
     try {
       const parsed = JSON.parse(raw) as Pack;
       if (!parsed || !Array.isArray(parsed.templates) || parsed.templates.length === 0) {
-        toast.error("Not a valid pack — expected { name, templates: [...] }.");
+        toast.error(t("modal.pack.invalid"));
         return;
       }
       const clean: Pack = {
@@ -1925,26 +1945,26 @@ function PackModal() {
           })).filter((c) => c.items.length > 0),
         })).filter((tp) => tp.categories.length > 0),
       };
-      if (clean.templates.length === 0) { toast.error("Pack has no usable templates."); return; }
+      if (clean.templates.length === 0) { toast.error(t("modal.pack.noTemplates")); return; }
       const next = [...readPacks().filter((p) => p.name !== clean.name), clean];
       writePacks(next);
       setPacks(next);
       setText("");
-      toast.success(`Installed "${clean.name}" — ${clean.templates.length} template(s) added to the sidebar.`);
+      toast.success(t("modal.pack.installed", { name: clean.name, count: clean.templates.length }));
     } catch {
-      toast.error("That JSON could not be parsed.");
+      toast.error(t("modal.pack.parseError"));
     }
   };
 
   const fetchUrl = async () => {
     const u = url.trim();
-    if (!/^https:\/\//i.test(u)) { toast.error("Enter an https:// URL to the pack JSON."); return; }
+    if (!/^https:\/\//i.test(u)) { toast.error(t("modal.pack.needHttps")); return; }
     try {
       const res = await fetch(u, { mode: "cors" });
       const raw = await res.text();
       install(raw);
     } catch {
-      toast.error("Fetch failed (CORS or offline) — paste the JSON instead.");
+      toast.error(t("modal.pack.fetchFailed"));
     }
   };
 
@@ -1952,29 +1972,29 @@ function PackModal() {
     <Dialog open={open} onOpenChange={(o) => { if (!o) useUi.setState({ packModal: false }); }}>
       <DialogContent className="gc-modal max-w-lg">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2"><GcIcon name="globe-orbit" size={17} /> Community packs</DialogTitle>
-          <DialogDescription>Import template packs as JSON — from a URL or pasted inline. Installed packs appear in the sidebar.</DialogDescription>
+          <DialogTitle className="flex items-center gap-2"><GcIcon name="globe-orbit" size={17} /> {t("modal.pack.title")}</DialogTitle>
+          <DialogDescription>{t("modal.pack.desc")}</DialogDescription>
         </DialogHeader>
         <div className="flex gap-2">
           <Input value={url} onChange={(e) => setUrl(e.target.value)} className="gc-input flex-1"
-            placeholder="https://example.com/goalcheck-pack.json" aria-label="Pack JSON URL" />
-          <Button type="button" variant="outline" className="gc-btn shrink-0" onClick={() => void fetchUrl()}>Fetch</Button>
+            placeholder="https://example.com/goalcheck-pack.json" aria-label={t("modal.pack.urlAria")} />
+          <Button type="button" variant="outline" className="gc-btn shrink-0" onClick={() => void fetchUrl()}>{t("modal.pack.fetch")}</Button>
         </div>
         <Textarea value={text} onChange={(e) => setText(e.target.value)} className="gc-input h-32 resize-none font-mono text-xs"
           placeholder={'{\n  "name": "Exam season",\n  "templates": [{ "title": "Exam prep", "categories": [{ "title": "Revision", "items": [{ "text": "Past papers" }] }] }]\n}'}
-          aria-label="Pack JSON" />
+          aria-label={t("modal.pack.jsonAria")} />
         <div className="flex items-center justify-between gap-2">
-          <Button type="button" variant="outline" className="gc-btn" disabled={!text.trim()} onClick={() => install(text)}>Install pack</Button>
+          <Button type="button" variant="outline" className="gc-btn" disabled={!text.trim()} onClick={() => install(text)}>{t("modal.pack.install")}</Button>
           {packs.length > 0 && (
             <button type="button" className="text-xs font-bold underline-offset-2 hover:underline" style={{ color: "var(--gc-text2)" }}
-              onClick={() => { writePacks([]); setPacks([]); toast("All community packs removed."); }}>
-              Remove all ({packs.length} pack{packs.length > 1 ? "s" : ""})
+              onClick={() => { writePacks([]); setPacks([]); toast(t("modal.pack.removedAll")); }}>
+              {t(packs.length > 1 ? "modal.pack.removeAllMany" : "modal.pack.removeAllOne", { count: packs.length })}
             </button>
           )}
         </div>
         {packs.map((p) => (
           <div key={p.name} className="rounded-lg border p-2 text-xs" style={{ borderColor: "var(--gc-border)", color: "var(--gc-text2)" }}>
-            <b style={{ color: "var(--gc-text)" }}>{p.name}</b> — {p.templates.length} template(s)
+            <b style={{ color: "var(--gc-text)" }}>{p.name}</b> — {t("modal.pack.templateCount", { count: p.templates.length })}
           </div>
         ))}
       </DialogContent>
@@ -1991,6 +2011,7 @@ function PackModal() {
 
 function SeasonalChallenges() {
   const rpg = useStore((s) => s.rpg);
+  const t = useT();
   const habits = useStore((s) => s.habits);
   const goals = useStore((s) => s.goals);
   const now = new Date();
@@ -2008,16 +2029,16 @@ function SeasonalChallenges() {
   const percentTarget = 60 + (seed % 5) * 5;
 
   const challenges = [
-    { label: `Earn ${xpTarget} XP this month`, value: monthXp, target: xpTarget, icon: "bolt-boost" },
-    { label: `Hold a ${streakTarget}-period habit streak`, value: bestStreak, target: streakTarget, icon: "flame-ember" },
-    { label: `Keep boards at ${percentTarget}% average completion`, value: avgPercent, target: percentTarget, icon: "check-circle" },
+    { label: t("modal.challenges.xp", { count: xpTarget }), value: monthXp, target: xpTarget, icon: "bolt-boost" },
+    { label: t("modal.challenges.streak", { count: streakTarget }), value: bestStreak, target: streakTarget, icon: "flame-ember" },
+    { label: t("modal.challenges.completion", { percent: percentTarget }), value: avgPercent, target: percentTarget, icon: "check-circle" },
   ];
 
   return (
     <div className="rounded-xl border p-3" style={{ borderColor: "var(--gc-border)" }}>
-      <p className="mb-0.5 flex items-center gap-2 text-sm font-extrabold"><GcIcon name="trophy-star" size={15} /> Seasonal challenges</p>
+      <p className="mb-0.5 flex items-center gap-2 text-sm font-extrabold"><GcIcon name="trophy-star" size={15} /> {t("modal.challenges.title")}</p>
       <p className="mb-2 text-[0.68rem]" style={{ color: "var(--gc-muted)" }}>
-        {now.toLocaleString("en", { month: "long" })} {now.getFullYear()} — resets automatically each month, derived from your real activity.
+        {now.toLocaleString("en", { month: "long" })} {now.getFullYear()} — {t("modal.challenges.resetsNote")}
       </p>
       <div className="flex flex-col gap-2">
         {challenges.map((c) => {
@@ -2030,7 +2051,7 @@ function SeasonalChallenges() {
                   <GcIcon name={c.icon} size={12} /> {c.label}
                 </span>
                 <span className="shrink-0 font-mono" style={{ color: done ? "var(--gc-success)" : "var(--gc-text2)" }}>
-                  {done ? "DONE" : `${Math.min(c.value, c.target)}/${c.target}`}
+                  {done ? t("modal.challenges.done") : `${Math.min(c.value, c.target)}/${c.target}`}
                 </span>
               </div>
               <div className="h-1.5 overflow-hidden rounded-full" style={{ background: "var(--gc-input)" }} role="progressbar" aria-label={`${c.label}: ${pct}%`} aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
@@ -2061,6 +2082,7 @@ function WeeklyReviewModal() {
   const [carried, setCarried] = useState<string[]>([]);
   const [focus, setFocus] = useState<string[]>([]);
   const [note, setNote] = useState("");
+  const t = useT();
 
   /* recompute fresh every open */
   const weekAgo = shiftDays(new Date(), -7).getTime();
@@ -2103,103 +2125,103 @@ function WeeklyReviewModal() {
     <Dialog open={open} onOpenChange={(o) => { if (!o) { reset(); close(); } }}>
       <DialogContent className="gc-modal max-h-[85vh] max-w-lg overflow-y-auto gc-scroll" aria-describedby={undefined}>
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2"><GcIcon name="book-flutter" size={17} /> Weekly Review</DialogTitle>
-          <DialogDescription>A 3-step reflection ritual — celebrate, reschedule, focus.</DialogDescription>
+          <DialogTitle className="flex items-center gap-2"><GcIcon name="book-flutter" size={17} /> {t("modal.review.title")}</DialogTitle>
+          <DialogDescription>{t("modal.review.desc")}</DialogDescription>
         </DialogHeader>
 
         {step === 0 && (
           <div className="flex flex-col gap-3">
-            <p className="text-sm font-bold">1 · What you shipped this week 🎉</p>
+            <p className="text-sm font-bold">{t("modal.review.step1")}</p>
             {data.completedNow.length === 0 ? (
               <p className="rounded-lg border p-3 text-xs" style={{ borderColor: "var(--gc-border)", color: "var(--gc-text2)" }}>
-                No completed tasks in the last 7 days. That&apos;s okay — the review is about looking forward too.
+                {t("modal.review.step1Empty")}
               </p>
             ) : (
               <ul className="flex max-h-56 flex-col gap-1 overflow-y-auto gc-scroll">
-                {data.completedNow.map((t) => (
-                  <li key={t.id} className="flex items-center gap-2 rounded-lg px-2 py-1 text-xs font-bold" style={{ background: "var(--gc-success-soft)" }}>
-                    <GcIcon name="check-circle" size={13} /> <span className="min-w-0 flex-1 truncate">{t.text}</span>
+                {data.completedNow.map((task) => (
+                  <li key={task.id} className="flex items-center gap-2 rounded-lg px-2 py-1 text-xs font-bold" style={{ background: "var(--gc-success-soft)" }}>
+                    <GcIcon name="check-circle" size={13} /> <span className="min-w-0 flex-1 truncate">{task.text}</span>
                   </li>
                 ))}
               </ul>
             )}
-            <p className="text-[0.68rem]" style={{ color: "var(--gc-muted)" }}>{data.completedNow.length} completed · {data.overdue.length} overdue · {data.openTasks.length} open overall</p>
+            <p className="text-[0.68rem]" style={{ color: "var(--gc-muted)" }}>{t("modal.review.summary", { completed: data.completedNow.length, overdue: data.overdue.length, open: data.openTasks.length })}</p>
           </div>
         )}
 
         {step === 1 && (
           <div className="flex flex-col gap-3">
-            <p className="text-sm font-bold">2 · Overdue — reschedule to next week or let go?</p>
+            <p className="text-sm font-bold">{t("modal.review.step2")}</p>
             {data.overdue.length === 0 ? (
-              <p className="rounded-lg border p-3 text-xs" style={{ borderColor: "var(--gc-border)", color: "var(--gc-text2)" }}>Nothing overdue. Clean slate! ✨</p>
+              <p className="rounded-lg border p-3 text-xs" style={{ borderColor: "var(--gc-border)", color: "var(--gc-text2)" }}>{t("modal.review.step2Empty")}</p>
             ) : (
               <ul className="flex max-h-56 flex-col gap-1 overflow-y-auto gc-scroll">
-                {data.overdue.map((t) => (
-                  <li key={t.id} className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs" style={{ background: "var(--gc-surface-2)" }}>
-                    <span className="min-w-0 flex-1 truncate font-bold">{t.text}</span>
+                {data.overdue.map((task) => (
+                  <li key={task.id} className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs" style={{ background: "var(--gc-surface-2)" }}>
+                    <span className="min-w-0 flex-1 truncate font-bold">{task.text}</span>
                     <Button type="button" size="sm" className="h-6 px-2 text-[0.62rem] gc-btn-primary"
                       onClick={() => {
                         const next = localDateKey(shiftDays(new Date(), 7));
-                        setTaskAdvanced(t.catId, t.id, { dueDate: next });
-                        setCarried((c) => (c.includes(t.text) ? c : [...c, t.text]));
-                        toast("Rescheduled to next week.");
+                        setTaskAdvanced(task.catId, task.id, { dueDate: next });
+                        setCarried((c) => (c.includes(task.text) ? c : [...c, task.text]));
+                        toast(t("modal.review.rescheduledToast"));
                       }}>
-                      +7d
+                      {t("modal.review.plus7d")}
                     </Button>
                     <Button type="button" size="sm" variant="outline" className="h-6 px-2 text-[0.62rem] gc-btn"
-                      onClick={() => setCarried((c) => (c.includes(t.text) ? c : [...c, t.text]))}>
-                      Keep
+                      onClick={() => setCarried((c) => (c.includes(task.text) ? c : [...c, task.text]))}>
+                      {t("modal.common.keep")}
                     </Button>
                   </li>
                 ))}
               </ul>
             )}
-            {carried.length > 0 && <p className="text-[0.68rem]" style={{ color: "var(--gc-muted)" }}>Carried over: {carried.length}</p>}
+            {carried.length > 0 && <p className="text-[0.68rem]" style={{ color: "var(--gc-muted)" }}>{t("modal.review.carriedOver", { count: carried.length })}</p>}
           </div>
         )}
 
         {step === 2 && (
           <div className="flex flex-col gap-3">
-            <p className="text-sm font-bold">3 · Pick next week&apos;s focus (up to 3)</p>
+            <p className="text-sm font-bold">{t("modal.review.step3")}</p>
             <ul className="flex max-h-48 flex-col gap-1 overflow-y-auto gc-scroll">
-              {data.openTasks.slice(0, 40).map((t) => (
-                <li key={t.id}>
-                  <button type="button" onClick={() => toggleIn(focus, setFocus, t.text)}
-                    aria-pressed={focus.includes(t.text)}
+              {data.openTasks.slice(0, 40).map((task) => (
+                <li key={task.id}>
+                  <button type="button" onClick={() => toggleIn(focus, setFocus, task.text)}
+                    aria-pressed={focus.includes(task.text)}
                     className="flex w-full items-center gap-2 rounded-lg px-2 py-1 text-left text-xs font-bold hover:bg-[var(--gc-surface-2)]">
                     <span className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded border text-[9px]"
-                      style={{ borderColor: focus.includes(t.text) ? "var(--gc-accent)" : "var(--gc-border-strong)", background: focus.includes(t.text) ? "var(--gc-accent)" : "transparent", color: "#fff" }}>
-                      {focus.includes(t.text) ? "\u2713" : ""}
+                      style={{ borderColor: focus.includes(task.text) ? "var(--gc-accent)" : "var(--gc-border-strong)", background: focus.includes(task.text) ? "var(--gc-accent)" : "transparent", color: "#fff" }}>
+                      {focus.includes(task.text) ? "\u2713" : ""}
                     </span>
-                    <span className="min-w-0 flex-1 truncate">{t.text}</span>
+                    <span className="min-w-0 flex-1 truncate">{task.text}</span>
                   </button>
                 </li>
               ))}
             </ul>
             <Textarea value={note} onChange={(e) => setNote(e.target.value)} className="gc-input min-h-[60px] text-xs"
-              placeholder="One line of reflection (optional)…" aria-label="Reflection note" />
+              placeholder={t("modal.review.notePlaceholder")} aria-label={t("modal.review.noteAria")} />
           </div>
         )}
 
         <div className="flex items-center justify-between gap-2">
           {step > 0 ? (
-            <Button type="button" variant="outline" className="gc-btn" onClick={() => setStep((s) => s - 1)}>Back</Button>
+            <Button type="button" variant="outline" className="gc-btn" onClick={() => setStep((s) => s - 1)}>{t("modal.review.back")}</Button>
           ) : <span />}
           {StepDots}
           {step < 2 ? (
-            <Button type="button" className="gc-btn-primary" onClick={() => setStep((s) => s + 1)}>Next</Button>
+            <Button type="button" className="gc-btn-primary" onClick={() => setStep((s) => s + 1)}>{t("modal.review.next")}</Button>
           ) : (
-            <Button type="button" className="gc-btn-primary" onClick={save} disabled={focus.length > 3}>Save review</Button>
+            <Button type="button" className="gc-btn-primary" onClick={save} disabled={focus.length > 3}>{t("modal.review.save")}</Button>
           )}
         </div>
 
         {reviews.length > 0 && (
           <div className="border-t pt-2" style={{ borderColor: "var(--gc-border)" }}>
-            <p className="mb-1 text-[0.65rem] font-extrabold uppercase tracking-wide" style={{ color: "var(--gc-text2)" }}>Journal</p>
+            <p className="mb-1 text-[0.65rem] font-extrabold uppercase tracking-wide" style={{ color: "var(--gc-text2)" }}>{t("modal.review.journal")}</p>
             <ul className="flex max-h-32 flex-col gap-1 overflow-y-auto gc-scroll">
               {[...reviews].reverse().slice(0, 8).map((r) => (
                 <li key={r.id} className="rounded-lg px-2 py-1 text-[0.68rem]" style={{ background: "var(--gc-surface-2)" }}>
-                  <span className="font-bold">{r.weekKey}</span> — {r.completedCount} shipped · {r.focus.length} focus · {r.carriedOver.length} carried
+                  <span className="font-bold">{r.weekKey}</span> — {t("modal.review.entryStats", { shipped: r.completedCount, focus: r.focus.length, carried: r.carriedOver.length })}
                   {r.note && <span className="block truncate" style={{ color: "var(--gc-text2)" }}>“{r.note}”</span>}
                 </li>
               ))}
@@ -2217,6 +2239,7 @@ function WeeklyReviewModal() {
 
 function WrappedModal() {
   const open = useUi((s) => s.wrappedModal);
+  const t = useT();
   const close = () => useUi.setState({ wrappedModal: false });
   const goals = useStore((s) => s.goals);
   const rpg = useStore((s) => s.rpg);
@@ -2243,17 +2266,17 @@ function WrappedModal() {
     ctx.textBaseline = "top";
     ctx.fillStyle = accent;
     ctx.font = "800 22px system-ui, sans-serif";
-    ctx.fillText(`${APP_NAME.toUpperCase()} — YEAR IN REVIEW`, 48, 44);
+    ctx.fillText(`${APP_NAME.toUpperCase()} — ${t("modal.wrapped.canvasKicker")}`, 48, 44);
     ctx.fillStyle = white;
     ctx.font = "900 64px system-ui, sans-serif";
     ctx.fillText(String(recap.year), 48, 84);
     const stats: [string, string][] = [
-      ["tasks completed", String(recap.completed)],
-      ["active days", String(recap.activeDays)],
-      ["longest streak", `${recap.longestStreak}d`],
-      ["focus hours", String(recap.focusHours)],
-      ["boards", String(recap.boards)],
-      ["level", String(recap.level)],
+      [t("modal.wrapped.statTasks"), String(recap.completed)],
+      [t("modal.wrapped.statDays"), String(recap.activeDays)],
+      [t("modal.wrapped.statStreak"), `${recap.longestStreak}d`],
+      [t("modal.wrapped.statFocus"), String(recap.focusHours)],
+      [t("modal.wrapped.statBoards"), String(recap.boards)],
+      [t("modal.wrapped.statLevel"), String(recap.level)],
     ];
     stats.forEach(([label, value], i) => {
       const x = 48 + (i % 3) * 270;
@@ -2271,10 +2294,10 @@ function WrappedModal() {
     });
     ctx.fillStyle = "rgba(255,255,255,0.75)";
     ctx.font = "700 17px system-ui, sans-serif";
-    ctx.fillText(`Peak month: ${recap.topMonth.label} · ${recap.xpTotal.toLocaleString()} XP total`, 48, 486);
+    ctx.fillText(t("modal.wrapped.peakMonth", { month: recap.topMonth.label, xp: recap.xpTotal.toLocaleString() }), 48, 486);
     ctx.fillStyle = "rgba(255,255,255,0.4)";
     ctx.font = "600 13px system-ui, sans-serif";
-    ctx.fillText("made with GoalCheck — local-first, no account, no analytics", 48, 518);
+    ctx.fillText(t("modal.wrapped.footer"), 48, 518);
   };
 
   useEffect(() => { if (open) requestAnimationFrame(draw); }, [open]);
@@ -2292,13 +2315,13 @@ function WrappedModal() {
     <Dialog open={open} onOpenChange={(o) => { if (!o) close(); }}>
       <DialogContent className="gc-modal max-w-xl" aria-describedby={undefined}>
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2"><GcIcon name="trophy-star" size={17} /> Year in Review — {recap.year}</DialogTitle>
-          <DialogDescription>Your year, distilled. Download the card and share it anywhere.</DialogDescription>
+          <DialogTitle className="flex items-center gap-2"><GcIcon name="trophy-star" size={17} /> {t("modal.wrapped.title", { year: recap.year })}</DialogTitle>
+          <DialogDescription>{t("modal.wrapped.desc")}</DialogDescription>
         </DialogHeader>
-        <canvas ref={canvasRef} className="w-full rounded-xl border" style={{ borderColor: "var(--gc-border)" }} aria-label={`Year in review card for ${recap.year}`} />
+        <canvas ref={canvasRef} className="w-full rounded-xl border" style={{ borderColor: "var(--gc-border)" }} aria-label={t("modal.wrapped.canvasAria", { year: recap.year })} />
         <DialogFooter>
-          <Button type="button" variant="outline" className="gc-btn" onClick={draw}>Redraw</Button>
-          <Button type="button" className="gc-btn-primary" onClick={download}><Download className="h-4 w-4" /> Download PNG</Button>
+          <Button type="button" variant="outline" className="gc-btn" onClick={draw}>{t("modal.wrapped.redraw")}</Button>
+          <Button type="button" className="gc-btn-primary" onClick={download}><Download className="h-4 w-4" /> {t("modal.common.downloadPng")}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -2312,6 +2335,7 @@ function WrappedModal() {
 
 function ImportModal() {
   const open = useUi((s) => s.importModal);
+  const t = useT();
   const close = () => useUi.setState({ importModal: false });
   const [raw, setRaw] = useState("");
   const [detected, setDetected] = useState<{ format: string; goals: ImportedGoal[] } | null>(null);
@@ -2319,7 +2343,7 @@ function ImportModal() {
   const runDetect = () => {
     const res = detectAndParse(raw);
     setDetected(res);
-    if (res.format === "unknown") toast.error("Could not detect the format — paste a Todoist / Google Tasks / TickTick export.");
+    if (res.format === "unknown") toast.error(t("modal.import.detectFailed"));
   };
 
   const commit = () => {
@@ -2339,29 +2363,29 @@ function ImportModal() {
         recurrence: "none" as const,
         lastResetDate: now,
         lastWeekKey: weekKey,
-        items: c.items.map((t) => ({
+        items: c.items.map((it) => ({
           id: `task_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
-          text: t.text.slice(0, 200),
-          completed: !!t.completed,
-          priority: t.priority,
-          notes: (t.notes || "").slice(0, 2000),
-          status: (t.completed ? "done" : "todo") as "done" | "todo",
+          text: it.text.slice(0, 200),
+          completed: !!it.completed,
+          priority: it.priority,
+          notes: (it.notes || "").slice(0, 2000),
+          status: (it.completed ? "done" : "todo") as "done" | "todo",
           subtasks: [],
           pomosEstimate: 1,
           pomoCount: 0,
           dependsOn: "",
-          dueDate: t.dueDate || "",
+          dueDate: it.dueDate || "",
           timeSpent: 0,
           recurrence: "none" as const,
           respawnedFrom: "",
-          completedAt: t.completed ? Date.now() : 0,
+          completedAt: it.completed ? Date.now() : 0,
           createdAt: Date.now(),
         })),
       })),
     }));
     if (boards.length > 0) {
       useStore.setState((s) => ({ goals: [...boards, ...s.goals], activeGoalId: boards[0].id }));
-      toast.success(`Imported ${boards.length} board${boards.length > 1 ? "s" : ""} from ${detected.format}.`);
+      toast.success(t(boards.length > 1 ? "modal.import.importedMany" : "modal.import.importedOne", { count: boards.length, format: detected.format }));
       setRaw(""); setDetected(null);
       close();
     }
@@ -2371,9 +2395,9 @@ function ImportModal() {
     <Dialog open={open} onOpenChange={(o) => { if (!o) { setDetected(null); close(); } }}>
       <DialogContent className="gc-modal max-h-[85vh] max-w-lg overflow-y-auto gc-scroll" aria-describedby={undefined}>
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2"><GcIcon name="luggage-trip" size={17} /> Import from other apps</DialogTitle>
+          <DialogTitle className="flex items-center gap-2"><GcIcon name="luggage-trip" size={17} /> {t("modal.import.title")}</DialogTitle>
           <DialogDescription>
-            Paste a <b>Todoist</b> backup JSON, <b>Google Tasks</b> Takeout JSON or <b>TickTick</b> backup CSV. Everything is parsed on-device — nothing is uploaded.
+            {t("modal.import.descA")} <b>Todoist</b> {t("modal.import.descB")} <b>Google Tasks</b> {t("modal.import.descC")} <b>TickTick</b> {t("modal.import.descD")}
           </DialogDescription>
         </DialogHeader>
         <Textarea
@@ -2381,27 +2405,30 @@ function ImportModal() {
           onChange={(e) => setRaw(e.target.value)}
           className="gc-input min-h-[140px] font-mono text-[0.68rem]"
           placeholder='{"projects":[{"name":"Work","items":[{"content":"Ship it","checked":false}]}]}   ← or CSV with projectName,title,…'
-          aria-label="Paste export content"
+          aria-label={t("modal.import.pasteAria")}
         />
         {detected && detected.format !== "unknown" && (
           <div className="rounded-xl border p-3" style={{ borderColor: "var(--gc-border)", background: "var(--gc-surface-2)" }}>
             <p className="mb-1.5 text-xs font-extrabold">
-              Detected: <span style={{ color: "var(--gc-accent)" }}>{detected.format}</span> — {detected.goals.length} board{detected.goals.length > 1 ? "s" : ""},{" "}
-              {detected.goals.reduce((n, g) => n + g.categories.reduce((m, c) => m + c.items.length, 0), 0)} tasks
+              {t("modal.import.detected")} <span style={{ color: "var(--gc-accent)" }}>{detected.format}</span> —{" "}
+              {t(detected.goals.length > 1 ? "modal.import.previewBoardsMany" : "modal.import.previewBoardsOne", {
+                boards: detected.goals.length,
+                tasks: detected.goals.reduce((n, g) => n + g.categories.reduce((m, c) => m + c.items.length, 0), 0),
+              })}
             </p>
             <ul className="flex max-h-40 flex-col gap-1 overflow-y-auto gc-scroll">
               {detected.goals.map((g, gi) => (
                 <li key={gi} className="text-[0.7rem] font-bold" style={{ color: "var(--gc-text2)" }}>
-                  📋 {g.title} <span className="font-normal">({g.categories.reduce((m, c) => m + c.items.length, 0)} tasks)</span>
+                  📋 {g.title} <span className="font-normal">{t("modal.import.tasksCount", { count: g.categories.reduce((m, c) => m + c.items.length, 0) })}</span>
                 </li>
               ))}
             </ul>
           </div>
         )}
         <DialogFooter>
-          <Button type="button" variant="outline" className="gc-btn" onClick={() => { setRaw(""); setDetected(null); }}>Clear</Button>
-          <Button type="button" variant="outline" className="gc-btn" onClick={runDetect} disabled={!raw.trim()}>Detect format</Button>
-          <Button type="button" className="gc-btn-primary" onClick={commit} disabled={!detected || detected.goals.length === 0}>Import</Button>
+          <Button type="button" variant="outline" className="gc-btn" onClick={() => { setRaw(""); setDetected(null); }}>{t("modal.common.clear")}</Button>
+          <Button type="button" variant="outline" className="gc-btn" onClick={runDetect} disabled={!raw.trim()}>{t("modal.import.detect")}</Button>
+          <Button type="button" className="gc-btn-primary" onClick={commit} disabled={!detected || detected.goals.length === 0}>{t("modal.import.import")}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

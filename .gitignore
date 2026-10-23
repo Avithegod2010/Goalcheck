@@ -97,3 +97,4 @@ capacitor/android/keystore.properties
 out/
 .next-pages/
 .next-capacitor/
+test-results/

@@ -10,12 +10,14 @@ import { isImageUrl, isMonoIcon } from "@/lib/goalcheck/presets";
 import { GcIcon } from "@/lib/goalcheck/icons";
 import { useStore } from "@/lib/goalcheck/store";
 import { completePomodoroSession } from "@/lib/goalcheck/store";
+import { useT } from "@/lib/goalcheck/i18n";
 import { animate, useReducedMotion } from "framer-motion";
 import type { ReactNode } from "react";
 
 /* ---------- Media badge (mono animated icon | image | legacy emoji text) ---------- */
 
 export function MediaBadge({ value, fallback, className, iconSize }: { value?: string; fallback?: string; className?: string; iconSize?: number }) {
+  const t = useT();
   const media = (value && value.trim()) || fallback || "mono:clipboard-check";
   const base = className ?? "flex h-full w-full items-center justify-center overflow-hidden";
   if (isMonoIcon(media)) {
@@ -23,7 +25,7 @@ export function MediaBadge({ value, fallback, className, iconSize }: { value?: s
   }
   if (isImageUrl(media)) {
     return (
-      <img src={media} alt="Badge" className="h-full w-full object-cover" draggable={false} />
+      <img src={media} alt={t("atoms.badge")} className="h-full w-full object-cover" draggable={false} />
     );
   }
   /* legacy user-saved emoji chars still render as text */

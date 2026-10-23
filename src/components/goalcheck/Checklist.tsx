@@ -19,6 +19,7 @@ import { ChevronDown, ChevronUp, GripVertical, Pencil, Trash2, Plus, Lock, Setti
 import type { Category, Task } from "@/lib/goalcheck/types";
 import { dueStatus, inCurrentWeek, describeRecurrence } from "@/lib/goalcheck/logic";
 import { hasFeature } from "@/lib/goalcheck/editions";
+import { useT } from "@/lib/goalcheck/i18n";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
 
@@ -41,6 +42,7 @@ export function ChecklistGrid() {
   const layout = useStore((s) => s.layoutMode);
   const search = useStore((s) => s.searchQuery);
   const editingCategoryId = useStore((s) => s.editingCategoryId);
+  const t = useT();
 
   if (!goal) return null;
 
@@ -58,7 +60,7 @@ export function ChecklistGrid() {
       <div
         key={layout}
         className={`grid items-start gap-5 ${layout === "single" ? "grid-cols-1" : "grid-cols-1 xl:grid-cols-2"}`}
-        aria-label="Categories"
+        aria-label={t("common.categories")}
       >
         {visibleCats.length === 0 && (
           <motion.div
@@ -72,9 +74,9 @@ export function ChecklistGrid() {
                 <GcIcon name="folder-open" size={34} />
               </span>
             </div>
-            <h3 className="mb-1 text-lg font-extrabold">No categories {search ? "match your search" : "in this board yet"}</h3>
+            <h3 className="mb-1 text-lg font-extrabold">{search ? t("task.noCategoriesSearch") : t("task.noCategoriesEmpty")}</h3>
             <p className="text-sm" style={{ color: "var(--gc-text2)" }}>
-              {search ? "Try a different search term or clear the filter." : "Use the quick add bar above, or import your workflow via Quick Paste."}
+              {search ? t("task.tryDifferentSearch") : t("task.quickAddHint")}
             </p>
           </motion.div>
         )}
@@ -87,6 +89,7 @@ export function ChecklistGrid() {
 }
 
 function CategoryCard({ cat, editing, index }: { cat: Category; editing: boolean; index: number }) {
+  const t = useT();
   const filter = useStore((s) => s.filter);
   const search = useStore((s) => s.searchQuery.trim().toLowerCase());
   const openSubtaskId = useStore((s) => s.openSubtaskId);
@@ -157,7 +160,7 @@ function CategoryCard({ cat, editing, index }: { cat: Category; editing: boolean
               }}
               onDragEnd={() => setCatDrag(false)}
               className="hidden cursor-grab text-[var(--gc-muted)] hover:text-[var(--gc-accent)] sm:block"
-              title="Drag to reorder categories"
+              title={t("task.dragCategories")}
               aria-hidden="true"
             >
               <GripVertical className="h-4 w-4" />
@@ -167,8 +170,8 @@ function CategoryCard({ cat, editing, index }: { cat: Category; editing: boolean
               className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl border"
               style={{ borderColor: "var(--gc-border-strong)", background: "var(--gc-surface-2)" }}
               onClick={() => openMediaModal({ type: "category", catId: cat.id })}
-              title="Customize category icon"
-              aria-label="Customize category icon"
+              title={t("task.customizeCategoryIcon")}
+              aria-label={t("task.customizeCategoryIcon")}
               whileHover={{ scale: 1.08, rotate: -5 }}
               whileTap={{ scale: 0.92 }}
               transition={{ type: "spring", stiffness: 380, damping: 16 }}
@@ -177,27 +180,27 @@ function CategoryCard({ cat, editing, index }: { cat: Category; editing: boolean
             </motion.button>
             <div className="min-w-0 flex-1">
               {editing ? (
-                <CategoryRenameForm initial={cat.title} onSave={(t) => { renameCategory(cat.id, t); setEditingCategory(null); }} onCancel={() => setEditingCategory(null)} />
+                <CategoryRenameForm initial={cat.title} onSave={(name) => { renameCategory(cat.id, name); setEditingCategory(null); }} onCancel={() => setEditingCategory(null)} />
               ) : (
                 <button
                   type="button"
                   className="block w-full truncate text-left text-base font-extrabold transition-colors hover:text-[var(--gc-accent)] focus-visible:outline-2"
                   onClick={() => setEditingCategory(cat.id)}
-                  title="Click to rename category"
+                  title={t("task.clickRenameCategory")}
                 >
                   {cat.title}
                 </button>
               )}
               <p className="mt-0.5 flex items-center gap-1.5 font-mono text-[0.7rem]" style={{ color: "var(--gc-text2)" }}>
-                {completed} / {total} done • {pct}%
+                {t("task.catProgress", { completed, total, percent: pct })}
                 {cat.recurrence === "daily" && (
                   <span className="inline-flex items-center gap-1" style={{ color: "color-mix(in srgb, var(--gc-accent) 55%, var(--gc-text))" }}>
-                    <GcIcon name="repeat-cycle" size={11} /> daily
+                    <GcIcon name="repeat-cycle" size={11} /> {t("task.daily")}
                   </span>
                 )}
                 {cat.recurrence === "weekly" && (
                   <span className="inline-flex items-center gap-1" style={{ color: "color-mix(in srgb, var(--gc-accent) 55%, var(--gc-text))" }}>
-                    <GcIcon name="calendar-tick" size={11} /> weekly
+                    <GcIcon name="calendar-tick" size={11} /> {t("task.weekly")}
                   </span>
                 )}
               </p>
@@ -207,8 +210,8 @@ function CategoryCard({ cat, editing, index }: { cat: Category; editing: boolean
             <motion.button
               type="button"
               className="flex size-8 items-center justify-center rounded-lg gc-btn"
-              title={allDone ? "Undo all" : "Mark all done"}
-              aria-label="Toggle all tasks done"
+              title={allDone ? t("task.undoAll") : t("task.markAllDone")}
+              aria-label={t("task.toggleAllDone")}
               onClick={() => toggleAllCategory(cat.id)}
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.88 }}
@@ -218,8 +221,8 @@ function CategoryCard({ cat, editing, index }: { cat: Category; editing: boolean
             <motion.button
               type="button"
               className="flex size-8 items-center justify-center rounded-lg gc-btn"
-              title="Customize icon"
-              aria-label="Customize category icon"
+              title={t("task.customizeIcon")}
+              aria-label={t("task.customizeCategoryIcon")}
               onClick={() => openMediaModal({ type: "category", catId: cat.id })}
               whileHover={{ scale: 1.1, rotate: 6 }}
               whileTap={{ scale: 0.88 }}
@@ -229,7 +232,7 @@ function CategoryCard({ cat, editing, index }: { cat: Category; editing: boolean
             <DeleteCatButton onDelete={() => deleteCategory(cat.id)} title={cat.title} />
           </div>
         </div>
-        <div className="mt-3 h-2 overflow-hidden rounded-full" style={{ background: "var(--gc-surface-2)" }} role="progressbar" aria-label={`${cat.title} progress: ${pct}% complete`} aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
+        <div className="mt-3 h-2 overflow-hidden rounded-full" style={{ background: "var(--gc-surface-2)" }} role="progressbar" aria-label={t("task.catProgressAria", { name: cat.title, percent: pct })} aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
           <motion.div
             className="h-full rounded-full"
             style={{ background: "var(--gc-grad)" }}
@@ -240,7 +243,7 @@ function CategoryCard({ cat, editing, index }: { cat: Category; editing: boolean
         </div>
       </header>
 
-      <ul className="flex flex-col gap-1 p-2" aria-label="Tasks">
+      <ul className="flex flex-col gap-1 p-2" aria-label={t("common.tasks")}>
         <AnimatePresence initial={false} mode="popLayout">
           {visibleItems.length === 0 && (
             <motion.li
@@ -251,7 +254,7 @@ function CategoryCard({ cat, editing, index }: { cat: Category; editing: boolean
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
             >
-              {total === 0 ? "No tasks yet — add the first one below!" : "No tasks match the current filter."}
+              {total === 0 ? t("task.noTasksYet") : t("task.noTasksMatch")}
             </motion.li>
           )}
           {visibleItems.map((it, idx) => (
@@ -266,12 +269,13 @@ function CategoryCard({ cat, editing, index }: { cat: Category; editing: boolean
 }
 
 function CategoryRenameForm({ initial, onSave, onCancel }: { initial: string; onSave: (t: string) => void; onCancel: () => void }) {
+  const t = useT();
   const [val, setVal] = useState(initial);
   const ref = useRef<HTMLInputElement>(null);
   useEffect(() => { ref.current?.focus(); ref.current?.select(); }, []);
   return (
     <form className="flex items-center gap-1.5" onSubmit={(e) => { e.preventDefault(); onSave(val); }}>
-      <Input ref={ref} value={val} onChange={(e) => setVal(e.target.value)} className="gc-input h-8 py-1 text-sm" aria-label="Category name" />
+      <Input ref={ref} value={val} onChange={(e) => setVal(e.target.value)} className="gc-input h-8 py-1 text-sm" aria-label={t("task.categoryName")} />
       <Button type="submit" size="sm" className="h-8 gc-btn-primary"><GcIcon name="check-circle" size={13} /></Button>
       <Button type="button" size="sm" variant="outline" className="h-8 gc-btn" onClick={onCancel}>✕</Button>
     </form>
@@ -279,14 +283,15 @@ function CategoryRenameForm({ initial, onSave, onCancel }: { initial: string; on
 }
 
 function DeleteCatButton({ onDelete, title }: { onDelete: () => void; title: string }) {
+  const t = useT();
   const [confirmOpen, setConfirmOpen] = useState(false);
   return (
     <>
       <motion.button
         type="button"
         className="flex size-8 items-center justify-center rounded-lg text-[var(--gc-danger)] gc-btn"
-        title={`Delete category ${title}`}
-        aria-label={`Delete category ${title}`}
+        title={t("task.deleteCategory", { name: title })}
+        aria-label={t("task.deleteCategory", { name: title })}
         onClick={() => setConfirmOpen(true)}
         whileHover={{ scale: 1.1 }}
         whileTap={{ scale: 0.88 }}
@@ -299,7 +304,7 @@ function DeleteCatButton({ onDelete, title }: { onDelete: () => void; title: str
             className="fixed inset-0 z-[300] flex items-center justify-center bg-black/60 p-4"
             role="dialog"
             aria-modal="true"
-            aria-label="Confirm delete"
+            aria-label={t("task.confirmDelete")}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -313,11 +318,11 @@ function DeleteCatButton({ onDelete, title }: { onDelete: () => void; title: str
               exit={{ scale: 0.92, y: 8, opacity: 0 }}
               transition={{ type: "spring", stiffness: 380, damping: 26 }}
             >
-              <h3 className="mb-1 text-base font-extrabold">Delete “{title}”?</h3>
-              <p className="mb-4 text-sm" style={{ color: "var(--gc-text2)" }}>All tasks inside it will be removed. This cannot be undone.</p>
+              <h3 className="mb-1 text-base font-extrabold">{t("task.deleteCategoryConfirm", { name: title })}</h3>
+              <p className="mb-4 text-sm" style={{ color: "var(--gc-text2)" }}>{t("task.deleteCategoryWarning")}</p>
               <div className="flex justify-end gap-2">
-                <Button type="button" variant="outline" className="gc-btn" onClick={() => setConfirmOpen(false)}>Cancel</Button>
-                <Button type="button" className="bg-[var(--gc-danger)] text-white hover:opacity-90 gc-btn" onClick={() => { onDelete(); setConfirmOpen(false); }}>Delete</Button>
+                <Button type="button" variant="outline" className="gc-btn" onClick={() => setConfirmOpen(false)}>{t("common.cancel")}</Button>
+                <Button type="button" className="bg-[var(--gc-danger)] text-white hover:opacity-90 gc-btn" onClick={() => { onDelete(); setConfirmOpen(false); }}>{t("common.delete")}</Button>
               </div>
             </motion.div>
           </motion.div>
@@ -330,12 +335,16 @@ function DeleteCatButton({ onDelete, title }: { onDelete: () => void; title: str
 /* ---------------- Task row ---------------- */
 
 const PRI_META = {
-  normal: { label: "Normal", icon: "sliders-tune", color: "var(--gc-text2)" },
-  high: { label: "High", icon: "star-shine", color: "color-mix(in srgb, var(--gc-warning) 62%, var(--gc-text))" },
-  urgent: { label: "Urgent", icon: "flame-ember", color: "color-mix(in srgb, var(--gc-danger) 62%, var(--gc-text))" },
+  normal: { icon: "sliders-tune", color: "var(--gc-text2)" },
+  high: { icon: "star-shine", color: "color-mix(in srgb, var(--gc-warning) 62%, var(--gc-text))" },
+  urgent: { icon: "flame-ember", color: "color-mix(in srgb, var(--gc-danger) 62%, var(--gc-text))" },
 } as const;
 
+/* labels resolve through the catalog so locale switches re-render */
+const PRI_LABEL_KEY = { normal: "task.priNormal", high: "task.priHigh", urgent: "task.priUrgent" } as const;
+
 function TaskRow({ catId, task, seq, index, subOpen }: { catId: string; task: Task; seq: number; index: number; subOpen: boolean }) {
+  const t = useT();
   const toggleTask = useStore((s) => s.toggleTask);
   const cyclePriority = useStore((s) => s.cyclePriority);
   const moveTask = useStore((s) => s.moveTask);
@@ -357,7 +366,7 @@ function TaskRow({ catId, task, seq, index, subOpen }: { catId: string; task: Ta
 
   const isEditing = editingTaskId === `${catId}::${task.id}`;
   const prereq = task.dependsOn
-    ? goals.find((g) => g.id === activeGoalId)?.categories.flatMap((c) => c.items).find((t) => t.id === task.dependsOn)
+    ? goals.find((g) => g.id === activeGoalId)?.categories.flatMap((c) => c.items).find((pr) => pr.id === task.dependsOn)
     : null;
   const locked = !!(prereq && !prereq.completed && !task.completed);
   const subDone = task.subtasks.filter((s) => s.completed).length;
@@ -426,7 +435,7 @@ function TaskRow({ catId, task, seq, index, subOpen }: { catId: string; task: Ta
           onClick={() => { if (!locked) toggleTask(catId, task.id); }}
           disabled={locked}
           aria-pressed={task.completed}
-          title={locked ? `Locked until: ${prereq?.text}` : task.completed ? "Mark as not done" : "Mark as done"}
+          title={locked ? t("task.lockedUntil", { name: prereq?.text ?? "" }) : task.completed ? t("task.markNotDone") : t("task.markDone")}
         >
           {/* animated checkbox: spring pop + path draw */}
           <motion.span
@@ -458,7 +467,7 @@ function TaskRow({ catId, task, seq, index, subOpen }: { catId: string; task: Ta
           <span className="shrink-0 font-mono text-xs" style={{ color: "var(--gc-muted)" }}>{seq}.</span>
           <span className={`min-w-0 flex-1 break-words text-sm font-semibold transition-colors ${task.completed ? "" : ""}`} style={task.completed ? { color: "var(--gc-text2)" } : undefined}>
             <span className="relative inline">
-              {locked && <Lock className="mr-1 inline h-3.5 w-3.5" aria-label="locked" />}
+              {locked && <Lock className="mr-1 inline h-3.5 w-3.5" aria-label={t("task.locked")} />}
               {task.text}
               {task.completed && (
                 <motion.span
@@ -478,12 +487,12 @@ function TaskRow({ catId, task, seq, index, subOpen }: { catId: string; task: Ta
             <DueBadge dueDate={task.dueDate} />
           )}
           {hasFeature("recurring-tasks") && task.recurrence !== "none" && (
-            <span className="flex items-center rounded-md px-1.5 py-0.5 text-[0.62rem] font-bold" style={{ background: "var(--gc-soft)", color: "color-mix(in srgb, var(--gc-accent) 55%, var(--gc-text))" }} title={`Repeats: ${describeRecurrence(task.recurrence)}`}>
-              <GcIcon name="repeat-cycle" size={11} /> {task.recurrence === "weekdays" ? "weekdays" : task.recurrence.startsWith("every:") ? task.recurrence.replace("every:", "×") + "d" : task.recurrence.startsWith("monthly:") ? "monthly" : task.recurrence}
+            <span className="flex items-center rounded-md px-1.5 py-0.5 text-[0.62rem] font-bold" style={{ background: "var(--gc-soft)", color: "color-mix(in srgb, var(--gc-accent) 55%, var(--gc-text))" }} title={t("task.repeats", { name: describeRecurrence(task.recurrence) })}>
+              <GcIcon name="repeat-cycle" size={11} /> {task.recurrence === "weekdays" ? t("task.weekdays") : task.recurrence.startsWith("every:") ? task.recurrence.replace("every:", "×") + "d" : task.recurrence.startsWith("monthly:") ? t("task.monthly") : task.recurrence}
             </span>
           )}
           {!!task.pomosEstimate && (
-            <span className="hidden items-center gap-1 rounded-md px-1.5 py-0.5 font-mono text-[0.62rem] font-bold sm:flex" style={{ background: "var(--gc-surface-2)", color: "var(--gc-text2)" }} title="Pomodoro progress">
+            <span className="hidden items-center gap-1 rounded-md px-1.5 py-0.5 font-mono text-[0.62rem] font-bold sm:flex" style={{ background: "var(--gc-surface-2)", color: "var(--gc-text2)" }} title={t("task.pomodoroProgress")}>
               <GcIcon name="tomato-timer" size={11} /> {task.pomoCount}/{task.pomosEstimate}
             </span>
           )}
@@ -492,8 +501,8 @@ function TaskRow({ catId, task, seq, index, subOpen }: { catId: string; task: Ta
             <motion.button
               type="button"
               className="flex size-7 items-center justify-center rounded-lg gc-btn"
-              title="Deep focus on this task"
-              aria-label={`Deep focus on: ${task.text}`}
+              title={t("task.deepFocusHint")}
+              aria-label={t("task.deepFocusOn", { name: task.text })}
               onClick={() => openDeepFocus({ catId, taskId: task.id })}
               whileHover={{ scale: 1.14, rotate: 12 }}
               whileTap={{ scale: 0.85 }}
@@ -504,8 +513,8 @@ function TaskRow({ catId, task, seq, index, subOpen }: { catId: string; task: Ta
           <motion.button
             type="button"
             className="flex size-7 items-center justify-center rounded-lg gc-btn"
-            title="Bind to Pomodoro"
-            aria-label="Bind to Pomodoro"
+            title={t("task.bindPomodoro")}
+            aria-label={t("task.bindPomodoro")}
             onClick={() => bindPomo(task.id)}
             whileHover={{ scale: 1.14, rotate: -8 }}
             whileTap={{ scale: 0.85 }}
@@ -515,8 +524,8 @@ function TaskRow({ catId, task, seq, index, subOpen }: { catId: string; task: Ta
           <motion.button
             type="button"
             className="flex size-7 items-center justify-center rounded-lg gc-btn"
-            title="Micro-steps"
-            aria-label="Toggle micro-steps drawer"
+            title={t("common.subtasks")}
+            aria-label={t("task.toggleSubtasks")}
             onClick={() => setOpenSubtask(subOpen ? null : task.id)}
             whileHover={{ scale: 1.12 }}
             whileTap={{ scale: 0.85, rotate: 12 }}
@@ -533,7 +542,7 @@ function TaskRow({ catId, task, seq, index, subOpen }: { catId: string; task: Ta
               color: PRI_META[task.priority].color,
             }}
             onClick={() => cyclePriority(catId, task.id)}
-            title="Cycle priority"
+            title={t("task.cyclePriority")}
             key={task.priority}
             initial={{ scale: 0.8 }}
             animate={{ scale: 1 }}
@@ -541,21 +550,21 @@ function TaskRow({ catId, task, seq, index, subOpen }: { catId: string; task: Ta
             whileHover={{ scale: 1.08 }}
           >
             <GcIcon name={PRI_META[task.priority].icon} size={10} />
-            {PRI_META[task.priority].label}
+            {t(PRI_LABEL_KEY[task.priority])}
           </motion.button>
           <div className="hidden flex-col sm:flex">
-            <Button type="button" variant="ghost" size="icon" className="size-5 gc-btn disabled:opacity-30" disabled={index === 0} onClick={() => moveTask(catId, task.id, -1)} aria-label="Move task up">
+            <Button type="button" variant="ghost" size="icon" className="size-5 gc-btn disabled:opacity-30" disabled={index === 0} onClick={() => moveTask(catId, task.id, -1)} aria-label={t("task.moveUp")}>
               <ChevronUp className="h-3 w-3" />
             </Button>
-            <Button type="button" variant="ghost" size="icon" className="size-5 gc-btn" onClick={() => moveTask(catId, task.id, 1)} aria-label="Move task down">
+            <Button type="button" variant="ghost" size="icon" className="size-5 gc-btn" onClick={() => moveTask(catId, task.id, 1)} aria-label={t("task.moveDown")}>
               <ChevronDown className="h-3 w-3" />
             </Button>
           </div>
           <motion.button
             type="button"
             className="flex size-7 items-center justify-center rounded-lg gc-btn"
-            title="Quick edit"
-            aria-label="Quick edit task"
+            title={t("task.quickEdit")}
+            aria-label={t("task.quickEditTask")}
             onClick={() => setEditingTask({ catId, taskId: task.id })}
             whileHover={{ scale: 1.12, rotate: -8 }}
             whileTap={{ scale: 0.85 }}
@@ -565,8 +574,8 @@ function TaskRow({ catId, task, seq, index, subOpen }: { catId: string; task: Ta
           <motion.button
             type="button"
             className="flex size-7 items-center justify-center rounded-lg gc-btn"
-            title="Advanced: priority, pomodoros & lock"
-            aria-label="Advanced task edit"
+            title={t("task.advancedEdit")}
+            aria-label={t("task.advancedEditTask")}
             onClick={() => openTaskEditModal({ catId, taskId: task.id })}
             whileHover={{ scale: 1.12, rotate: 30 }}
             whileTap={{ scale: 0.85, rotate: 90 }}
@@ -576,8 +585,8 @@ function TaskRow({ catId, task, seq, index, subOpen }: { catId: string; task: Ta
           <motion.button
             type="button"
             className="flex size-7 items-center justify-center rounded-lg text-[var(--gc-danger)] gc-btn"
-            title="Delete task"
-            aria-label="Delete task"
+            title={t("task.deleteTask")}
+            aria-label={t("task.deleteTask")}
             onClick={() => deleteTask(catId, task.id)}
             whileHover={{ scale: 1.15 }}
             whileTap={{ scale: 0.8 }}
@@ -615,7 +624,7 @@ function TaskRow({ catId, task, seq, index, subOpen }: { catId: string; task: Ta
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.28, ease: EASE }}
           >
-            {task.subtasks.length === 0 && <p className="text-[0.7rem]" style={{ color: "var(--gc-muted)" }}>No micro-steps yet — add a, b, c below.</p>}
+            {task.subtasks.length === 0 && <p className="text-[0.7rem]" style={{ color: "var(--gc-muted)" }}>{t("task.noSubtasksYet")}</p>}
             <AnimatePresence initial={false}>
               {task.subtasks.map((sb) => (
                 <motion.div
@@ -633,7 +642,7 @@ function TaskRow({ catId, task, seq, index, subOpen }: { catId: string; task: Ta
                     animate={sb.completed ? { background: "var(--gc-success)", borderColor: "rgba(0,0,0,0)", color: "#fff" } : { background: "rgba(0,0,0,0)", borderColor: "var(--gc-border-strong)" }}
                     onClick={() => toggleSubtask(task.id, sb.id)}
                     aria-pressed={sb.completed}
-                    aria-label={`Toggle subtask ${sb.text}`}
+                    aria-label={t("task.toggleSubtask", { name: sb.text })}
                     whileTap={{ scale: 0.8 }}
                   >
                     {sb.completed ? "✓" : ""}
@@ -649,15 +658,15 @@ function TaskRow({ catId, task, seq, index, subOpen }: { catId: string; task: Ta
                       />
                     )}
                   </span>
-                  <Button type="button" variant="ghost" size="icon" className="size-5 text-[var(--gc-danger)] gc-btn" onClick={() => deleteSubtask(task.id, sb.id)} aria-label="Delete subtask">
+                  <Button type="button" variant="ghost" size="icon" className="size-5 text-[var(--gc-danger)] gc-btn" onClick={() => deleteSubtask(task.id, sb.id)} aria-label={t("task.deleteSubtask")}>
                     <Trash2 className="h-2.5 w-2.5" />
                   </Button>
                 </motion.div>
               ))}
             </AnimatePresence>
             <form className="mt-1 flex gap-1.5" onSubmit={(e) => { e.preventDefault(); const input = (e.currentTarget.elements.namedItem("sub") as HTMLInputElement); addSubtask(task.id, input.value); input.value = ""; }}>
-              <Input name="sub" className="gc-input h-7 py-0.5 text-xs" placeholder="Add micro-step (a, b, c)…" aria-label="New micro-step" />
-              <Button type="submit" size="sm" className="h-7 px-2 gc-btn-primary" aria-label="Add micro-step"><Plus className="h-3 w-3" /></Button>
+              <Input name="sub" className="gc-input h-7 py-0.5 text-xs" placeholder={t("task.addMicroStep")} aria-label={t("task.newMicroStep")} />
+              <Button type="submit" size="sm" className="h-7 px-2 gc-btn-primary" aria-label={t("task.addMicroStepAria")}><Plus className="h-3 w-3" /></Button>
             </form>
           </motion.div>
         )}
@@ -668,6 +677,7 @@ function TaskRow({ catId, task, seq, index, subOpen }: { catId: string; task: Ta
 }
 
 function TaskInlineEdit({ catId, task, onSave, onCancel }: { catId: string; task: Task; onSave: (text: string, notes: string) => void; onCancel: () => void }) {
+  const t = useT();
   const [text, setText] = useState(task.text);
   const [notes, setNotes] = useState(task.notes || "");
   const ref = useRef<HTMLInputElement>(null);
@@ -682,16 +692,17 @@ function TaskInlineEdit({ catId, task, onSave, onCancel }: { catId: string; task
     <div className="flex flex-col gap-1.5 rounded-xl border p-2" style={{ borderColor: "var(--gc-accent)" }}>
       <form className="flex items-center gap-1.5" onSubmit={(e) => { e.preventDefault(); onSave(text, notes); }}>
         <span className="shrink-0 font-mono text-xs" style={{ color: "var(--gc-muted)" }}>{seqNum}.</span>
-        <Input ref={ref} value={text} onChange={(e) => setText(e.target.value)} className="gc-input h-8 py-1 text-sm" aria-label="Task text" />
+        <Input ref={ref} value={text} onChange={(e) => setText(e.target.value)} className="gc-input h-8 py-1 text-sm" aria-label={t("task.taskText")} />
         <Button type="submit" size="sm" className="h-8 gc-btn-primary"><GcIcon name="check-circle" size={13} /></Button>
         <Button type="button" size="sm" variant="outline" className="h-8 gc-btn" onClick={onCancel}>✕</Button>
       </form>
-      <Input value={notes} onChange={(e) => setNotes(e.target.value)} className="gc-input h-7 py-0.5 text-xs" placeholder="Add optional task notes…" aria-label="Task notes" />
+      <Input value={notes} onChange={(e) => setNotes(e.target.value)} className="gc-input h-7 py-0.5 text-xs" placeholder={t("task.addNotesPlaceholder")} aria-label={t("task.taskNotes")} />
     </div>
   );
 }
 
 function RapidAddForm({ catId, nextIndex }: { catId: string; nextIndex: number }) {
+  const t = useT();
   const addTask = useStore((s) => s.addTask);
   const [val, setVal] = useState("");
   const ref = useRef<HTMLInputElement>(null);
@@ -711,8 +722,8 @@ function RapidAddForm({ catId, nextIndex }: { catId: string; nextIndex: number }
       >
         {nextIndex}.
       </motion.span>
-      <Input ref={ref} value={val} onChange={(e) => setVal(e.target.value)} className="gc-input flex-1" placeholder={`Add task #${nextIndex}…`} aria-label={`Add task number ${nextIndex}`} />
-      <motion.button type="submit" className="flex h-9 items-center justify-center rounded-lg px-3 gc-btn-primary" aria-label="Add task" whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.9 }}>
+      <Input ref={ref} value={val} onChange={(e) => setVal(e.target.value)} className="gc-input flex-1" placeholder={t("task.addTaskNum", { count: nextIndex })} aria-label={t("task.addTaskNumber", { count: nextIndex })} />
+      <motion.button type="submit" className="flex h-9 items-center justify-center rounded-lg px-3 gc-btn-primary" aria-label={t("task.addTask")} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.9 }}>
         <Plus className="h-4 w-4" />
       </motion.button>
     </form>
@@ -731,6 +742,7 @@ function fmtClock(totalSec: number): string {
 }
 
 function TimerButton({ catId, taskId }: { catId: string; taskId: string }) {
+  const t = useT();
   const activeTimer = useStore((s) => s.activeTimer);
   const startTimer = useStore((s) => s.startTimer);
   const stopTimer = useStore((s) => s.stopTimer);
@@ -760,8 +772,8 @@ function TimerButton({ catId, taskId }: { catId: string; taskId: string }) {
       style={isActive
         ? { background: "var(--gc-danger)", color: "#fff" }
         : { color: anyActive ? "var(--gc-muted)" : undefined }}
-      title={isActive ? "Stop time tracking" : anyActive ? "Switch time tracking here" : "Track time on this task"}
-      aria-label={isActive ? `Stop tracking — ${label} logged` : `Track time — ${label} logged previously`}
+      title={isActive ? t("task.stopTimeTracking") : anyActive ? t("task.switchTimeTracking") : t("task.trackTime")}
+      aria-label={isActive ? t("task.stopTrackingAria", { name: label }) : t("task.trackTimeAria", { name: label })}
       onClick={() => (isActive ? stopTimer() : startTimer(catId, taskId))}
       whileHover={{ scale: 1.08 }}
       whileTap={{ scale: 0.9 }}
@@ -775,20 +787,21 @@ function TimerButton({ catId, taskId }: { catId: string; taskId: string }) {
 }
 
 function DueBadge({ dueDate }: { dueDate: string }) {
+  const t = useT();
   const status = dueStatus(dueDate);
   if (!status) return null;
   const meta = status === "overdue"
-    ? { label: "Overdue", bg: "var(--gc-danger-soft)", fg: "color-mix(in srgb, var(--gc-danger) 62%, var(--gc-text))", icon: "zap-star" }
+    ? { label: t("task.overdue"), bg: "var(--gc-danger-soft)", fg: "color-mix(in srgb, var(--gc-danger) 62%, var(--gc-text))", icon: "zap-star" }
     : status === "today"
-      ? { label: "Today", bg: "var(--gc-warning-soft)", fg: "color-mix(in srgb, var(--gc-warning) 62%, var(--gc-text))", icon: "clock-hand" }
+      ? { label: t("task.today"), bg: "var(--gc-warning-soft)", fg: "color-mix(in srgb, var(--gc-warning) 62%, var(--gc-text))", icon: "clock-hand" }
       : status === "week"
-        ? { label: "This week", bg: "var(--gc-soft)", fg: "color-mix(in srgb, var(--gc-accent) 55%, var(--gc-text))", icon: "calendar-tick" }
+        ? { label: t("task.thisWeek"), bg: "var(--gc-soft)", fg: "color-mix(in srgb, var(--gc-accent) 55%, var(--gc-text))", icon: "calendar-tick" }
         : { label: dueDate.slice(5), bg: "var(--gc-surface-2)", fg: "var(--gc-text2)", icon: "calendar-tick" };
   return (
     <span
       className="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[0.62rem] font-extrabold"
       style={{ background: meta.bg, color: meta.fg }}
-      title={`Due ${dueDate}`}
+      title={t("task.due", { name: dueDate })}
     >
       <GcIcon name={meta.icon} size={11} /> {meta.label}
     </span>

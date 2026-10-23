@@ -14,6 +14,7 @@ import { useStore } from "@/lib/goalcheck/goalcheck-exports";
 import { GcIcon } from "@/lib/goalcheck/icons";
 import { Button } from "@/components/ui/button";
 import { IS_PRO, APP_NAME } from "@/lib/goalcheck/editions";
+import { useT } from "@/lib/goalcheck/i18n";
 
 interface Step {
   icon: string;
@@ -25,20 +26,21 @@ export default function Onboarding() {
   const done = useStore((s) => s.settings.onboardingDone);
   const hydrated = useStore((s) => s._hydrated);
   const completeOnboarding = useStore((s) => s.completeOnboarding);
+  const t = useT();
   const [step, setStep] = useState(0);
 
   if (!hydrated || done) return null;
 
   const steps: Step[] = IS_PRO
     ? [
-        { icon: "clipboard-check", title: `Welcome to ${APP_NAME}`, body: "Boards hold categories, categories hold tasks. Your data lives 100% on this device — no account, no network." },
-        { icon: "tomato-timer", title: "Focus with intention", body: "Bind a task to the Pomodoro timer, hit Start, and the floating pill keeps count across the app. Sessions feed XP, streaks and analytics." },
-        { icon: "command-key", title: "Power tools everywhere", body: "Press Ctrl+K for the command bar: /view, /theme, /pomo 25, /done 3, /goal exam — and build streaks in the new Habits panel." },
+        { icon: "clipboard-check", title: t("onboard.welcome", { name: APP_NAME }), body: "Boards hold categories, categories hold tasks. Your data lives 100% on this device — no account, no network." },
+        { icon: "tomato-timer", title: t("onboard.focusTitle"), body: "Bind a task to the Pomodoro timer, hit Start, and the floating pill keeps count across the app. Sessions feed XP, streaks and analytics." },
+        { icon: "command-key", title: t("onboard.powerTitle"), body: "Press Ctrl+K for the command bar: /view, /theme, /pomo 25, /done 3, /goal exam — and build streaks in the new Habits panel." },
       ]
     : [
-        { icon: "clipboard-check", title: `Welcome to ${APP_NAME}`, body: "Boards hold categories, categories hold tasks. Your data lives 100% on this device — no account, no network." },
-        { icon: "tomato-timer", title: "Focus with intention", body: "Bind a task to the Pomodoro timer and hit Start — the floating pill keeps count across the app." },
-        { icon: "shield-guard", title: "Backup early, backup often", body: "Settings → Export keeps a one-tap JSON backup. Everything stays local, so the backup is yours alone." },
+        { icon: "clipboard-check", title: t("onboard.welcome", { name: APP_NAME }), body: "Boards hold categories, categories hold tasks. Your data lives 100% on this device — no account, no network." },
+        { icon: "tomato-timer", title: t("onboard.focusTitle"), body: "Bind a task to the Pomodoro timer and hit Start — the floating pill keeps count across the app." },
+        { icon: "shield-guard", title: t("onboard.backupTitle"), body: "Settings → Export keeps a one-tap JSON backup. Everything stays local, so the backup is yours alone." },
       ];
 
   const s = steps[step];
@@ -51,7 +53,7 @@ export default function Onboarding() {
         style={{ background: "color-mix(in srgb, var(--gc-bg) 78%, transparent)", backdropFilter: "blur(6px)" }}
         role="dialog"
         aria-modal="true"
-        aria-label={`${APP_NAME} onboarding`}
+        aria-label={t("onboard.aria", { name: APP_NAME })}
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
@@ -98,7 +100,7 @@ export default function Onboarding() {
               className="gc-btn"
               onClick={completeOnboarding}
             >
-              Skip
+              {t("onboard.skip")}
             </Button>
             <div className="flex gap-2">
               {/* v4.3 — "try with sample data" for first-run visitors */}
@@ -112,14 +114,14 @@ export default function Onboarding() {
                     useStore.getState().loadDemoData();
                     completeOnboarding();
                   }}
-                  title="Explore with a ready-made workspace — replace it any time from Settings"
+                  title={t("onboard.demoTitle")}
                 >
-                  Try demo data
+                  {t("onboard.tryDemo")}
                 </Button>
               )}
               {!last && (
                 <Button type="button" variant="outline" size="sm" className="gc-btn" onClick={() => setStep((v) => Math.max(0, v - 1))} disabled={step === 0}>
-                  Back
+                  {t("onboard.back")}
                 </Button>
               )}
               <Button
@@ -128,7 +130,7 @@ export default function Onboarding() {
                 className="gc-btn-primary"
                 onClick={() => (last ? completeOnboarding() : setStep((v) => v + 1))}
               >
-                {last ? "Let's go" : "Next"}
+                {last ? t("onboard.letsGo") : t("onboard.next")}
               </Button>
             </div>
           </div>

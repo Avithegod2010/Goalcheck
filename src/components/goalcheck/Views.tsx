@@ -18,6 +18,7 @@ import { Panel, PanelTitle, MediaBadge, AnimatedNumber } from "./atoms";
 import { GcIcon } from "@/lib/goalcheck/icons";
 import { Button } from "@/components/ui/button";
 import { calculateStats, computeStreaks, hourLabel, localDateKey } from "@/lib/goalcheck/logic";
+import { useT } from "@/lib/goalcheck/i18n";
 import type { Task } from "@/lib/goalcheck/types";
 import { Lock, RefreshCw } from "lucide-react";
 
@@ -25,10 +26,10 @@ const EASE = [0.22, 1, 0.36, 1] as const;
 
 /* ============ KANBAN ============ */
 
-const COLS: { id: "todo" | "doing" | "done"; title: string; icon: string }[] = [
-  { id: "todo", title: "To Do", icon: "hourglass-flow" },
-  { id: "doing", title: "In Progress", icon: "tools-wrench" },
-  { id: "done", title: "Done", icon: "check-circle" },
+const COLS: { id: "todo" | "doing" | "done"; titleKey: string; icon: string }[] = [
+  { id: "todo", titleKey: "common.todo", icon: "hourglass-flow" },
+  { id: "doing", titleKey: "common.doing", icon: "tools-wrench" },
+  { id: "done", titleKey: "common.done", icon: "check-circle" },
 ];
 
 export function KanbanView() {
@@ -36,6 +37,7 @@ export function KanbanView() {
   const setTaskStatus = useStore((s) => s.setTaskStatus);
   const moveTaskTo = useStore((s) => s.moveTaskTo);
   const search = useStore((s) => s.searchQuery.trim().toLowerCase());
+  const t = useT();
   const [dragId, setDragId] = useState<string | null>(null);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
@@ -80,7 +82,7 @@ export function KanbanView() {
 
   return (
     <DndContext sensors={sensors} onDragStart={(e: DragStartEvent) => setDragId(String(e.active.id))} onDragEnd={onDragEnd}>
-      <div className="grid gap-4 lg:grid-cols-3" aria-label="Kanban board">
+      <div className="grid gap-4 lg:grid-cols-3" aria-label={t("views.kanbanBoard")}>
         {COLS.map((col, ci) => (
           <motion.div
             key={col.id}
@@ -113,7 +115,8 @@ function effectiveStatus(it: Task): "todo" | "doing" | "done" {
   return it.status || (it.completed ? "done" : "todo");
 }
 
-function KanbanCol({ col, tasks }: { col: { id: string; title: string; icon: string }; tasks: { cat: string; task: Task }[] }) {
+function KanbanCol({ col, tasks }: { col: { id: string; titleKey: string; icon: string }; tasks: { cat: string; task: Task }[] }) {
+  const t = useT();
   const { setNodeRef, isOver } = useDroppable({ id: col.id });
   const goals = useStore((s) => s.goals);
   const activeGoalId = useStore((s) => s.activeGoalId);
@@ -126,11 +129,11 @@ function KanbanCol({ col, tasks }: { col: { id: string; title: string; icon: str
       className="gc-panel gc-blur min-h-[220px] p-3"
       animate={isOver ? { borderColor: "var(--gc-accent)", backgroundColor: "var(--gc-soft)", scale: 1.008 } : { scale: 1 }}
       transition={{ duration: 0.2 }}
-      aria-label={col.title}
+      aria-label={t(col.titleKey)}
     >
       <div className="mb-2 flex items-center justify-between px-1">
         <span className="flex items-center gap-1.5 text-sm font-extrabold">
-          <GcIcon name={col.icon} size={15} /> {col.title}
+          <GcIcon name={col.icon} size={15} /> {t(col.titleKey)}
         </span>
         <motion.span
           key={tasks.length}
@@ -154,7 +157,7 @@ function KanbanCol({ col, tasks }: { col: { id: string; title: string; icon: str
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
             >
-              Drop cards here
+              {t("views.dropCards")}
             </motion.p>
           )}
           {tasks.map(({ cat, task }) => (
@@ -167,6 +170,7 @@ function KanbanCol({ col, tasks }: { col: { id: string; title: string; icon: str
 }
 
 function KanbanCard({ cat, task, locked }: { cat: string; task: Task; locked: boolean }) {
+  const t = useT();
   const setTaskStatus = useStore((s) => s.setTaskStatus);
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: task.id });
   /* v4.3 — each card is also a drop target so cards can be ordered
@@ -205,10 +209,10 @@ function KanbanCard({ cat, task, locked }: { cat: string; task: Task; locked: bo
       </div>
       <div className="mt-2 flex gap-1.5">
         <Button type="button" variant="outline" size="sm" className="h-7 px-2 text-[0.65rem] gc-btn" onClick={() => setTaskStatus(task.id, task.completed ? "todo" : "done")}>
-          {task.completed ? "↺ Undo" : "✓ Done"}
+          {task.completed ? t("views.cardUndo") : t("views.cardDone")}
         </Button>
         <Button type="button" variant="outline" size="sm" className="h-7 px-2 text-[0.65rem] gc-btn" onClick={() => setTaskStatus(task.id, task.status === "doing" ? "todo" : "doing")}>
-          {task.status === "doing" ? "↩ Back" : "🔧 Doing"}
+          {task.status === "doing" ? t("views.cardBack") : t("views.cardDoing")}
         </Button>
       </div>
     </motion.div>
@@ -220,6 +224,7 @@ function KanbanCard({ cat, task, locked }: { cat: string; task: Task; locked: bo
 export function MatrixView() {
   const goal = useActiveGoal();
   const toggleTask = useStore((s) => s.toggleTask);
+  const t = useT();
   if (!goal) return null;
 
   const q: Record<"q1" | "q2" | "q3" | "q4", { catId: string; task: Task }[]> = { q1: [], q2: [], q3: [], q4: [] };
@@ -249,7 +254,7 @@ export function MatrixView() {
           <p className="text-[0.68rem]" style={{ color: "var(--gc-text2)" }}>{sub}</p>
         </div>
       </div>
-      {arr.length === 0 && <p className="py-4 text-center text-xs" style={{ color: "var(--gc-muted)" }}>Nothing here yet</p>}
+      {arr.length === 0 && <p className="py-4 text-center text-xs" style={{ color: "var(--gc-muted)" }}>{t("common.empty")}</p>}
       <div className="flex flex-col gap-1.5">
         <AnimatePresence initial={false} mode="popLayout">
           {arr.map(({ catId, task }) => (
@@ -294,11 +299,11 @@ export function MatrixView() {
   );
 
   return (
-    <div className="grid gap-4 md:grid-cols-2" aria-label="Eisenhower matrix">
-      {quad("Q1 • Urgent & Important", "flame-ember", "Do first — deadline critical", q.q1, "var(--gc-danger)", 0)}
-      {quad("Q2 • Important, Not Urgent", "target-radar", "Schedule & focus — high leverage", q.q2, "var(--gc-warning)", 1)}
-      {quad("Q3 • Urgent, Less Important", "calendar-tick", "Batch or delegate quickly", q.q3, "var(--gc-accent)", 2)}
-      {quad("Q4 • Completed Zone", "check-circle", "Shipped & celebrated", q.q4, "var(--gc-success)", 3)}
+    <div className="grid gap-4 md:grid-cols-2" aria-label={t("views.matrixAria")}>
+      {quad(t("views.matrixQ1"), "flame-ember", t("views.matrixQ1Sub"), q.q1, "var(--gc-danger)", 0)}
+      {quad(t("views.matrixQ2"), "target-radar", t("views.matrixQ2Sub"), q.q2, "var(--gc-warning)", 1)}
+      {quad(t("views.matrixQ3"), "calendar-tick", t("views.matrixQ3Sub"), q.q3, "var(--gc-accent)", 2)}
+      {quad(t("views.matrixQ4"), "check-circle", t("views.matrixQ4Sub"), q.q4, "var(--gc-success)", 3)}
     </div>
   );
 }
@@ -315,6 +320,7 @@ export function MindMapView() {
   const goals = useStore((s) => s.goals);
   const activeGoalId = useStore((s) => s.activeGoalId);
   const nodesRef = useRef<MindNode[]>([]);
+  const t = useT();
   const mouseRef = useRef<{ down: boolean; dragging: MindNode | null; moved: boolean; lx: number; ly: number }>({ down: false, dragging: null, moved: false, lx: 0, ly: 0 });
 
   /* build/refresh nodes when data changes */
@@ -522,10 +528,10 @@ export function MindMapView() {
         transition={{ delay: 0.2 }}
       >
         <span className="rounded-full border px-2.5 py-1 text-[0.65rem] font-bold" style={{ borderColor: "var(--gc-border)", background: "var(--gc-surface-2)" }}>
-          Drag nodes to rearrange • Click task node to complete • Double-click to bind Pomodoro
+          {t("views.mindmapHint")}
         </span>
       </motion.div>
-      <canvas ref={canvasRef} className="block h-full w-full cursor-grab touch-none" style={{ width: "100%", height: "100%" }} aria-label="Mind map of goals and tasks" />
+      <canvas ref={canvasRef} className="block h-full w-full cursor-grab touch-none" style={{ width: "100%", height: "100%" }} aria-label={t("views.mindmapLabel")} />
     </Panel>
   );
 }
@@ -536,6 +542,7 @@ export function AnalyticsView() {
   const goal = useActiveGoal();
   const analytics = useStore((s) => s.analytics);
   const goals = useStore((s) => s.goals);
+  const t = useT();
   const [nonce, setNonce] = useState(0);
   if (!goal) return null;
   void nonce;
@@ -547,7 +554,7 @@ export function AnalyticsView() {
   const maxGoalFocus = Math.max(1, ...goals.map((g) => analytics.perGoal?.[g.id] || 0));
 
   return (
-    <div className="flex flex-col gap-4" aria-label="Productivity analytics">
+    <div className="flex flex-col gap-4" aria-label={t("views.analyticsAria")}>
       <motion.div
         className="gc-panel gc-blur flex flex-wrap items-center justify-between gap-3 rounded-2xl p-4"
         initial={{ opacity: 0, y: 16 }}
@@ -555,24 +562,24 @@ export function AnalyticsView() {
         transition={{ duration: 0.4, ease: EASE }}
       >
         <div>
-          <h2 className="flex items-center gap-2 text-lg font-extrabold"><GcIcon name="chart-bars" size={19} /> Productivity Analytics & Velocity</h2>
-          <p className="text-xs" style={{ color: "var(--gc-text2)" }}>Real-time metrics across categories, focus hours, and Pomodoro velocity.</p>
+          <h2 className="flex items-center gap-2 text-lg font-extrabold"><GcIcon name="chart-bars" size={19} /> {t("views.analyticsTitle")}</h2>
+          <p className="text-xs" style={{ color: "var(--gc-text2)" }}>{t("views.analyticsSub")}</p>
         </div>
         <Button type="button" className="gc-btn-primary" onClick={() => setNonce((n) => n + 1)}>
-          <RefreshCw className="h-4 w-4" /> Refresh
+          <RefreshCw className="h-4 w-4" /> {t("views.refresh")}
         </Button>
       </motion.div>
 
       <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-        <Kpi label="COMPLETION RATE" value={stats.percent} suffix="%" tone="var(--gc-success)" sub="Active board pace" />
-        <Kpi label="FOCUS TIME LOGGED" value={Number((analytics.focusSeconds / 3600).toFixed(1))} suffix="h" tone="var(--gc-accent)" sub="Pomodoro sessions" />
-        <Kpi label="PEAK VELOCITY HOUR" text={peak ? hourLabel(Number(peak[0])) : "--"} tone="var(--gc-warning)" sub="Most productive window" />
-        <Kpi label="TOTAL ACTIVE TASKS" value={stats.total} tone="var(--gc-text2)" sub="Across all categories" />
+        <Kpi label={t("views.kpiCompletion")} value={stats.percent} suffix="%" tone="var(--gc-success)" sub={t("views.kpiCompletionSub")} />
+        <Kpi label={t("views.kpiFocus")} value={Number((analytics.focusSeconds / 3600).toFixed(1))} suffix="h" tone="var(--gc-accent)" sub={t("views.kpiFocusSub")} />
+        <Kpi label={t("views.kpiPeak")} text={peak ? hourLabel(Number(peak[0])) : "--"} tone="var(--gc-warning)" sub={t("views.kpiPeakSub")} />
+        <Kpi label={t("views.kpiActive")} value={stats.total} tone="var(--gc-text2)" sub={t("views.kpiActiveSub")} />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Panel>
-          <PanelTitle icon={<GcIcon name="hourglass-flow" size={15} />}>Focus Time per Goal</PanelTitle>
+          <PanelTitle icon={<GcIcon name="hourglass-flow" size={15} />}>{t("views.focusPerGoal")}</PanelTitle>
           <div className="flex flex-col gap-2.5">
             {goals.map((g, i) => {
               const secs = analytics.perGoal?.[g.id] || 0;
@@ -596,13 +603,13 @@ export function AnalyticsView() {
             })}
             {goals.every((g) => !(analytics.perGoal?.[g.id] > 0)) && (
               <p className="text-xs" style={{ color: "var(--gc-text2)" }}>
-                Bind a task to the Pomodoro timer — completed sessions are attributed to that task&apos;s goal here.
+                {t("views.focusPerGoalEmpty")}
               </p>
             )}
           </div>
         </Panel>
         <Panel>
-          <PanelTitle icon={<GcIcon name="kanban-cols" size={15} />}>Category Workload Progress</PanelTitle>
+          <PanelTitle icon={<GcIcon name="kanban-cols" size={15} />}>{t("views.categoryWorkload")}</PanelTitle>
           <div className="flex flex-col gap-2.5">
             {goal.categories.map((cat, i) => {
               const total = cat.items.length;
@@ -633,13 +640,13 @@ export function AnalyticsView() {
                 </motion.div>
               );
             })}
-            {goal.categories.length === 0 && <p className="text-xs" style={{ color: "var(--gc-muted)" }}>No categories yet.</p>}
+            {goal.categories.length === 0 && <p className="text-xs" style={{ color: "var(--gc-muted)" }}>{t("views.noCategories")}</p>}
           </div>
         </Panel>
 
         <Panel>
-          <PanelTitle icon={<GcIcon name="clock-hand" size={15} />}>24-Hour Peak Focus Distribution</PanelTitle>
-          <svg viewBox="0 0 380 140" className="h-[140px] w-full" role="img" aria-label="Focus sessions per hour of day">
+          <PanelTitle icon={<GcIcon name="clock-hand" size={15} />}>{t("views.peakDistribution")}</PanelTitle>
+          <svg viewBox="0 0 380 140" className="h-[140px] w-full" role="img" aria-label={t("views.focusPerHour")}>
             {Array.from({ length: 24 }, (_, h) => {
               const c = analytics.hourCounts[h] || 0;
               const bw = (380 - 36) / 24;
@@ -654,7 +661,7 @@ export function AnalyticsView() {
                     animate={{ y, height: Math.max(bh, 2), opacity: c > 0 ? 0.9 : 0.18 }}
                     transition={{ duration: 0.6, delay: h * 0.02, ease: EASE }}
                   >
-                    <title>{`${hourLabel(h)}: ${c} sessions`}</title>
+                    <title>{t("views.sessionTitle", { hour: hourLabel(h), count: c })}</title>
                   </motion.rect>
                   {h % 6 === 0 && (
                     <text x={x + bw / 2} y={136} fontSize="8" fill="var(--gc-text2)" textAnchor="middle">{hourLabel(h)}</text>
@@ -692,6 +699,7 @@ function Kpi({ label, value, suffix, text, tone, sub }: { label: string; value?:
 export function HeatmapCard() {
   const history = useStore((s) => s.rpg.history);
   const streaks = useMemo(() => computeStreaks(history, new Date(new Date().setHours(0, 0, 0, 0))), [history]);
+  const t = useT();
 
   const cells = useMemo(() => {
     const today = new Date(new Date().setHours(0, 0, 0, 0));
@@ -724,22 +732,22 @@ export function HeatmapCard() {
               animate={{ scale: 1 }}
               transition={{ type: "spring", stiffness: 460, damping: 18 }}
             >
-              <GcIcon name="flame-ember" size={11} /> <AnimatedNumber value={streaks.current} /> Day Streak
+              <GcIcon name="flame-ember" size={11} /> <AnimatedNumber value={streaks.current} /> {t("views.dayStreak")}
             </motion.span>
             <span className="flex items-center gap-1 rounded-full border px-2 py-0.5" style={{ borderColor: "var(--gc-border)", background: "var(--gc-surface-2)" }}>
-              <GcIcon name="trophy-star" size={11} /> Best: {streaks.best}d
+              <GcIcon name="trophy-star" size={11} /> {t("views.bestStreak", { count: streaks.best })}
             </span>
           </div>
         }
       >
-        365-Day Activity & Streak Heatmap
+        {t("views.heatmapTitle")}
       </PanelTitle>
       <div className="overflow-x-auto pb-1 gc-scroll">
-        <div className="grid w-max grid-flow-col grid-rows-7 gap-[3px]" style={{ gridAutoColumns: "11px" }} aria-label="Activity heatmap, last 365 days">
+        <div className="grid w-max grid-flow-col grid-rows-7 gap-[3px]" style={{ gridAutoColumns: "11px" }} aria-label={t("views.heatmapLabel")}>
           {cells.map((c, i) => (
             <div
               key={c.key}
-              title={`${c.key} • ${c.count} actions`}
+              title={t("views.heatmapCell", { date: c.key, count: c.count })}
               className="hm-cell h-[11px] w-[11px] rounded-[2px]"
               style={{
                 animationDelay: `${Math.floor(i / 7) * 9}ms`,

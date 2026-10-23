@@ -13,10 +13,11 @@ import { motion } from "framer-motion";
 import { useStore, useUi } from "@/lib/goalcheck/goalcheck-exports";
 import { localDateKey, shiftDays } from "@/lib/goalcheck/logic";
 import { GcIcon } from "@/lib/goalcheck/icons";
+import { useT } from "@/lib/goalcheck/i18n";
 import { Button } from "@/components/ui/button";
 
 const DAY_MS = 86_400_000;
-const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const DAY_KEYS = ["week.mon", "week.tue", "week.wed", "week.thu", "week.fri", "week.sat", "week.sun"];
 
 interface CalTask {
   catId: string;
@@ -49,6 +50,7 @@ export function CalendarView() {
   const toggleTask = useStore((s) => s.toggleTask);
   const setTaskAdvanced = useStore((s) => s.setTaskAdvanced);
   const openTaskEdit = useUi((s) => s.openTaskEditModal);
+  const t = useT();
   const [monthStart, setMonthStart] = useState<Date>(() => startOfMonth(new Date()));
   const [dragOver, setDragOver] = useState<string>("");
 
@@ -90,29 +92,29 @@ export function CalendarView() {
     } catch { /* ignore malformed drag payloads */ }
   };
 
-  const chip = (t: CalTask) => (
+  const chip = (task: CalTask) => (
     <div
-      key={t.id}
+      key={task.id}
       draggable
-      onDragStart={(e) => e.dataTransfer.setData("text/gc-task", JSON.stringify({ catId: t.catId, id: t.id }))}
+      onDragStart={(e) => e.dataTransfer.setData("text/gc-task", JSON.stringify({ catId: task.catId, id: task.id }))}
       className="group flex cursor-grab items-center gap-1 rounded-md px-1 py-[3px] text-left text-[0.62rem] font-bold leading-tight active:cursor-grabbing"
       style={{ background: "var(--gc-surface-2)", color: "var(--gc-text)" }}
-      title={`${t.text} — drag to reschedule`}
+      title={t("calendar.dragReschedule", { name: task.text })}
     >
-      <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: PRI_DOT[t.priority] ?? "var(--gc-accent)" }} aria-hidden="true" />
+      <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: PRI_DOT[task.priority] ?? "var(--gc-accent)" }} aria-hidden="true" />
       <button
         type="button"
-        onClick={() => toggleTask(t.catId, t.id)}
-        className={`min-w-0 flex-1 truncate text-left hover:opacity-75 ${t.completed ? "line-through opacity-50" : ""}`}
-        title={t.completed ? "Mark not done" : "Mark done"}
+        onClick={() => toggleTask(task.catId, task.id)}
+        className={`min-w-0 flex-1 truncate text-left hover:opacity-75 ${task.completed ? "line-through opacity-50" : ""}`}
+        title={task.completed ? t("week.markNotDone") : t("week.markDone")}
       >
-        {t.text}
+        {task.text}
       </button>
       <button
         type="button"
-        aria-label={`Edit ${t.text}`}
+        aria-label={t("week.editTask", { name: task.text })}
         className="shrink-0 opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100"
-        onClick={() => openTaskEdit({ catId: t.catId, taskId: t.id })}
+        onClick={() => openTaskEdit({ catId: task.catId, taskId: task.id })}
       >
         <GcIcon name="pencil-line" size={10} />
       </button>
@@ -125,20 +127,20 @@ export function CalendarView() {
       initial={{ opacity: 0, y: 14 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
-      aria-label="Month calendar"
+      aria-label={t("calendar.title")}
     >
       <header className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <p className="flex items-center gap-2 text-sm font-extrabold tracking-wide">
-          <GcIcon name="calendar-tick" size={16} /> CALENDAR — {goal?.title ?? "No board"}
+          <GcIcon name="calendar-tick" size={16} /> {t("calendar.heading", { name: goal?.title ?? t("week.noBoard") })}
         </p>
         <div className="flex items-center gap-1.5">
-          <Button type="button" variant="outline" size="icon" className="size-8 gc-btn" aria-label="Previous month"
+          <Button type="button" variant="outline" size="icon" className="size-8 gc-btn" aria-label={t("calendar.prevMonth")}
             onClick={() => setMonthStart((m) => new Date(m.getFullYear(), m.getMonth() - 1, 1))}>‹</Button>
           <span className="min-w-[130px] text-center text-xs font-extrabold" style={{ color: "var(--gc-text2)" }}>{monthLabel}</span>
-          <Button type="button" variant="outline" size="icon" className="size-8 gc-btn" aria-label="Next month"
+          <Button type="button" variant="outline" size="icon" className="size-8 gc-btn" aria-label={t("calendar.nextMonth")}
             onClick={() => setMonthStart((m) => new Date(m.getFullYear(), m.getMonth() + 1, 1))}>›</Button>
           <Button type="button" variant="outline" size="sm" className="h-8 gc-btn" disabled={isThisMonth}
-            onClick={() => setMonthStart(startOfMonth(new Date()))}>This month</Button>
+            onClick={() => setMonthStart(startOfMonth(new Date()))}>{t("calendar.thisMonth")}</Button>
         </div>
       </header>
 
@@ -152,7 +154,7 @@ export function CalendarView() {
           {model.overdue.length > 0 && (
             <div className="mb-2">
               <p className="mb-1 text-[0.65rem] font-extrabold uppercase tracking-wide" style={{ color: "color-mix(in srgb, var(--gc-danger) 62%, var(--gc-text))" }}>
-                Overdue ({model.overdue.length}) — drop here to unschedule
+                {t("calendar.overduePool", { count: model.overdue.length })}
               </p>
               <div className="flex flex-wrap gap-1">{model.overdue.map(chip)}</div>
             </div>
@@ -160,7 +162,7 @@ export function CalendarView() {
           {model.unscheduled.length > 0 && (
             <div>
               <p className="mb-1 text-[0.65rem] font-extrabold uppercase tracking-wide" style={{ color: "var(--gc-text2)" }}>
-                No date ({model.unscheduled.length}) — drag onto a day to schedule
+                {t("calendar.noDatePool", { count: model.unscheduled.length })}
               </p>
               <div className="flex flex-wrap gap-1">{model.unscheduled.map(chip)}</div>
             </div>
@@ -168,10 +170,10 @@ export function CalendarView() {
         </div>
       )}
 
-      <div className="grid grid-cols-7 gap-1" role="grid" aria-label="Month days">
-        {DAY_LABELS.map((d) => (
-          <p key={d} className="pb-1 text-center text-[0.62rem] font-extrabold uppercase tracking-wide" style={{ color: "var(--gc-muted)" }} role="columnheader">
-            {d}
+      <div className="grid grid-cols-7 gap-1" role="grid" aria-label={t("calendar.daysLabel")}>
+        {DAY_KEYS.map((k) => (
+          <p key={k} className="pb-1 text-center text-[0.62rem] font-extrabold uppercase tracking-wide" style={{ color: "var(--gc-muted)" }} role="columnheader">
+            {t(k)}
           </p>
         ))}
         {days.map((d) => {
@@ -179,12 +181,12 @@ export function CalendarView() {
           const inMonth = d.getMonth() === monthStart.getMonth();
           const isToday = key === todayKey;
           const items = model.byDay[key] ?? [];
-          const doneCount = items.filter((t) => t.completed).length;
+          const doneCount = items.filter((task) => task.completed).length;
           return (
             <div
               key={key}
               role="gridcell"
-              aria-label={`${d.toDateString()}${items.length ? `, ${items.length} tasks` : ""}`}
+              aria-label={`${d.toDateString()}${items.length ? t("calendar.cellTasks", { count: items.length }) : ""}`}
               onDragOver={(e) => { e.preventDefault(); setDragOver(key); }}
               onDragLeave={() => setDragOver((k) => (k === key ? "" : k))}
               onDrop={drop(key)}
@@ -203,7 +205,7 @@ export function CalendarView() {
               <div className="flex flex-1 flex-col gap-0.5 overflow-hidden">
                 {items.slice(0, 3).map(chip)}
                 {items.length > 3 && (
-                  <p className="px-0.5 text-[0.55rem] font-bold" style={{ color: "var(--gc-muted)" }}>+{items.length - 3} more</p>
+                  <p className="px-0.5 text-[0.55rem] font-bold" style={{ color: "var(--gc-muted)" }}>{t("calendar.more", { count: items.length - 3 })}</p>
                 )}
               </div>
             </div>
@@ -212,7 +214,7 @@ export function CalendarView() {
       </div>
 
       <p className="mt-3 text-center text-[0.68rem]" style={{ color: "var(--gc-muted)" }}>
-        Drag chips between days to reschedule · click a chip to complete it · drop chips in the top pool to unschedule.
+        {t("calendar.hint")}
       </p>
     </motion.section>
   );

@@ -39,7 +39,7 @@ export function Header() {
           type="button"
           className="flex min-w-0 items-center gap-3 rounded-xl px-1 py-1 text-left focus-visible:outline-2 focus-visible:outline-offset-2"
           style={{ outlineColor: "var(--gc-accent)" }}
-          aria-label={`${APP_NAME} — back to top`}
+          aria-label={t("nav.backToTop", { name: APP_NAME })}
           onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
         >
           <motion.span
@@ -72,8 +72,8 @@ export function Header() {
               type="button"
               className="hidden items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-extrabold md:flex"
               style={{ borderColor: "var(--gc-border-strong)", background: "var(--gc-surface-2)" }}
-              title="Open RPG Progression"
-              aria-label={`Open RPG Progression — Level ${level}`}
+              title={t("nav.openRpg")}
+              aria-label={t("nav.openRpgLevel", { level })}
               onClick={() => ui.open("rpgModal")}
               key={`lv-${level}`}
               initial={{ scale: 1.18 }}
@@ -82,28 +82,28 @@ export function Header() {
               whileHover={{ scale: 1.05 }}
             >
               <span className="rounded-full px-1.5 py-0.5 text-[0.6rem] font-extrabold text-white" style={{ background: "var(--gc-grad)" }}>
-                LV.{level}
+                {t("nav.levelBadge", { level })}
               </span>
               <span style={{ color: "var(--gc-warning)", fontFamily: "monospace" }}>{comboMult.toFixed(2).replace(/\.?0+$/, "")}x</span>
             </motion.button>
           )}
 
           {hasFeature("command-palette") && (
-            <Button type="button" variant="outline" size="sm" className="hidden lg:inline-flex gc-btn" onClick={() => ui.open("paletteOpen")} title="Natural language command bar (Ctrl+K)" aria-label="Open command bar (Ctrl+K)">
+            <Button type="button" variant="outline" size="sm" className="hidden lg:inline-flex gc-btn" onClick={() => ui.open("paletteOpen")} title={t("nav.commandBarHint")} aria-label={t("nav.openCommandBar")}>
               <GcIcon name="command-key" size={15} /> ⌘K
             </Button>
           )}
           {hasFeature("zen") && (
-            <Button type="button" variant="outline" size="sm" className="hidden lg:inline-flex gc-btn" onClick={() => ui.open("zenOpen")} title="Distraction-free focus HUD" aria-label="Open Zen focus HUD">
-              <GcIcon name="lotus-zen" size={16} /> <span>Zen</span>
+            <Button type="button" variant="outline" size="sm" className="hidden lg:inline-flex gc-btn" onClick={() => ui.open("zenOpen")} title={t("nav.zenHint")} aria-label={t("nav.openZen")}>
+              <GcIcon name="lotus-zen" size={16} /> <span>{t("nav.zenShort")}</span>
             </Button>
           )}
-          <Button type="button" variant="outline" size="icon" className="size-9 gc-btn" onClick={(e) => quickLightDark({ x: e.clientX, y: e.clientY })} title="Toggle light / dark theme" aria-label="Toggle light or dark theme">
+          <Button type="button" variant="outline" size="icon" className="size-9 gc-btn" onClick={(e) => quickLightDark({ x: e.clientX, y: e.clientY })} title={t("nav.toggleTheme")} aria-label={t("nav.toggleThemeAlt")}>
             <GcIcon name="contrast-half" size={17} />
           </Button>
 
-          <Button type="button" size="sm" className="gc-btn-primary" onClick={() => ui.openBoardModal("create")} aria-label="Create new board">
-            <Plus className="h-4 w-4" /> <span className="hidden sm:inline">New Board</span>
+          <Button type="button" size="sm" className="gc-btn-primary" onClick={() => ui.openBoardModal("create")} aria-label={t("side.createBoard")}>
+            <Plus className="h-4 w-4" /> <span className="hidden sm:inline">{t("nav.newBoard")}</span>
           </Button>
 
           <DropdownMenu>
