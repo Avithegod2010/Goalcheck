@@ -39,7 +39,9 @@
 
         <!-- GC-NATIVE-GLUE:WIDGET-TILE — home-screen widget + quick-settings tile
              (re-injected idempotently by scripts/native-glue.mjs; adds NO permissions —
-             BIND_QUICK_SETTINGS_TILE is held by the system, not requested by the app) -->
+             BIND_QUICK_SETTINGS_TILE is held by the system, not requested by the app).
+             Both AppWidget receivers are exported (required: the launcher/system sends
+             APPWIDGET_UPDATE; it is a protected broadcast, so no third-party spoofing). -->
         <receiver
             android:name=".GoalCheckWidgetProvider"
             android:exported="true">
@@ -51,6 +53,20 @@
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/goalcheck_widget_info" />
+        </receiver>
+
+        <receiver
+            android:name=".GoalCheckQuickWidgetProvider"
+            android:label="@string/widget_quick_label"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="android.appwidget.action.APPWIDGET_ENABLED" />
+                <action android:name="android.appwidget.action.APPWIDGET_DISABLED" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/goalcheck_quick_widget_info" />
         </receiver>
 
         <service

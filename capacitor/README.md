@@ -122,15 +122,20 @@ Injected native pieces (all under the app package):
 | Piece | Kind | What it does |
 |---|---|---|
 | `GoalCheckNativePlugin.kt` | Capacitor plugin | JS ⇄ native bridge (methods + events below); persists widget/tile state in SharedPreferences `gc_widget` |
-| `GoalCheckWidgetProvider.kt` | `AppWidgetProvider` | Home-screen widget rendering `res/layout/widget_goalcheck.xml` (dark rounded card, bold title, subtitle, progress bar) from those prefs |
+| `GoalCheckWidgetProvider.kt` | `AppWidgetProvider` | Full home-screen widget rendering `res/layout/widget_goalcheck.xml` (dark rounded card, bold title, subtitle, progress bar) from those prefs; resizable (horizontal \| vertical), `previewLayout` for API 31+ pickers |
+| `GoalCheckQuickWidgetProvider.kt` | `AppWidgetProvider` | Compact 2x1 "GoalCheck Quick" widget rendering `res/layout/widget_goalcheck_quick.xml` (board title, next open task, progress bar + %) from the SAME prefs — one update path, two renderers |
 | `GoalCheckTileService.kt` | `TileService` | "Quick add" QS tile: `onStartListening` mirrors stored state; tap flips it and launches the app with extra `gc_tile=quickadd` |
 | `MainActivity.java` patch | idempotent | `registerPlugin(GoalCheckNativePlugin.class)` in `onCreate` + `onNewIntent → GoalCheckNativePlugin.emitIntent(...)` |
-| `AndroidManifest.xml` patch | idempotent | `<receiver>` (APPWIDGET_UPDATE/ENABLED/DISABLED + `@xml/goalcheck_widget_info`), `<service>` (`BIND_QUICK_SETTINGS_TILE`, `QS_TILE` intent-filter, `@mipmap/ic_launcher`), and an `ACTION_SEND text/plain` intent-filter merged into the MAIN activity |
+| `AndroidManifest.xml` patch | idempotent | both `<receiver>`s (APPWIDGET_UPDATE/ENABLED/DISABLED + `@xml/goalcheck_widget_info` / `@xml/goalcheck_quick_widget_info`), `<service>` (`BIND_QUICK_SETTINGS_TILE`, `QS_TILE` intent-filter, `@mipmap/ic_launcher`), and an `ACTION_SEND text/plain` intent-filter merged into the MAIN activity |
 
 Resources injected alongside: `res/layout/widget_goalcheck.xml`,
-`res/xml/goalcheck_widget_info.xml` (minWidth 180dp, resizeMode horizontal,
-`updatePeriodMillis` 0 — push-only updates) and `res/drawable/widget_bg.xml`
-(rounded 16dp `#060913` card background).
+`res/xml/goalcheck_widget_info.xml` (minWidth 180dp / targetCellWidth 3,
+`resizeMode` horizontal\|vertical, `widgetCategory` home_screen\|keyguard,
+API 31+ `previewLayout`, `updatePeriodMillis` 0 — push-only updates),
+`res/layout/widget_goalcheck_quick.xml` + `res/xml/goalcheck_quick_widget_info.xml`
+(compact 2x1 variant, horizontal resize) and `res/drawable/widget_bg.xml`
+(rounded 16dp `#060913` card background). Widget strings (`widget_quick_label`,
+`gc_widget_percent`) are patched idempotently into `res/values/strings.xml`.
 
 The glue also patches the Gradle build idempotently (marked `GC-NATIVE-GLUE`):
 `org.jetbrains.kotlin:kotlin-gradle-plugin` classpath in `android/build.gradle`
@@ -155,10 +160,13 @@ GoalCheckNative.addListener("quickAdd", () => {});          // QS tile tapped
 
 Notes:
 
-- `updateWidget` updates **all placed widget instances** via `AppWidgetManager`
-  (RemoteViews are rebuilt by `GoalCheckWidgetProvider.buildRemoteViews`).
-- `running: true` renders the widget's progress bar indeterminate (pomodoro in
-  flight); `progress` is clamped to 0–100 natively.
+- `updateWidget` updates **all placed instances of BOTH widget variants**
+  (full + compact) via `AppWidgetManager` — each provider exposes a `pushAll`
+  helper that rebuilds its RemoteViews from the shared prefs payload.
+- `running: true` renders the widgets' progress bars indeterminate (pomodoro
+  in flight); `progress` is clamped to 0–100 natively. The compact widget
+  shows the board title, the next open task (the `subtitle` payload) and the
+  progress percentage; `widget_quick_label` names it in the widget picker.
 - `shareText` is only delivered while a web listener exists; anything received
   earlier (app cold-started by a share) stays retrievable via
   `getPendingShare()` — call it once after startup.

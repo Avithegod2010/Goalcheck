@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- GC-NATIVE-GLUE — "GoalCheck Quick" compact 2x1 widget metadata
+     (re-injected by scripts/native-glue.mjs). Same attribute strategy as
+     goalcheck_widget_info.xml: targetCellWidth/Height + previewLayout are
+     API 31+, minWidth/minHeight + initialLayout cover older platforms, and
+     keyguard is included in widgetCategory for lock-screen widget hosts. -->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="110dp"
+    android:minHeight="40dp"
+    android:targetCellWidth="2"
+    android:targetCellHeight="1"
+    android:updatePeriodMillis="0"
+    android:initialLayout="@layout/widget_goalcheck_quick"
+    android:previewLayout="@layout/widget_goalcheck_quick"
+    android:resizeMode="horizontal"
+    android:widgetCategory="home_screen|keyguard" />

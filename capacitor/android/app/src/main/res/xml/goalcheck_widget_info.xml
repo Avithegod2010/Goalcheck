@@ -1,9 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- GC-NATIVE-GLUE — widget metadata (re-injected by scripts/native-glue.mjs) -->
+<!-- GC-NATIVE-GLUE — widget metadata (re-injected by scripts/native-glue.mjs)
+     targetCellWidth/Height + previewLayout are API 31+ attributes; older
+     platforms ignore them and fall back to minWidth/minHeight/initialLayout.
+     widgetCategory includes keyguard for lock-screen widget hosts (Android 15
+     QPR2+ lock-screen widgets ride the same AppWidget infrastructure). -->
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
     android:minWidth="180dp"
     android:minHeight="40dp"
+    android:targetCellWidth="3"
+    android:targetCellHeight="1"
+    android:maxResizeWidth="360dp"
     android:updatePeriodMillis="0"
     android:initialLayout="@layout/widget_goalcheck"
-    android:resizeMode="horizontal"
-    android:widgetCategory="home_screen" />
+    android:previewLayout="@layout/widget_goalcheck"
+    android:resizeMode="horizontal|vertical"
+    android:widgetCategory="home_screen|keyguard" />

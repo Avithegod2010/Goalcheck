@@ -4,4 +4,7 @@
     <string name="title_activity_main">GoalCheck Advance</string>
     <string name="package_name">io.github.avithegod2010.goalcheckadvance</string>
     <string name="custom_url_scheme">io.github.avithegod2010.goalcheckadvance</string>
+    <!-- GC-NATIVE-GLUE — widget strings (re-injected idempotently by scripts/native-glue.mjs) -->
+    <string name="widget_quick_label">GoalCheck Quick</string>
+    <string name="gc_widget_percent">%1$d%%</string>
 </resources>

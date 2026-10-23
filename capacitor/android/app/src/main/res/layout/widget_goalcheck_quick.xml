@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- GC-NATIVE-GLUE — "GoalCheck Quick" compact 2x1 widget layout
+     (re-injected by scripts/native-glue.mjs). One glanceable row: board
+     title, next open task, thin progress bar + percentage. Rendered from
+     the same SharedPreferences payload as widget_goalcheck.xml. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/gc_quick_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@drawable/widget_bg"
+    android:gravity="center_vertical"
+    android:paddingStart="10dp"
+    android:paddingTop="8dp"
+    android:paddingEnd="10dp"
+    android:paddingBottom="8dp">
+
+    <TextView
+        android:id="@+id/gc_quick_title"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="GoalCheck"
+        android:textColor="#FFFFFF"
+        android:textSize="13sp"
+        android:textStyle="bold"
+        android:maxLines="1"
+        android:ellipsize="end" />
+
+    <TextView
+        android:id="@+id/gc_quick_next"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text=""
+        android:textColor="#9AA0B4"
+        android:textSize="10sp"
+        android:maxLines="1"
+        android:ellipsize="end" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="3dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <ProgressBar
+            android:id="@+id/gc_quick_progress"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:max="100"
+            android:progress="0" />
+
+        <TextView
+            android:id="@+id/gc_quick_percent"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="6dp"
+            android:text="0%"
+            android:textColor="#FFFFFF"
+            android:textSize="11sp"
+            android:textStyle="bold"
+            android:maxLines="1" />
+    </LinearLayout>
+</LinearLayout>

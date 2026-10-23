@@ -17,13 +17,16 @@
  * WHAT IT INJECTS (package parsed from android/app/build.gradle applicationId;
  *   the Java/Kotlin package mirrors the appId exactly like the `cap add` template):
  *   - app/src/main/java/<pkg>/GoalCheckNativePlugin.kt    local Capacitor plugin "GoalCheckNative"
- *   - app/src/main/java/<pkg>/GoalCheckWidgetProvider.kt  home-screen widget (RemoteViews)
+ *   - app/src/main/java/<pkg>/GoalCheckWidgetProvider.kt  full home-screen widget (RemoteViews)
+ *   - app/src/main/java/<pkg>/GoalCheckQuickWidgetProvider.kt  compact 2x1 "GoalCheck Quick" widget
  *   - app/src/main/java/<pkg>/GoalCheckTileService.kt     "Quick add" quick-settings tile
  *   - MainActivity.java patch (idempotent, marker `// GC-NATIVE-GLUE`):
  *       registerPlugin(GoalCheckNativePlugin.class) in onCreate + onNewIntent → emitIntent
  *   - AndroidManifest.xml patch (idempotent, marker `<!-- GC-NATIVE-GLUE -->`):
- *       widget receiver + tile service + ACTION_SEND text/plain filter on the MAIN activity
- *   - res/layout/widget_goalcheck.xml, res/xml/goalcheck_widget_info.xml, res/drawable/widget_bg.xml
+ *       widget receivers (full + compact) + tile service + ACTION_SEND text/plain filter on the MAIN activity
+ *   - res/layout/widget_goalcheck.xml, res/xml/goalcheck_widget_info.xml (resizable, previewLayout),
+ *     res/layout/widget_goalcheck_quick.xml, res/xml/goalcheck_quick_widget_info.xml,
+ *     res/drawable/widget_bg.xml + widget strings in res/values/strings.xml (idempotent patch)
  *   - Kotlin build wiring (idempotent): kotlin-gradle-plugin classpath in android/build.gradle,
  *     `org.jetbrains.kotlin.android` plugin + jvmTarget 21 in app/build.gradle
  *     (the Capacitor template app module compiles Java only — Kotlin sources need this).
@@ -58,8 +61,6 @@ const KOTLIN_VERSION = "1.9.25";
 
 const PLUGIN_KT = `package {{PKG}}
 
-import android.appwidget.AppWidgetManager
-import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import com.getcapacitor.JSObject
@@ -138,7 +139,8 @@ class GoalCheckNativePlugin : Plugin() {
 
     /**
      * Persist the widget payload in SharedPreferences("gc_widget") and push a
-     * RemoteViews update to every placed instance of GoalCheckWidgetProvider.
+     * RemoteViews update to every placed instance of BOTH widget variants
+     * (full + compact "GoalCheck Quick" — one payload, two renderers).
      */
     @PluginMethod
     fun updateWidget(call: PluginCall) {
@@ -156,11 +158,8 @@ class GoalCheckNativePlugin : Plugin() {
             .putBoolean(GoalCheckWidgetProvider.KEY_RUNNING, running)
             .apply()
 
-        val manager = AppWidgetManager.getInstance(ctx)
-        val ids = manager.getAppWidgetIds(ComponentName(ctx, GoalCheckWidgetProvider::class.java))
-        if (ids != null && ids.isNotEmpty()) {
-            manager.updateAppWidget(ids, GoalCheckWidgetProvider.buildRemoteViews(ctx))
-        }
+        GoalCheckWidgetProvider.pushAll(ctx)
+        GoalCheckQuickWidgetProvider.pushAll(ctx)
         call.resolve()
     }
 
@@ -195,8 +194,11 @@ import android.content.Intent
 import android.widget.RemoteViews
 
 /**
- * GoalCheck home-screen widget. Mirrors whatever the web layer last pushed via
- * GoalCheckNative.updateWidget(...) — persisted in SharedPreferences("gc_widget").
+ * GoalCheck home-screen widget (full variant). Mirrors whatever the web layer
+ * last pushed via GoalCheckNative.updateWidget(...) — persisted in
+ * SharedPreferences("gc_widget"). The compact "GoalCheck Quick" variant
+ * (GoalCheckQuickWidgetProvider) renders the same payload; the plugin pushes
+ * both via each provider's pushAll(context).
  *
  * Pure RemoteViews rendering: no network, no permissions, no background work
  * (updatePeriodMillis is 0; updates are push-only from the app).
@@ -213,14 +215,12 @@ class GoalCheckWidgetProvider : AppWidgetProvider() {
         appWidgetManager.updateAppWidget(appWidgetIds, buildRemoteViews(context))
     }
 
+    // Same action string as the quick widget: any launcher/system APPWIDGET_UPDATE
+    // broadcast refreshes this variant straight from the shared prefs payload.
     override fun onReceive(context: Context, intent: Intent) {
         super.onReceive(context, intent)
         if (AppWidgetManager.ACTION_APPWIDGET_UPDATE == intent.action) {
-            val manager = AppWidgetManager.getInstance(context)
-            val ids = manager.getAppWidgetIds(ComponentName(context, GoalCheckWidgetProvider::class.java))
-            if (ids != null && ids.isNotEmpty()) {
-                manager.updateAppWidget(ids, buildRemoteViews(context))
-            }
+            pushAll(context)
         }
     }
 
@@ -249,6 +249,101 @@ class GoalCheckWidgetProvider : AppWidgetProvider() {
             // running == true renders the bar indeterminate (pomodoro in flight).
             views.setProgressBar(R.id.gc_widget_progress, 100, progress, running)
             return views
+        }
+
+        /**
+         * Pushes the persisted payload to every placed instance of this variant.
+         * Called by GoalCheckNativePlugin.updateWidget (which calls pushAll on both
+         * widget providers) and by this receiver's APPWIDGET_UPDATE handling.
+         */
+        @JvmStatic
+        fun pushAll(context: Context) {
+            val manager = AppWidgetManager.getInstance(context)
+            val ids = manager.getAppWidgetIds(ComponentName(context, GoalCheckWidgetProvider::class.java))
+            if (ids != null && ids.isNotEmpty()) {
+                manager.updateAppWidget(ids, buildRemoteViews(context))
+            }
+        }
+    }
+}
+`;
+
+const QUICK_WIDGET_PROVIDER_KT = `package {{PKG}}
+
+import android.appwidget.AppWidgetManager
+import android.appwidget.AppWidgetProvider
+import android.content.ComponentName
+import android.content.Context
+import android.content.Intent
+import android.widget.RemoteViews
+
+/**
+ * "GoalCheck Quick" — compact 2x1 glanceable widget: board title, next open
+ * task, progress percentage. Reads the SAME SharedPreferences("gc_widget")
+ * payload written by GoalCheckNative.updateWidget(...) as the full widget —
+ * one shared update path, two RemoteViews renderers.
+ *
+ * Pure RemoteViews rendering: no network, no permissions, no background work
+ * (updatePeriodMillis is 0; updates are push-only from the app process).
+ * Re-injected after every 'cap add android' regeneration by scripts/native-glue.mjs.
+ */
+class GoalCheckQuickWidgetProvider : AppWidgetProvider() {
+
+    override fun onUpdate(
+        context: Context,
+        appWidgetManager: AppWidgetManager,
+        appWidgetIds: IntArray
+    ) {
+        super.onUpdate(context, appWidgetManager, appWidgetIds)
+        appWidgetManager.updateAppWidget(appWidgetIds, buildRemoteViews(context))
+    }
+
+    // Same action string as the full widget: any launcher/system APPWIDGET_UPDATE
+    // broadcast refreshes this variant straight from the shared prefs payload.
+    override fun onReceive(context: Context, intent: Intent) {
+        super.onReceive(context, intent)
+        if (AppWidgetManager.ACTION_APPWIDGET_UPDATE == intent.action) {
+            pushAll(context)
+        }
+    }
+
+    companion object {
+        /**
+         * Builds the compact widget RemoteViews from SharedPreferences. Static + @JvmStatic
+         * so both this provider and GoalCheckNativePlugin.updateWidget share one rendering path.
+         */
+        @JvmStatic
+        fun buildRemoteViews(context: Context): RemoteViews {
+            val prefs = context.getSharedPreferences(GoalCheckWidgetProvider.PREFS, Context.MODE_PRIVATE)
+            val title = prefs.getString(GoalCheckWidgetProvider.KEY_TITLE, "GoalCheck") ?: "GoalCheck"
+            val nextTask = prefs.getString(GoalCheckWidgetProvider.KEY_SUBTITLE, "") ?: ""
+            val progress = prefs.getInt(GoalCheckWidgetProvider.KEY_PROGRESS, 0).coerceIn(0, 100)
+            val running = prefs.getBoolean(GoalCheckWidgetProvider.KEY_RUNNING, false)
+
+            val views = RemoteViews(context.packageName, R.layout.widget_goalcheck_quick)
+            views.setTextViewText(R.id.gc_quick_title, title)
+            views.setTextViewText(R.id.gc_quick_next, nextTask)
+            views.setTextViewText(
+                R.id.gc_quick_percent,
+                context.getString(R.string.gc_widget_percent, progress)
+            )
+            // running == true renders the bar indeterminate (pomodoro in flight).
+            views.setProgressBar(R.id.gc_quick_progress, 100, progress, running)
+            return views
+        }
+
+        /**
+         * Pushes the persisted payload to every placed instance of this variant.
+         * Called by GoalCheckNativePlugin.updateWidget (which calls pushAll on both
+         * widget providers) and by this receiver's APPWIDGET_UPDATE handling.
+         */
+        @JvmStatic
+        fun pushAll(context: Context) {
+            val manager = AppWidgetManager.getInstance(context)
+            val ids = manager.getAppWidgetIds(ComponentName(context, GoalCheckQuickWidgetProvider::class.java))
+            if (ids != null && ids.isNotEmpty()) {
+                manager.updateAppWidget(ids, buildRemoteViews(context))
+            }
         }
     }
 }
@@ -392,15 +487,109 @@ const WIDGET_LAYOUT_XML = `<?xml version="1.0" encoding="utf-8"?>
 </LinearLayout>
 `;
 
+const QUICK_WIDGET_LAYOUT_XML = `<?xml version="1.0" encoding="utf-8"?>
+<!-- GC-NATIVE-GLUE — "GoalCheck Quick" compact 2x1 widget layout
+     (re-injected by scripts/native-glue.mjs). One glanceable row: board
+     title, next open task, thin progress bar + percentage. Rendered from
+     the same SharedPreferences payload as widget_goalcheck.xml. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/gc_quick_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@drawable/widget_bg"
+    android:gravity="center_vertical"
+    android:paddingStart="10dp"
+    android:paddingTop="8dp"
+    android:paddingEnd="10dp"
+    android:paddingBottom="8dp">
+
+    <TextView
+        android:id="@+id/gc_quick_title"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="GoalCheck"
+        android:textColor="#FFFFFF"
+        android:textSize="13sp"
+        android:textStyle="bold"
+        android:maxLines="1"
+        android:ellipsize="end" />
+
+    <TextView
+        android:id="@+id/gc_quick_next"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text=""
+        android:textColor="#9AA0B4"
+        android:textSize="10sp"
+        android:maxLines="1"
+        android:ellipsize="end" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="3dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <ProgressBar
+            android:id="@+id/gc_quick_progress"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:max="100"
+            android:progress="0" />
+
+        <TextView
+            android:id="@+id/gc_quick_percent"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="6dp"
+            android:text="0%"
+            android:textColor="#FFFFFF"
+            android:textSize="11sp"
+            android:textStyle="bold"
+            android:maxLines="1" />
+    </LinearLayout>
+</LinearLayout>
+`;
+
 const WIDGET_INFO_XML = `<?xml version="1.0" encoding="utf-8"?>
-<!-- GC-NATIVE-GLUE — widget metadata (re-injected by scripts/native-glue.mjs) -->
+<!-- GC-NATIVE-GLUE — widget metadata (re-injected by scripts/native-glue.mjs)
+     targetCellWidth/Height + previewLayout are API 31+ attributes; older
+     platforms ignore them and fall back to minWidth/minHeight/initialLayout.
+     widgetCategory includes keyguard for lock-screen widget hosts (Android 15
+     QPR2+ lock-screen widgets ride the same AppWidget infrastructure). -->
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
     android:minWidth="180dp"
     android:minHeight="40dp"
+    android:targetCellWidth="3"
+    android:targetCellHeight="1"
+    android:maxResizeWidth="360dp"
     android:updatePeriodMillis="0"
     android:initialLayout="@layout/widget_goalcheck"
+    android:previewLayout="@layout/widget_goalcheck"
+    android:resizeMode="horizontal|vertical"
+    android:widgetCategory="home_screen|keyguard" />
+`;
+
+const QUICK_WIDGET_INFO_XML = `<?xml version="1.0" encoding="utf-8"?>
+<!-- GC-NATIVE-GLUE — "GoalCheck Quick" compact 2x1 widget metadata
+     (re-injected by scripts/native-glue.mjs). Same attribute strategy as
+     goalcheck_widget_info.xml: targetCellWidth/Height + previewLayout are
+     API 31+, minWidth/minHeight + initialLayout cover older platforms, and
+     keyguard is included in widgetCategory for lock-screen widget hosts. -->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="110dp"
+    android:minHeight="40dp"
+    android:targetCellWidth="2"
+    android:targetCellHeight="1"
+    android:updatePeriodMillis="0"
+    android:initialLayout="@layout/widget_goalcheck_quick"
+    android:previewLayout="@layout/widget_goalcheck_quick"
     android:resizeMode="horizontal"
-    android:widgetCategory="home_screen" />
+    android:widgetCategory="home_screen|keyguard" />
 `;
 
 const WIDGET_BG_XML = `<?xml version="1.0" encoding="utf-8"?>
@@ -416,7 +605,9 @@ const WIDGET_BG_XML = `<?xml version="1.0" encoding="utf-8"?>
 
 const MANIFEST_COMPONENTS_BLOCK = `        <!-- GC-NATIVE-GLUE:WIDGET-TILE — home-screen widget + quick-settings tile
              (re-injected idempotently by scripts/native-glue.mjs; adds NO permissions —
-             BIND_QUICK_SETTINGS_TILE is held by the system, not requested by the app) -->
+             BIND_QUICK_SETTINGS_TILE is held by the system, not requested by the app).
+             Both AppWidget receivers are exported (required: the launcher/system sends
+             APPWIDGET_UPDATE; it is a protected broadcast, so no third-party spoofing). -->
         <receiver
             android:name=".GoalCheckWidgetProvider"
             android:exported="true">
@@ -428,6 +619,20 @@ const MANIFEST_COMPONENTS_BLOCK = `        <!-- GC-NATIVE-GLUE:WIDGET-TILE — h
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/goalcheck_widget_info" />
+        </receiver>
+
+        <receiver
+            android:name=".GoalCheckQuickWidgetProvider"
+            android:label="@string/widget_quick_label"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="android.appwidget.action.APPWIDGET_ENABLED" />
+                <action android:name="android.appwidget.action.APPWIDGET_DISABLED" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/goalcheck_quick_widget_info" />
         </receiver>
 
         <service
@@ -453,7 +658,8 @@ const MANIFEST_SEND_FILTER_BLOCK = `            <!-- GC-NATIVE-GLUE:SEND-FILTER 
 
 const ROOT_GRADLE_SNIPPET = `
         // GC-NATIVE-GLUE — Kotlin compiler for the app module's native glue sources
-        // (GoalCheckNativePlugin / GoalCheckWidgetProvider / GoalCheckTileService).
+        // (GoalCheckNativePlugin / GoalCheckWidgetProvider / GoalCheckQuickWidgetProvider /
+        // GoalCheckTileService).
         // Version pinned to match Capacitor 7.x's own kotlin-bom (re-injected by
         // scripts/native-glue.mjs).
         classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:${KOTLIN_VERSION}'`;
@@ -461,9 +667,10 @@ const ROOT_GRADLE_SNIPPET = `
 const APP_GRADLE_GLUE = `
 // ═══ GC-NATIVE-GLUE (appended by scripts/native-glue.mjs — idempotent) ═══
 // Kotlin support for GoalCheckNativePlugin / GoalCheckWidgetProvider /
-// GoalCheckTileService, whose sources are re-injected by scripts/native-glue.mjs
-// after every 'cap add android' regeneration. jvmTarget must match the Java 21
-// compileOptions configured in capacitor.build.gradle.
+// GoalCheckQuickWidgetProvider / GoalCheckTileService, whose sources are
+// re-injected by scripts/native-glue.mjs after every 'cap add android'
+// regeneration. jvmTarget must match the Java 21 compileOptions configured
+// in capacitor.build.gradle.
 apply plugin: 'org.jetbrains.kotlin.android'
 
 android {
@@ -508,6 +715,7 @@ function writeKotlinSources(ANDROID_DIR, PKG) {
   const files = [
     ["GoalCheckNativePlugin.kt", PLUGIN_KT],
     ["GoalCheckWidgetProvider.kt", WIDGET_PROVIDER_KT],
+    ["GoalCheckQuickWidgetProvider.kt", QUICK_WIDGET_PROVIDER_KT],
     ["GoalCheckTileService.kt", TILE_SERVICE_KT],
   ];
   for (const [name, template] of files) {
@@ -522,7 +730,9 @@ function writeResSources(ANDROID_DIR) {
   const resDir = join(ANDROID_DIR, "app", "src", "main", "res");
   const files = [
     ["layout/widget_goalcheck.xml", WIDGET_LAYOUT_XML],
+    ["layout/widget_goalcheck_quick.xml", QUICK_WIDGET_LAYOUT_XML],
     ["xml/goalcheck_widget_info.xml", WIDGET_INFO_XML],
+    ["xml/goalcheck_quick_widget_info.xml", QUICK_WIDGET_INFO_XML],
     ["drawable/widget_bg.xml", WIDGET_BG_XML],
   ];
   for (const [rel, content] of files) {
@@ -675,12 +885,44 @@ function patchGradleForKotlin(ANDROID_DIR) {
   return notes.length > 0 ? notes.join("; ") : "gradle: Kotlin wiring already present (no changes)";
 }
 
+// ─── strings.xml (idempotent patch) ─────────────────────────────────────
+
+/** Widget strings the manifest/renderers reference — added if missing. */
+const STRINGS_XML_ENTRIES = [
+  // label shown in the launcher widget picker for the compact variant
+  // (the full widget keeps the default app-name label)
+  ["widget_quick_label", "GoalCheck Quick"],
+  // progress percentage format used by GoalCheckQuickWidgetProvider
+  ["gc_widget_percent", "%1$d%%"],
+];
+
+function patchStringsXml(ANDROID_DIR) {
+  const p = join(ANDROID_DIR, "app", "src", "main", "res", "values", "strings.xml");
+  if (!existsSync(p)) fail(`res/values/strings.xml not found at ${p}`);
+  let xml = readFileSync(p, "utf8");
+  const added = [];
+  for (const [name, value] of STRINGS_XML_ENTRIES) {
+    if (!new RegExp(`<string\\s+name="${name}"`).test(xml)) {
+      xml = xml.replace(
+        /<\/resources>/,
+        (m0) => `    <string name="${name}">${value}</string>\n${m0}`
+      );
+      added.push(name);
+    }
+  }
+  if (added.length === 0) {
+    return "res/values/strings.xml: widget strings already present (no changes)";
+  }
+  writeFileSync(p, xml);
+  return `res/values/strings.xml: added ${added.join(", ")}`;
+}
+
 // ─── entry point ────────────────────────────────────────────────────────
 
 /**
  * Re-injects all custom native glue into the given Capacitor android project.
  * Safe to run repeatedly (overwrites generated sources wholesale; patches
- * MainActivity / AndroidManifest / gradle idempotently via markers).
+ * MainActivity / AndroidManifest / strings.xml / gradle idempotently via markers).
  *
  * @param {string} ANDROID_DIR absolute path to capacitor/android
  */
@@ -700,6 +942,7 @@ export function applyNativeGlue(ANDROID_DIR) {
 
   console.log(`native-glue: ${patchMainActivity(ANDROID_DIR, PKG)}`);
   console.log(`native-glue: ${patchManifest(ANDROID_DIR)}`);
+  console.log(`native-glue: ${patchStringsXml(ANDROID_DIR)}`);
   console.log(`native-glue: ${patchGradleForKotlin(ANDROID_DIR)}`);
   console.log("native-glue: zero-internet verified (no INTERNET uses-permission added)");
 

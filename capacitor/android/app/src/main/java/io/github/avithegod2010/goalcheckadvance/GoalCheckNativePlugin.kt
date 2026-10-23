@@ -1,7 +1,5 @@
 package io.github.avithegod2010.goalcheckadvance
 
-import android.appwidget.AppWidgetManager
-import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import com.getcapacitor.JSObject
@@ -80,7 +78,8 @@ class GoalCheckNativePlugin : Plugin() {
 
     /**
      * Persist the widget payload in SharedPreferences("gc_widget") and push a
-     * RemoteViews update to every placed instance of GoalCheckWidgetProvider.
+     * RemoteViews update to every placed instance of BOTH widget variants
+     * (full + compact "GoalCheck Quick" — one payload, two renderers).
      */
     @PluginMethod
     fun updateWidget(call: PluginCall) {
@@ -98,11 +97,8 @@ class GoalCheckNativePlugin : Plugin() {
             .putBoolean(GoalCheckWidgetProvider.KEY_RUNNING, running)
             .apply()
 
-        val manager = AppWidgetManager.getInstance(ctx)
-        val ids = manager.getAppWidgetIds(ComponentName(ctx, GoalCheckWidgetProvider::class.java))
-        if (ids != null && ids.isNotEmpty()) {
-            manager.updateAppWidget(ids, GoalCheckWidgetProvider.buildRemoteViews(ctx))
-        }
+        GoalCheckWidgetProvider.pushAll(ctx)
+        GoalCheckQuickWidgetProvider.pushAll(ctx)
         call.resolve()
     }
 

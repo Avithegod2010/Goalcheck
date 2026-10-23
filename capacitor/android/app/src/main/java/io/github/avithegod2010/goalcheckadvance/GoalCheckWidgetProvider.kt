@@ -8,8 +8,11 @@ import android.content.Intent
 import android.widget.RemoteViews
 
 /**
- * GoalCheck home-screen widget. Mirrors whatever the web layer last pushed via
- * GoalCheckNative.updateWidget(...) — persisted in SharedPreferences("gc_widget").
+ * GoalCheck home-screen widget (full variant). Mirrors whatever the web layer
+ * last pushed via GoalCheckNative.updateWidget(...) — persisted in
+ * SharedPreferences("gc_widget"). The compact "GoalCheck Quick" variant
+ * (GoalCheckQuickWidgetProvider) renders the same payload; the plugin pushes
+ * both via each provider's pushAll(context).
  *
  * Pure RemoteViews rendering: no network, no permissions, no background work
  * (updatePeriodMillis is 0; updates are push-only from the app).
@@ -26,14 +29,12 @@ class GoalCheckWidgetProvider : AppWidgetProvider() {
         appWidgetManager.updateAppWidget(appWidgetIds, buildRemoteViews(context))
     }
 
+    // Same action string as the quick widget: any launcher/system APPWIDGET_UPDATE
+    // broadcast refreshes this variant straight from the shared prefs payload.
     override fun onReceive(context: Context, intent: Intent) {
         super.onReceive(context, intent)
         if (AppWidgetManager.ACTION_APPWIDGET_UPDATE == intent.action) {
-            val manager = AppWidgetManager.getInstance(context)
-            val ids = manager.getAppWidgetIds(ComponentName(context, GoalCheckWidgetProvider::class.java))
-            if (ids != null && ids.isNotEmpty()) {
-                manager.updateAppWidget(ids, buildRemoteViews(context))
-            }
+            pushAll(context)
         }
     }
 
@@ -62,6 +63,20 @@ class GoalCheckWidgetProvider : AppWidgetProvider() {
             // running == true renders the bar indeterminate (pomodoro in flight).
             views.setProgressBar(R.id.gc_widget_progress, 100, progress, running)
             return views
+        }
+
+        /**
+         * Pushes the persisted payload to every placed instance of this variant.
+         * Called by GoalCheckNativePlugin.updateWidget (which calls pushAll on both
+         * widget providers) and by this receiver's APPWIDGET_UPDATE handling.
+         */
+        @JvmStatic
+        fun pushAll(context: Context) {
+            val manager = AppWidgetManager.getInstance(context)
+            val ids = manager.getAppWidgetIds(ComponentName(context, GoalCheckWidgetProvider::class.java))
+            if (ids != null && ids.isNotEmpty()) {
+                manager.updateAppWidget(ids, buildRemoteViews(context))
+            }
         }
     }
 }
