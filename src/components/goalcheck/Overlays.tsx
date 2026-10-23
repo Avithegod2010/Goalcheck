@@ -5,14 +5,14 @@
    Fluidity: AnimatePresence scale/fade entrances, spring pill.
    ========================================================= */
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import { bus, useStore, useActiveGoal, useUi, completePomodoroSession } from "@/lib/goalcheck/goalcheck-exports";
 import { usePomoRemaining, formatMs } from "./atoms";
 import { GcIcon } from "@/lib/goalcheck/icons";
 import { isLightTheme, THEMES, ENGINES } from "@/lib/goalcheck/themes";
-import { makeTask } from "@/lib/goalcheck/logic";
+import { makeTask, fuzzyScore } from "@/lib/goalcheck/logic";
 import type { Category } from "@/lib/goalcheck/types";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
@@ -163,6 +163,35 @@ export function FloatingPill() {
 export function CommandPalette() {
   const open = useUi((s) => s.paletteOpen);
   const inputRef = useRef<HTMLInputElement>(null);
+  const [q, setQ] = useState("");
+  const goals = useStore((s) => s.goals);
+
+  /* v4.3 — live fuzzy results while typing free text (not /commands) */
+  const results = useMemo(() => {
+    const query = q.trim();
+    if (query.length < 2 || query.startsWith("/")) return [];
+    type Hit = { kind: "board" | "task"; goalId: string; goalTitle: string; catId?: string; taskId?: string; text: string; score: number };
+    const hits: Hit[] = [];
+    for (const g of goals) {
+      const bs = fuzzyScore(query, g.title);
+      if (bs > 0) hits.push({ kind: "board", goalId: g.id, goalTitle: g.title, text: g.title, score: bs + 40 });
+      for (const c of g.categories) {
+        for (const it of c.items) {
+          const ts = fuzzyScore(query, `${it.text} ${it.notes || ""}`);
+          if (ts > 0) hits.push({ kind: "task", goalId: g.id, goalTitle: g.title, catId: c.id, taskId: it.id, text: it.text, score: ts - (it.completed ? 60 : 0) });
+        }
+      }
+    }
+    return hits.sort((a, b) => b.score - a.score).slice(0, 7);
+  }, [q, goals]);
+
+  const jump = (hit: { kind: string; goalId: string; taskId?: string }) => {
+    useStore.getState().setActiveGoal(hit.goalId);
+    useStore.getState().setSearch(hit.kind === "task" ? q.trim() : "");
+    useUi.setState({ paletteOpen: false });
+    if (inputRef.current) inputRef.current.value = "";
+    setQ("");
+  };
 
   const run = () => {
     const raw = (inputRef.current?.value ?? "").trim();
@@ -173,6 +202,7 @@ export function CommandPalette() {
       if (r) msgs.push(r);
     }
     if (inputRef.current) inputRef.current.value = "";
+    setQ("");
     useUi.setState({ paletteOpen: false });
     if (msgs.length) toast(msgs[0] + (msgs.length > 1 ? ` (+${msgs.length - 1} more)` : ""));
   };
@@ -184,15 +214,34 @@ export function CommandPalette() {
         <input
           ref={inputRef}
           onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); run(); } }}
+          onChange={(e) => setQ(e.target.value)}
           className="w-full border-b bg-transparent p-4 text-base outline-none"
           style={{ borderColor: "var(--gc-border)" }}
-          placeholder="/view kanban  •  /theme inferno  •  /laptop Fix bug !urgent ~2 #25m"
+          placeholder="/view kanban  •  /theme inferno  •  /laptop Fix bug !urgent ~2 #25m  •  or just search…"
           aria-label="Command input"
           autoFocus
         />
+        {results.length > 0 && (
+          <ul className="max-h-72 overflow-y-auto border-b p-1.5" style={{ borderColor: "var(--gc-border)" }} aria-label="Search results">
+            {results.map((h, i) => (
+              <li key={`${h.taskId ?? h.goalId}-${i}`}>
+                <button
+                  type="button"
+                  onClick={() => jump(h)}
+                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs font-bold hover:bg-[var(--gc-surface-2)]"
+                >
+                  <GcIcon name={h.kind === "board" ? "folder-open" : "check-circle"} size={13} />
+                  <span className="min-w-0 flex-1 truncate">{h.text}</span>
+                  <span className="shrink-0 text-[0.62rem] font-normal" style={{ color: "var(--gc-muted)" }}>{h.goalTitle}</span>
+                  <kbd className="shrink-0 rounded border px-1 text-[0.6rem]" style={{ borderColor: "var(--gc-border)", color: "var(--gc-muted)" }}>↵</kbd>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
         <div className="flex items-center justify-between gap-2 px-4 py-3 text-[0.72rem]" style={{ color: "var(--gc-text2)" }}>
           <span>
-            Syntax: <code>/category Task !priority ~pomos #minutes</code> — or <code>/view</code>, <code>/theme</code>, <code>/pomo 25</code>, <code>/done 3</code>, <code>/goal exam</code>, <code>/clear</code>, <code>/help</code>
+            Syntax: <code>/category Task !priority ~pomos #minutes</code> — or <code>/view</code>, <code>/theme</code>, <code>/pomo 25</code>, <code>/done 3</code>, <code>/goal exam</code>, <code>/review</code>, <code>/demo</code>, <code>/help</code>
           </span>
           <Button type="button" size="sm" className="gc-btn-primary" onClick={run}>↵ Run</Button>
         </div>
@@ -208,17 +257,17 @@ export function runCommand(line: string): string | null {
 
 function execSingleCommand(line: string): string | null {
   const s = useStore.getState();
-  const meta = /^\/(view|theme|engine|pomo|zen|atmosphere|rpg|export|done|goal|clear|help)\b\s*(.*)$/i.exec(line);
+  const meta = /^\/(view|theme|engine|pomo|zen|atmosphere|rpg|export|done|goal|clear|review|focus|demo|help)\b\s*(.*)$/i.exec(line);
   if (meta) {
     const cmd = meta[1].toLowerCase();
     const arg = meta[2].trim();
     if (cmd === "view") {
       const v = arg.toLowerCase();
-      if (["checklist", "kanban", "matrix", "graph", "analytics"].includes(v)) {
-        useStore.setState({ view: v as never });
+      if (["checklist", "week", "calendar", "timeline", "kanban", "matrix", "graph", "analytics"].includes(v)) {
+        s.setView(v as never); // setView clamps to the edition
         return `View switched → ${v}`;
       }
-      return "Unknown view (checklist/kanban/matrix/graph/analytics)";
+      return "Unknown view (checklist/week/calendar/timeline/kanban/matrix/graph/analytics)";
     }
     if (cmd === "theme") {
       const t = THEMES.find((x) => x.id === arg.toLowerCase());
@@ -282,9 +331,28 @@ function execSingleCommand(line: string): string | null {
       });
       return removed > 0 ? `Cleared ${removed} completed task${removed > 1 ? "s" : ""}` : "Nothing completed to clear";
     }
+    if (cmd === "review") {
+      useUi.setState({ reviewModal: true });
+      return "Weekly Review opened";
+    }
+    if (cmd === "focus") {
+      const n = parseInt(arg, 10);
+      if (isNaN(n) || n < 1) return "Usage: /focus 2 — enters Deep-Focus on the Nth remaining task";
+      const goal = s.goals.find((g) => g.id === s.activeGoalId);
+      if (!goal) return "No active board";
+      const pairs = goal.categories.flatMap((c) => c.items.filter((t) => !t.completed).map((t) => ({ cat: c, t })));
+      const hit = pairs[n - 1];
+      if (!hit) return `Only ${pairs.length} remaining task${pairs.length === 1 ? "" : "s"} — index ${n} is out of range`;
+      useUi.setState({ deepFocus: { catId: hit.cat.id, taskId: hit.t.id } });
+      return `Deep focus → “${hit.t.text}”`;
+    }
+    if (cmd === "demo") {
+      s.loadDemoData();
+      return "Sample workspace loaded (Settings → Data → Clear demo data to reset)";
+    }
     if (cmd === "help") {
       useUi.getState().open("settingsModal");
-      return "Commands: /view · /theme · /engine · /pomo 25 · /zen · /rpg on|off · /export · /done 3 · /goal exam · /clear · /category Task !urgent ~2 #25m";
+      return "Commands: /view · /theme · /engine · /pomo 25 · /zen · /focus 2 · /review · /rpg on|off · /export · /done 3 · /goal exam · /clear · /demo · /category Task !urgent ~2 #25m";
     }
   }
 

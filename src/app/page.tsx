@@ -25,9 +25,11 @@ import { HabitsWidget } from "@/components/goalcheck/Habits";
 import Onboarding from "@/components/goalcheck/Onboarding";
 import { InstallCard } from "@/components/goalcheck/Pwa";
 import { playChime } from "@/lib/goalcheck/audio";
-import { scheduleSyncWrite } from "@/lib/goalcheck/syncfile";
+import { scheduleSyncWrite, maybeAutoSnapshot } from "@/lib/goalcheck/syncfile";
+import { runReminderCheck } from "@/lib/goalcheck/reminders";
 import { DEFAULT_DARK_THEME, DEFAULT_LIGHT_THEME, isLightTheme } from "@/lib/goalcheck/themes";
 import { APP_NAME, BUILD_APP_NAME, APP_TITLE, BUILD_EDITION, EDITION, hasFeature } from "@/lib/goalcheck/editions";
+import type { WorkspaceView } from "@/lib/goalcheck/types";
 import { calculateStats, looksLikeQuickPaste } from "@/lib/goalcheck/logic";
 import { initShareIntake, pushWidgetState } from "@/lib/goalcheck/native";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -48,6 +50,9 @@ const MindMapView = nextDynamic(() => import("@/components/goalcheck/Views").the
 const AnalyticsView = nextDynamic(() => import("@/components/goalcheck/Views").then((m) => m.AnalyticsView), { ssr: false, loading: ViewSkeleton });
 const HeatmapCard = nextDynamic(() => import("@/components/goalcheck/Views").then((m) => m.HeatmapCard), { ssr: false, loading: ViewSkeleton });
 const WeekView = nextDynamic(() => import("@/components/goalcheck/WeekView").then((m) => m.WeekView), { ssr: false, loading: ViewSkeleton });
+const CalendarView = nextDynamic(() => import("@/components/goalcheck/CalendarView").then((m) => m.CalendarView), { ssr: false, loading: ViewSkeleton });
+const TimelineView = nextDynamic(() => import("@/components/goalcheck/TimelineView").then((m) => m.TimelineView), { ssr: false, loading: ViewSkeleton });
+const DeepFocus = nextDynamic(() => import("@/components/goalcheck/DeepFocus").then((m) => m.DeepFocus), { ssr: false });
 
 export default function Page() {
   const hydrated = useStore((s) => s._hydrated);
@@ -71,7 +76,8 @@ export default function Page() {
   }, [fontScale]);
 
   /* v4.2 — external text intake: browser-extension handoff (?add=…),
-     Android share-sheet and the Quick-Settings tile all funnel here. */
+     Android share-sheet and the Quick-Settings tile all funnel here.
+     v4.3 — PWA app shortcuts land as ?view=… deep links. */
   useEffect(() => {
     const ingest = (text: string) => {
       const clean = (text || "").trim();
@@ -85,6 +91,13 @@ export default function Page() {
       if (add) {
         ingest(add);
         q.delete("add");
+      }
+      const view = q.get("view") as WorkspaceView | null;
+      if (view) {
+        useStore.getState().setView(view); // setView clamps for base edition
+        q.delete("view");
+      }
+      if (add || view) {
         const qs = q.toString();
         window.history.replaceState(null, "", window.location.pathname + (qs ? `?${qs}` : "") + window.location.hash);
       }
@@ -126,10 +139,15 @@ export default function Page() {
   /* Ctrl+K palette + gc-open-rpg custom event */
   useEffect(useGlobalShortcuts(), []);
 
-  /* v4 — sync-file auto-save: debounce-write the workspace to the linked file */
+  /* v4 — sync-file auto-save: debounce-write the workspace to the linked file.
+     v4.3 — auto-snapshot: run the cadence check shortly after hydration. */
   useEffect(() => {
     const unsub = useStore.subscribe(() => scheduleSyncWrite());
-    return unsub;
+    const snapBoot = setTimeout(() => { void maybeAutoSnapshot(); }, 30_000);
+    return () => {
+      unsub();
+      clearTimeout(snapBoot);
+    };
   }, []);
 
   /* chime test + periodic recurring reset checks */
@@ -140,9 +158,14 @@ export default function Page() {
     };
     window.addEventListener("gc-test-chime", onChime);
     const iv = setInterval(() => useStore.getState().applyRecurringResets(), 30 * 60_000);
+    /* v4.3 — local due-date reminders: check every 15 min while open */
+    const rem = setInterval(() => { void runReminderCheck(); }, 15 * 60_000);
+    const remBoot = setTimeout(() => { void runReminderCheck(); }, 20_000);
     return () => {
       window.removeEventListener("gc-test-chime", onChime);
       clearInterval(iv);
+      clearInterval(rem);
+      clearTimeout(remBoot);
     };
   }, []);
 
@@ -221,6 +244,7 @@ export default function Page() {
 
         <ModalHost />
         {hasFeature("zen") && <ZenHud />}
+        <DeepFocus />
         {hasFeature("command-palette") && <CommandPalette />}
         <FloatingPill />
         {hydrated && <Onboarding />}
@@ -300,6 +324,8 @@ function MainBoard() {
           </>
         )}
         {view === "week" && hasFeature("due-dates") && (<><FilterBar /><WeekView /></>)}
+        {view === "calendar" && hasFeature("due-dates") && (<><FilterBar /><CalendarView /></>)}
+        {view === "timeline" && hasFeature("views.advanced") && (<><FilterBar /><TimelineView /></>)}
         {view === "kanban" && hasFeature("views.advanced") && (<><FilterBar /><KanbanView /></>)}
         {view === "matrix" && hasFeature("views.advanced") && (<><FilterBar /><MatrixView /></>)}
         {view === "graph" && hasFeature("views.advanced") && (<><FilterBar /><MindMapView /></>)}

@@ -280,7 +280,10 @@ export function GoalNav() {
 
 export function Templates() {
   const loadTemplate = useStore((s) => s.loadTemplate);
-  const activeGoalId = useActiveGoal();
+  /* fix (v4.3): useActiveGoal() returns the board OBJECT — the pack-apply
+     path needs the board ID, otherwise the comparison never matches and
+     community-pack templates silently did nothing. */
+  const activeGoalId = useStore((s) => s.activeGoalId);
   const packModalOpen = useUi((s) => s.packModal);
   const openPackModal = useUi((s) => s.open);
   /* community packs re-read whenever the importer modal closes */
@@ -361,6 +364,9 @@ const STREAMS = [
   { id: "forest", label: "Night Forest Crickets", icon: "seed-grow" },
   { id: "mic", label: "Live Microphone Input", icon: "mic-live" },
 ];
+
+/** Ambient stream registry (shared with Deep-Focus mode). */
+export const GC_STREAMS = STREAMS;
 
 export function AudioStudio() {
   const audioStream = useStore((s) => s.settings.audioStream);

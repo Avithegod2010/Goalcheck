@@ -15,12 +15,26 @@ import { MediaBadge } from "./atoms";
 import { GcIcon } from "@/lib/goalcheck/icons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ChevronDown, ChevronUp, Pencil, Trash2, Plus, Lock, Settings2, Puzzle } from "lucide-react";
+import { ChevronDown, ChevronUp, GripVertical, Pencil, Trash2, Plus, Lock, Settings2, Puzzle, Crosshair, Play, Square } from "lucide-react";
 import type { Category, Task } from "@/lib/goalcheck/types";
-import { dueStatus, inCurrentWeek } from "@/lib/goalcheck/logic";
+import { dueStatus, inCurrentWeek, describeRecurrence } from "@/lib/goalcheck/logic";
 import { hasFeature } from "@/lib/goalcheck/editions";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
+
+const DRAG_MIME = "text/gc-row";
+
+interface RowDrag { catId: string; taskId: string; isCat?: boolean }
+
+/** Read the row-drag payload; undefined when the drag isn't ours. */
+function rowDragFrom(e: React.DragEvent): RowDrag | undefined {
+  try {
+    const raw = e.dataTransfer.getData(DRAG_MIME);
+    return raw ? (JSON.parse(raw) as RowDrag) : undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 export function ChecklistGrid() {
   const goal = useActiveGoal();
@@ -80,7 +94,11 @@ function CategoryCard({ cat, editing, index }: { cat: Category; editing: boolean
   const renameCategory = useStore((s) => s.renameCategory);
   const deleteCategory = useStore((s) => s.deleteCategory);
   const toggleAllCategory = useStore((s) => s.toggleAllCategory);
+  const moveCategoryTo = useStore((s) => s.moveCategoryTo);
+  const moveTaskToCategory = useStore((s) => s.moveTaskToCategory);
   const openMediaModal = useUi((s) => s.openMediaModal);
+  const [catDrag, setCatDrag] = useState(false);
+  const [rowOver, setRowOver] = useState(false);
 
   const total = cat.items.length;
   const completed = cat.items.filter((it) => it.completed).length;
@@ -106,14 +124,44 @@ function CategoryCard({ cat, editing, index }: { cat: Category; editing: boolean
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, scale: 0.96, transition: { duration: 0.22 } }}
       transition={{ duration: 0.5, delay: Math.min(index * 0.07, 0.35), ease: EASE }}
-      className="gc-panel gc-blur flex flex-col overflow-hidden"
-      style={{ borderTop: "4px solid var(--gc-accent)" }}
+      className={`gc-panel gc-blur flex flex-col overflow-hidden ${catDrag ? "opacity-50" : ""} ${rowOver ? "outline outline-2 -outline-offset-2" : ""}`}
+      style={{ borderTop: "4px solid var(--gc-accent)", outlineColor: rowOver ? "var(--gc-accent)" : undefined }}
       aria-label={cat.title}
       whileHover={{ boxShadow: "0 14px 40px -8px var(--gc-glow)" }}
+      /* v4.3 — tasks from other categories can be dropped onto the card */
+      onDragOver={(e) => { if (rowDragFrom(e)) { e.preventDefault(); setRowOver(true); } }}
+      onDragLeave={() => setRowOver(false)}
+      onDrop={(e) => {
+        const drag = rowDragFrom(e);
+        setRowOver(false);
+        if (!drag) return;
+        e.preventDefault();
+        if (drag.isCat) {
+          /* category grip dropped on this card → move before it */
+          moveCategoryTo(drag.catId, index);
+          return;
+        }
+        if (drag.catId !== cat.id) moveTaskToCategory(drag.catId, drag.taskId, cat.id, Number.MAX_SAFE_INTEGER);
+      }}
     >
       <header className="border-b p-4 pb-3" style={{ borderColor: "var(--gc-border)" }}>
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 flex-1 items-center gap-3">
+            {/* v4.3 — drag handle: reorder categories (HTML5) */}
+            <span
+              draggable
+              onDragStart={(e) => {
+                e.dataTransfer.setData(DRAG_MIME, JSON.stringify({ catId: cat.id, taskId: "", isCat: true }));
+                e.dataTransfer.effectAllowed = "move";
+                setCatDrag(true);
+              }}
+              onDragEnd={() => setCatDrag(false)}
+              className="hidden cursor-grab text-[var(--gc-muted)] hover:text-[var(--gc-accent)] sm:block"
+              title="Drag to reorder categories"
+              aria-hidden="true"
+            >
+              <GripVertical className="h-4 w-4" />
+            </span>
             <motion.button
               type="button"
               className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl border"
@@ -291,6 +339,7 @@ function TaskRow({ catId, task, seq, index, subOpen }: { catId: string; task: Ta
   const toggleTask = useStore((s) => s.toggleTask);
   const cyclePriority = useStore((s) => s.cyclePriority);
   const moveTask = useStore((s) => s.moveTask);
+  const moveTaskTo = useStore((s) => s.moveTaskTo);
   const deleteTask = useStore((s) => s.deleteTask);
   const bindPomo = useStore((s) => s.bindPomo);
   const setOpenSubtask = useStore((s) => s.setOpenSubtask);
@@ -301,8 +350,10 @@ function TaskRow({ catId, task, seq, index, subOpen }: { catId: string; task: Ta
   const setEditingTask = useStore((s) => s.setEditingTask);
   const saveInlineEdit = useStore((s) => s.saveInlineEdit);
   const openTaskEditModal = useUi((s) => s.openTaskEditModal);
+  const openDeepFocus = useUi((s) => s.openDeepFocus);
   const goals = useStore((s) => s.goals);
   const activeGoalId = useStore((s) => s.activeGoalId);
+  const [dropEdge, setDropEdge] = useState<"" | "above" | "below">("");
 
   const isEditing = editingTaskId === `${catId}::${task.id}`;
   const prereq = task.dependsOn
@@ -320,14 +371,53 @@ function TaskRow({ catId, task, seq, index, subOpen }: { catId: string; task: Ta
   }
 
   return (
-    <motion.li
-      layout
-      initial={{ opacity: 0, x: -14 }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: 18, scale: 0.96, transition: { duration: 0.2 } }}
-      transition={{ duration: 0.32, delay: Math.min(index * 0.03, 0.2), ease: EASE }}
-      className={`flex flex-col gap-1 rounded-xl border border-transparent p-2 transition-colors hover:border-[var(--gc-border)] hover:bg-[var(--gc-surface-2)] ${task.completed ? "opacity-70" : ""}`}
+    /* plain <li> owns the HTML5 drag handlers — framer-motion components
+       intercept onDragStart/onDragEnd for their own gesture system */
+    <li
+      className="list-none"
+      draggable
+      onDragStart={(e) => {
+        e.dataTransfer.setData(DRAG_MIME, JSON.stringify({ catId, taskId: task.id }));
+        e.dataTransfer.effectAllowed = "move";
+      }}
+      onDragEnd={() => setDropEdge("")}
+      onDragOver={(e) => {
+        const drag = rowDragFrom(e);
+        if (!drag || drag.isCat) return;
+        e.preventDefault();
+        const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+        setDropEdge(e.clientY - rect.top < rect.height / 2 ? "above" : "below");
+      }}
+      onDragLeave={() => setDropEdge("")}
+      onDrop={(e) => {
+        const drag = rowDragFrom(e);
+        setDropEdge("");
+        if (!drag || drag.isCat) return;
+        e.preventDefault();
+        e.stopPropagation();
+        const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+        const above = e.clientY - rect.top < rect.height / 2;
+        const myIdx = ((): number => {
+          const goal = goals.find((g) => g.id === activeGoalId);
+          const c = goal?.categories.find((cc) => cc.id === catId);
+          return c?.items.findIndex((it) => it.id === task.id) ?? 0;
+        })();
+        if (drag.catId === catId) {
+          moveTaskTo(catId, drag.taskId, above ? myIdx : myIdx + 1);
+        } else {
+          /* cross-category: insert before/after this row */
+          useStore.getState().moveTaskToCategory(drag.catId, drag.taskId, catId, above ? myIdx : myIdx + 1);
+        }
+      }}
     >
+      <motion.div
+        layout
+        initial={{ opacity: 0, x: -14 }}
+        animate={{ opacity: 1, x: 0 }}
+        exit={{ opacity: 0, x: 18, scale: 0.96, transition: { duration: 0.2 } }}
+        transition={{ duration: 0.32, delay: Math.min(index * 0.03, 0.2), ease: EASE }}
+        className={`flex cursor-grab flex-col gap-1 rounded-xl border border-transparent p-2 transition-colors hover:border-[var(--gc-border)] hover:bg-[var(--gc-surface-2)] ${task.completed ? "opacity-70" : ""} ${dropEdge === "above" ? "border-t-2 !border-t-[var(--gc-accent)]" : dropEdge === "below" ? "border-b-2 !border-b-[var(--gc-accent)]" : ""}`}
+      >
       <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
         {/* left: toggle + label (grows, wraps below controls on narrow cards) */}
         <button
@@ -388,14 +478,28 @@ function TaskRow({ catId, task, seq, index, subOpen }: { catId: string; task: Ta
             <DueBadge dueDate={task.dueDate} />
           )}
           {hasFeature("recurring-tasks") && task.recurrence !== "none" && (
-            <span className="flex items-center rounded-md px-1.5 py-0.5 text-[0.62rem] font-bold" style={{ background: "var(--gc-soft)", color: "color-mix(in srgb, var(--gc-accent) 55%, var(--gc-text))" }} title={`Repeats ${task.recurrence}`}>
-              <GcIcon name="repeat-cycle" size={11} /> {task.recurrence}
+            <span className="flex items-center rounded-md px-1.5 py-0.5 text-[0.62rem] font-bold" style={{ background: "var(--gc-soft)", color: "color-mix(in srgb, var(--gc-accent) 55%, var(--gc-text))" }} title={`Repeats: ${describeRecurrence(task.recurrence)}`}>
+              <GcIcon name="repeat-cycle" size={11} /> {task.recurrence === "weekdays" ? "weekdays" : task.recurrence.startsWith("every:") ? task.recurrence.replace("every:", "×") + "d" : task.recurrence.startsWith("monthly:") ? "monthly" : task.recurrence}
             </span>
           )}
           {!!task.pomosEstimate && (
             <span className="hidden items-center gap-1 rounded-md px-1.5 py-0.5 font-mono text-[0.62rem] font-bold sm:flex" style={{ background: "var(--gc-surface-2)", color: "var(--gc-text2)" }} title="Pomodoro progress">
               <GcIcon name="tomato-timer" size={11} /> {task.pomoCount}/{task.pomosEstimate}
             </span>
+          )}
+          {hasFeature("zen") && <TimerButton catId={catId} taskId={task.id} />}
+          {hasFeature("zen") && (
+            <motion.button
+              type="button"
+              className="flex size-7 items-center justify-center rounded-lg gc-btn"
+              title="Deep focus on this task"
+              aria-label={`Deep focus on: ${task.text}`}
+              onClick={() => openDeepFocus({ catId, taskId: task.id })}
+              whileHover={{ scale: 1.14, rotate: 12 }}
+              whileTap={{ scale: 0.85 }}
+            >
+              <Crosshair className="h-3.5 w-3.5" />
+            </motion.button>
           )}
           <motion.button
             type="button"
@@ -558,7 +662,8 @@ function TaskRow({ catId, task, seq, index, subOpen }: { catId: string; task: Ta
           </motion.div>
         )}
       </AnimatePresence>
-    </motion.li>
+      </motion.div>
+    </li>
   );
 }
 
@@ -615,6 +720,60 @@ function RapidAddForm({ catId, nextIndex }: { catId: string; nextIndex: number }
 }
 
 /* v4 — Advance: due-date badge (overdue / today / this week) */
+/* ---------------- v4.3 — per-task stopwatch button ---------------- */
+
+function fmtClock(totalSec: number): string {
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  const mm = h > 0 ? String(m).padStart(2, "0") : String(m);
+  return `${h > 0 ? `${h}:` : ""}${mm}:${String(s).padStart(2, "0")}`;
+}
+
+function TimerButton({ catId, taskId }: { catId: string; taskId: string }) {
+  const activeTimer = useStore((s) => s.activeTimer);
+  const startTimer = useStore((s) => s.startTimer);
+  const stopTimer = useStore((s) => s.stopTimer);
+  const task = useStore((s) => {
+    const goal = s.goals.find((g) => g.id === s.activeGoalId);
+    return goal?.categories.find((c) => c.id === catId)?.items.find((it) => it.id === taskId);
+  });
+  const [now, setNow] = useState(Date.now());
+
+  const isActive = activeTimer?.catId === catId && activeTimer?.taskId === taskId;
+  const anyActive = !!activeTimer;
+
+  useEffect(() => {
+    if (!isActive) return;
+    const iv = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(iv);
+  }, [isActive]);
+
+  const live = isActive && activeTimer ? Math.round((now - activeTimer.startedAt) / 1000) : 0;
+  const banked = task?.timeSpent ?? 0;
+  const label = fmtClock(live + (banked > 0 && !isActive ? banked : 0));
+
+  return (
+    <motion.button
+      type="button"
+      className={`flex h-7 items-center gap-1 rounded-lg px-1.5 font-mono text-[0.62rem] font-extrabold ${isActive ? "" : "gc-btn"}`}
+      style={isActive
+        ? { background: "var(--gc-danger)", color: "#fff" }
+        : { color: anyActive ? "var(--gc-muted)" : undefined }}
+      title={isActive ? "Stop time tracking" : anyActive ? "Switch time tracking here" : "Track time on this task"}
+      aria-label={isActive ? `Stop tracking — ${label} logged` : `Track time — ${label} logged previously`}
+      onClick={() => (isActive ? stopTimer() : startTimer(catId, taskId))}
+      whileHover={{ scale: 1.08 }}
+      whileTap={{ scale: 0.9 }}
+      animate={isActive ? { scale: [1, 1.04, 1] } : { scale: 1 }}
+      transition={isActive ? { duration: 1.6, repeat: Infinity } : { duration: 0.2 }}
+    >
+      {isActive ? <Square className="h-3 w-3" /> : <Play className="h-3 w-3" />}
+      {banked > 0 || isActive ? label : ""}
+    </motion.button>
+  );
+}
+
 function DueBadge({ dueDate }: { dueDate: string }) {
   const status = dueStatus(dueDate);
   if (!status) return null;

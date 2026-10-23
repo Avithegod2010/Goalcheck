@@ -34,6 +34,7 @@ const COLS: { id: "todo" | "doing" | "done"; title: string; icon: string }[] = [
 export function KanbanView() {
   const goal = useActiveGoal();
   const setTaskStatus = useStore((s) => s.setTaskStatus);
+  const moveTaskTo = useStore((s) => s.moveTaskTo);
   const search = useStore((s) => s.searchQuery.trim().toLowerCase());
   const [dragId, setDragId] = useState<string | null>(null);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
@@ -49,6 +50,30 @@ export function KanbanView() {
 
   const onDragEnd = (e: DragEndEvent) => {
     setDragId(null);
+    const overId = String(e.over?.id ?? "");
+    /* v4.3 — dropped onto a CARD: reorder within the column (or hop
+       columns and land next to the target card) */
+    if (overId.startsWith("card:")) {
+      const targetId = overId.slice(5);
+      const activeId = String(e.active.id);
+      if (targetId === activeId) return;
+      const st = useStore.getState();
+      const g = st.goals.find((x) => x.id === st.activeGoalId);
+      if (!g) return;
+      const catOf = (tid: string) => g.categories.find((c) => c.items.some((i) => i.id === tid));
+      const aCat = catOf(activeId);
+      const tCat = catOf(targetId);
+      if (!aCat || !tCat) return;
+      const tIdx = Math.max(0, tCat.items.findIndex((i) => i.id === targetId));
+      if (aCat.id !== tCat.id) {
+        const targetStatus = effectiveStatus(tCat.items[tIdx]);
+        setTaskStatus(activeId, targetStatus);
+        st.moveTaskToCategory(aCat.id, activeId, tCat.id, tIdx);
+      } else {
+        moveTaskTo(aCat.id, activeId, tIdx);
+      }
+      return;
+    }
     const col = e.over?.id as string | undefined;
     if (col && COLS.some((c) => c.id === col)) setTaskStatus(String(e.active.id), col as "todo" | "doing" | "done");
   };
@@ -144,9 +169,12 @@ function KanbanCol({ col, tasks }: { col: { id: string; title: string; icon: str
 function KanbanCard({ cat, task, locked }: { cat: string; task: Task; locked: boolean }) {
   const setTaskStatus = useStore((s) => s.setTaskStatus);
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: task.id });
+  /* v4.3 — each card is also a drop target so cards can be ordered
+     within (and across) columns */
+  const { setNodeRef: setDropRef, isOver } = useDroppable({ id: `card:${task.id}` });
   return (
     <motion.div
-      ref={setNodeRef}
+      ref={(node) => { setNodeRef(node); setDropRef(node); }}
       {...listeners}
       {...attributes}
       layout
@@ -155,8 +183,11 @@ function KanbanCard({ cat, task, locked }: { cat: string; task: Task; locked: bo
       exit={{ opacity: 0, scale: 0.92, transition: { duration: 0.18 } }}
       transition={{ duration: 0.3, ease: EASE }}
       whileHover={{ y: -2 }}
-      className="gc-panel cursor-grab touch-none select-none p-3 active:cursor-grabbing"
-      style={{ borderTop: `3px solid ${task.priority === "urgent" ? "var(--gc-danger)" : task.priority === "high" ? "var(--gc-warning)" : "var(--gc-border-strong)"}` }}
+      className={`gc-panel cursor-grab touch-none select-none p-3 active:cursor-grabbing ${isOver && !isDragging ? "outline outline-2 -outline-offset-2" : ""}`}
+      style={{
+        borderTop: `3px solid ${task.priority === "urgent" ? "var(--gc-danger)" : task.priority === "high" ? "var(--gc-warning)" : "var(--gc-border-strong)"}`,
+        outlineColor: isOver ? "var(--gc-accent)" : undefined,
+      }}
     >
       <p className="break-words text-[0.82rem] font-bold">
         {locked && <Lock className="mr-1 inline h-3 w-3" />}

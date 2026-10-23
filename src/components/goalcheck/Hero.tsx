@@ -24,6 +24,7 @@ import {
 import { Check, RotateCcw, Trash2, Pencil, Search, LayoutGrid, Rows3, Plus } from "lucide-react";
 import type { WorkspaceView, FilterId } from "@/lib/goalcheck/types";
 import { hasFeature } from "@/lib/goalcheck/editions";
+import { useT } from "@/lib/goalcheck/i18n";
 
 const springy = { type: "spring", stiffness: 320, damping: 24 } as const;
 
@@ -270,19 +271,21 @@ export function QuickAddBar() {
 
 const VIEWS: [WorkspaceView, string, string][] = [
   ["checklist", "Checklist", "clipboard-check"],
-  ["week", "Week", "calendar-tick"],
+  ["week", "Week", "hourglass-flow"],
+  ["calendar", "Calendar", "calendar-tick"],
+  ["timeline", "Roadmap", "seed-grow"],
   ["kanban", "Kanban", "kanban-cols"],
   ["matrix", "Matrix", "compass-needle"],
   ["graph", "Mind Map", "network-nodes"],
   ["analytics", "Analytics", "chart-bars"],
 ];
 
-/* edition-aware view list (base = checklist; week rides the due-dates
+/* edition-aware view list (base = checklist; week/calendar ride the due-dates
    feature; the other Advance views ride views.advanced) */
 const VIEWS_AVAILABLE: [WorkspaceView, string, string][] = VIEWS.filter(
   ([id]) =>
     id === "checklist" ||
-    (id === "week" ? hasFeature("due-dates") : hasFeature("views.advanced"))
+    (id === "week" || id === "calendar" ? hasFeature("due-dates") : hasFeature("views.advanced"))
 );
 
 const FILTERS: [FilterId, string][] = [
@@ -302,6 +305,7 @@ export function FilterBar() {
   const setSearch = useStore((s) => s.setSearch);
   const layout = useStore((s) => s.layoutMode);
   const setLayout = useStore((s) => s.setLayout);
+  const t = useT();
 
   return (
     <>
@@ -328,7 +332,7 @@ export function FilterBar() {
               )}
               <span className="tab-label flex items-center gap-1.5">
                 <GcIcon name={icon} size={14} />
-                {label}
+                {t(`views.${id}`) || label}
               </span>
             </button>
             ))}

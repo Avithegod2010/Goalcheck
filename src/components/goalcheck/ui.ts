@@ -27,10 +27,18 @@ interface UiState {
   reportCard: boolean;
   packModal: boolean;
   pasteText: string;
+  /* v4.3 — weekly review ritual, year wrapped, other-app importer */
+  reviewModal: boolean;
+  wrappedModal: boolean;
+  importModal: boolean;
+  /* v4.3 — Deep-Focus: the one task in the spotlight (null = closed) */
+  deepFocus: TaskEditTarget | null;
   openBoardModal: (m: "create" | "edit") => void;
   openMediaModal: (t: MediaTarget) => void;
   openTaskEditModal: (t: TaskEditTarget) => void;
-  open: (k: "themeModal" | "settingsModal" | "exportModal" | "pasteModal" | "rpgModal" | "zenOpen" | "paletteOpen" | "reportCard" | "packModal") => void;
+  openDeepFocus: (t: TaskEditTarget) => void;
+  closeDeepFocus: () => void;
+  open: (k: "themeModal" | "settingsModal" | "exportModal" | "pasteModal" | "rpgModal" | "zenOpen" | "paletteOpen" | "reportCard" | "packModal" | "reviewModal" | "wrappedModal" | "importModal") => void;
   closeAll: () => void;
 }
 
@@ -48,14 +56,21 @@ export const useUi = create<UiState>((set) => ({
   reportCard: false,
   packModal: false,
   pasteText: "",
+  reviewModal: false,
+  wrappedModal: false,
+  importModal: false,
+  deepFocus: null,
   openBoardModal: (m) => set({ boardModal: m }),
   openMediaModal: (t) => set({ mediaModal: t }),
   openTaskEditModal: (t) => set({ taskEditModal: t }),
+  openDeepFocus: (t) => set({ deepFocus: t }),
+  closeDeepFocus: () => set({ deepFocus: null }),
   open: (k) => set({ [k]: true } as Partial<UiState>),
   closeAll: () => set({
     boardModal: null, mediaModal: null, themeModal: false, settingsModal: false,
     exportModal: false, pasteModal: false, taskEditModal: null, rpgModal: false,
     zenOpen: false, paletteOpen: false, reportCard: false, packModal: false,
+    reviewModal: false, wrappedModal: false, importModal: false, deepFocus: null,
   }),
 }));
 
