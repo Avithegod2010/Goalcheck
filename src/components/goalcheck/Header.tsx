@@ -6,6 +6,7 @@
    All icons are the app's custom mono animated set.
    ========================================================= */
 
+import { useState } from "react";
 import { useStore, useUi } from "@/lib/goalcheck/goalcheck-exports";
 import { MediaBadge } from "./atoms";
 import { GcIcon } from "@/lib/goalcheck/icons";
@@ -15,8 +16,15 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { MoreHorizontal, Palette, Settings, Download, ClipboardPaste, Plus, Camera } from "lucide-react";
-import { APP_NAME, APP_TAGLINE, IS_PRO, hasFeature } from "@/lib/goalcheck/editions";
+import {
+  APP_NAME, APP_TAGLINE, BUILD_EDITION, EDITION, IS_PRO, hasFeature, switchEdition,
+  type Edition,
+} from "@/lib/goalcheck/editions";
 import { useT } from "@/lib/goalcheck/i18n";
 
 export function Header() {
@@ -37,7 +45,7 @@ export function Header() {
       <div className="mx-auto flex max-w-[1440px] items-center justify-between gap-3 px-3 py-2.5 sm:px-5">
         <button
           type="button"
-          className="flex min-w-0 items-center gap-3 rounded-xl px-1 py-1 text-left focus-visible:outline-2 focus-visible:outline-offset-2"
+          className="flex min-w-0 flex-1 items-center gap-3 rounded-xl px-1 py-1 text-left focus-visible:outline-2 focus-visible:outline-offset-2"
           style={{ outlineColor: "var(--gc-accent)" }}
           aria-label={t("nav.backToTop", { name: APP_NAME })}
           onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
@@ -52,10 +60,10 @@ export function Header() {
             <MediaBadge value={brandMedia} fallback="mono:rocket-launch" iconSize={22} />
           </motion.span>
           <span className="flex min-w-0 flex-col">
-            <span className="flex items-center gap-2 text-lg font-extrabold leading-tight tracking-tight">
-              GoalCheck
+            <span className="hidden min-w-0 items-center gap-2 text-lg font-extrabold leading-tight tracking-tight md:flex">
+              <span className="truncate">GoalCheck</span>
               {IS_PRO && (
-                <span className="rounded-full px-2 py-0.5 text-[0.6rem] font-extrabold uppercase tracking-wider text-white" style={{ background: "var(--gc-grad)" }}>
+                <span className="hidden shrink-0 rounded-full px-2 py-0.5 text-[0.6rem] font-extrabold uppercase tracking-wider text-white sm:inline-flex" style={{ background: "var(--gc-grad)" }}>
                   Advance
                 </span>
               )}
@@ -66,7 +74,10 @@ export function Header() {
           </span>
         </button>
 
-        <div className="flex items-center gap-1.5 sm:gap-2">
+        <div className="flex items-center gap-1 sm:gap-2">
+          {/* v4.3.2 — the edition switch, out in the open (Advance builds only) */}
+          <EditionSwitch />
+
           {rpgEnabled && hasFeature("rpg") && (
             <motion.button
               type="button"
@@ -134,5 +145,80 @@ export function Header() {
         </div>
       </div>
     </header>
+  );
+}
+
+/* =========================================================
+   v4.3.2 — visible one-tap edition switcher (Advance builds only).
+   A segmented pill in the header: the running edition is filled,
+   tapping the other one asks for a quick confirm, then the workspace
+   reloads as the other edition. Data is shared by design — nothing
+   is lost. Base builds deliberately never render it (the products
+   stay distinct; base users upgrade via the Advance release).
+   ========================================================= */
+function EditionSwitch() {
+  const t = useT();
+  const [confirming, setConfirming] = useState(false);
+  /* hooks before the early return — BUILD_EDITION never changes at runtime */
+  if (BUILD_EDITION !== "pro") return null;
+
+  const target: Edition = IS_PRO ? "base" : "pro";
+  const targetName = IS_PRO ? "GoalCheck (Normal)" : "GoalCheck Advance";
+  const pills: Array<{ id: Edition; label: string }> = [
+    { id: "base", label: t("settings.editionLabelNormal") },
+    { id: "pro", label: t("settings.editionLabelAdvance") },
+  ];
+
+  return (
+    <>
+      <div
+        role="group"
+        aria-label={t("settings.editionSwitchAria")}
+        className="flex shrink-0 items-center gap-0.5 rounded-full border p-[3px]"
+        style={{ borderColor: "var(--gc-border-strong)", background: "var(--gc-surface-2)" }}
+      >
+        {pills.map((p) => {
+          const active = p.id === EDITION;
+          return (
+            <button
+              key={p.id}
+              type="button"
+              aria-pressed={active}
+              title={active
+                ? t("settings.edition", { name: APP_NAME })
+                : t("settings.switchToNormal", { name: p.id === "pro" ? "GoalCheck Advance" : "GoalCheck (Normal)" })}
+              className="rounded-full px-1.5 py-1.5 text-[0.62rem] font-extrabold leading-none transition-all sm:px-3 sm:py-1 sm:text-xs"
+              style={active
+                ? { background: "var(--gc-grad)", color: "#fff", boxShadow: "0 2px 8px var(--gc-glow)" }
+                : { color: "var(--gc-text2)" }}
+              onClick={() => { if (!active) setConfirming(true); }}
+            >
+              {p.label}
+            </button>
+          );
+        })}
+      </div>
+
+      <AlertDialog open={confirming} onOpenChange={setConfirming}>
+        <AlertDialogContent className="gc-modal max-w-sm">
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("settings.switchToNormal", { name: targetName })}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {target === "base" ? t("settings.toNormalDesc") : t("settings.toAdvanceDesc")}{" "}
+              {t("settings.editionShared")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="gc-btn">{t("common.cancel")}</AlertDialogCancel>
+            <AlertDialogAction
+              className="gc-btn-primary text-white"
+              onClick={() => switchEdition(target)}
+            >
+              {t("settings.switchConfirm", { name: targetName })}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }

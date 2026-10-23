@@ -92,6 +92,28 @@ test("switches edition to Normal and back data stays intact", async ({ page }) =
   await expect(page.getByRole("tab", { name: "Kanban" })).toHaveCount(0);
 });
 
+test("header edition switcher flips Normal⇄Advance without the settings modal", async ({ page }) => {
+  await boot(page);
+
+  /* the switcher is in the header from the start: Advance is the active pill */
+  const switcher = page.getByRole("group", { name: "Switch edition" });
+  await expect(switcher.getByRole("button", { name: "Advance", exact: true })).toHaveAttribute("aria-pressed", "true");
+
+  /* one tap on the other pill + confirm → reload into Normal */
+  await switcher.getByRole("button", { name: "Normal", exact: true }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: /Yes, switch to GoalCheck \(Normal\)/ }).click();
+  await expect(page).toHaveTitle(/^GoalCheck —/, { timeout: 20_000 });
+  await expect(switcher.getByRole("button", { name: "Advance", exact: true })).toHaveAttribute("aria-pressed", "false", { timeout: 15_000 });
+  await expect(page.getByRole("tab", { name: "Kanban" })).toHaveCount(0);
+
+  /* and straight back — no settings modal anywhere in the flow */
+  await switcher.getByRole("button", { name: "Advance", exact: true }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: /Yes, switch to GoalCheck Advance/ }).click();
+  await expect(page).toHaveTitle(/GoalCheck Advance/, { timeout: 20_000 });
+  await expect(page.getByRole("tab", { name: "Kanban" })).toBeVisible({ timeout: 15_000 });
+  expect(await page.evaluate(() => localStorage.getItem("gc_edition_override"))).toBeNull();
+});
+
 test("encrypted .gcenc export offers a passphrase vault", async ({ page }) => {
   await boot(page);
   await openActionsMenu(page);

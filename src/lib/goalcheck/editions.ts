@@ -25,9 +25,10 @@
      NEXT_PUBLIC_GC_EDITION=pro  bun run build   (default)
      NEXT_PUBLIC_GC_EDITION=base bun run build
 
-   RUNTIME EDITION SWITCH (v4.1)
+   RUNTIME EDITION SWITCH (v4.1, one-tap header control since v4.3.2)
      Advance builds additionally let the USER switch edition at runtime
-     (Settings → Edition): the choice is persisted in localStorage under
+     (header switcher or Settings → Edition): the choice is persisted in
+     localStorage under
      EDITION_OVERRIDE_KEY and applied when this module initializes. A page
      reload re-renders the whole workspace as the other edition. Data is
      untouched — both editions read the same storage schema. Base builds
@@ -73,6 +74,19 @@ export function setEditionOverride(e: Edition | null): void {
   } catch {
     /* ignore — storage unavailable */
   }
+}
+
+/** One-tap edition switch (v4.3.2): persist the override, flag the post-reload
+ *  welcome toast (read by Pwa.tsx) and reload so every module re-resolves the
+ *  edition from scratch. Data is shared between editions — nothing migrates. */
+export function switchEdition(target: Edition): void {
+  setEditionOverride(target);
+  try {
+    sessionStorage.setItem("gc_edition_switched", "1");
+  } catch {
+    /* cosmetic only — welcome toast after reload */
+  }
+  window.location.reload();
 }
 
 export const IS_PRO = EDITION === "pro";

@@ -99,7 +99,7 @@ Full policy: **[privacy.html](https://avithegod2010.github.io/Goalcheck/privacy.
 | Themes | 2 (Nebula / Nordic) | 11 + 13 particle engines + presets |
 | Extras | — | Habits, achievements, due dates + smart recurrence, time tracking, Markdown notes, weekly review, Year Wrapped, importers, reminders, auto-snapshots, palette, DnD, demo data, templates, audio studio, Data Doctor, theme sharing |
 
-Both editions read the **same storage schema**, so switching between them never loses data — and Advance builds let you switch **inside the app** (Settings → Edition) anytime.
+Both editions read the **same storage schema**, so switching between them never loses data — and Advance builds let you switch **inside the app** with the always-visible header switcher (`Normal | Advance` — or Settings → Edition) anytime.
 
 ## Run it
 

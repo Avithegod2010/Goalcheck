@@ -3,6 +3,27 @@
 All notable changes to GoalCheck & GoalCheck Advance.
 Format: [Keep a Changelog](https://keepachangelog.com/) · Versions follow [SemVer](https://semver.org/).
 
+## [0.6.2] — 2026-10-23
+
+### Added
+- **Visible edition switcher in the header** (v4.3.2): a segmented
+  `Normal | Advance` pill now sits in the header on every screen — the running
+  edition is filled, one tap on the other opens a confirm dialog, and the
+  workspace reloads as the other edition. No more digging through Settings.
+  The switcher stays visible in *both* editions, so Normal is never a
+  one-way door. (Advance builds only — base builds stay base by design.)
+- Shared `switchEdition()` helper — the Settings card and the header
+  switcher use the same persistence + post-reload welcome-toast flow.
+- New golden-path E2E: full header-switcher round-trip
+  (Advance → Normal → Advance, data + storage override asserted).
+  Suite now **15 E2E** tests.
+
+### Fixed
+- Header layout at phone widths: the brand degrades to its icon below
+  `md` so the switcher always fits with zero horizontal overflow
+  (320 → 1280px verified); the full wordmark + Advance badge return on
+  tablets and desktop.
+
 ## [0.6.1] — 2026-10-23
 
 ### Added

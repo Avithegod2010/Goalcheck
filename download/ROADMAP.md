@@ -301,3 +301,24 @@ Follow-up polish batch closing the two honestly-scoped leftovers from v4.3:
 - Suite now: 92 unit + **14 E2E** tests; shipped as
   [`advance/v0.6.1`](https://github.com/Avithegod2010/Goalcheck/releases/tag/advance/v0.6.1)
   + [`base/v0.6.1`](https://github.com/Avithegod2010/Goalcheck/releases/tag/base/v0.6.1).
+
+## v4.3.2 — the edition switch, out in the open ✅ (2026-10-23)
+
+User ask: "I told you to have a button to switch to normal and advance, where is it?"
+
+- **Header edition switcher.** The runtime edition switch existed since v4.1
+  but lived inside Settings → Edition — effectively undiscoverable. It is now
+  a segmented `Normal | Advance` control in the header, first in the actions
+  row, visible on every screen in both editions. Tapping the other pill opens
+  a short confirm dialog (what changes, data stays) and reloads the workspace.
+- Confirm dialog copy localized in en/hi/es/de (5 new keys per catalog, 726
+  total); shared `switchEdition()` now backs both the header control and the
+  Settings card.
+- Header responsive pass: brand collapses to its icon below `md`, switcher
+  pills compact at phone widths — zero horizontal overflow from 320 to 1280px.
+- Base builds still never render the switch (the two products stay distinct;
+  base users upgrade via the Advance release). Advance builds — including the
+  GitHub Pages deployment — get it out of the box.
+- Suite now: 92 unit + **15 E2E** tests (new header-switcher round-trip);
+  shipped as [`advance/v0.6.2`](https://github.com/Avithegod2010/Goalcheck/releases/tag/advance/v0.6.2)
+  + [`base/v0.6.2`](https://github.com/Avithegod2010/Goalcheck/releases/tag/base/v0.6.2).

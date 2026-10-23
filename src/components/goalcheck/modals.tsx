@@ -20,7 +20,7 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { THEMES, ENGINES, ATMOSPHERE_PRESETS, availableThemes, availableEngines } from "@/lib/goalcheck/themes";
-import { hasFeature, IS_PRO, APP_NAME, BUILD_EDITION, setEditionOverride, type Edition } from "@/lib/goalcheck/editions";
+import { hasFeature, IS_PRO, APP_NAME, BUILD_EDITION, switchEdition, type Edition } from "@/lib/goalcheck/editions";
 import { syncFileSupported, linkSyncFile, isSyncLinked, unlinkSyncFile, writeNow, setVaultPassphrase, pullFromSyncFile, linkSnapshotFolder, unlinkSnapshotFolder, snapshotFolderLinked } from "@/lib/goalcheck/syncfile";
 import { isImageUrl, isMonoIcon } from "@/lib/goalcheck/presets";
 import { RPG_AURAS, RPG_SKILLS, ACHIEVEMENTS, buildMarkdownExport, buildPlainExport, localDateKey, rankForLevel, totalXpForLevel, xpForLevel, parseQuickPaste, calculateStats, habitStreak, levelFromXp, isValidRecurrence, isoWeekKey, collectYearRecap, shiftDays } from "@/lib/goalcheck/logic";
@@ -635,15 +635,7 @@ function EditionSwitchCard() {
   const target: Edition = IS_PRO ? "base" : "pro";
   const targetName = IS_PRO ? "GoalCheck (Normal)" : "GoalCheck Advance";
 
-  const doSwitch = () => {
-    setEditionOverride(target);
-    try {
-      sessionStorage.setItem("gc_edition_switched", "1");
-    } catch {
-      /* ignore — welcome toast after reload is cosmetic */
-    }
-    window.location.reload();
-  };
+  const doSwitch = () => switchEdition(target);
 
   return (
     <div className="rounded-xl border p-3" style={{ borderColor: "var(--gc-border)", background: "var(--gc-surface-2)" }}>

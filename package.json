@@ -1,6 +1,6 @@
 {
   "name": "goalcheck",
-  "version": "0.6.1",
+  "version": "0.6.2",
   "private": true,
   "description": "GoalCheck & GoalCheck Advance \u2014 local-first multi-goal checklists, focus timer & analytics. One codebase, two editions.",
   "scripts": {
