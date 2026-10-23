@@ -14,13 +14,13 @@ import { notify, notifyError, notifySuccess } from "./notify";
 import type { ChimePack } from "./types";
 import type {
   Category, FilterId, GoalBoard, GoalCheckState, Habit, PomoMode, Priority,
-  Task, WorkspaceView, ParticleEngineId, CursorPhysics,
+  Task, WorkspaceView, ParticleEngineId, CursorPhysics, ReviewEntry, ActiveTimer,
 } from "./types";
 import { STORAGE_KEY, STORAGE_VERSION } from "./types";
 import {
   blankBoard, calculateStats, comboMultiplier, computeStreaks, evaluateAchievements, goalFromTemplate,
-  habitPeriodKey, habitStreak, isoWeekKey, localDateKey, levelFromXp, makeCategory, makeId, makeTask,
-  rankForLevel, ACHIEVEMENTS,
+  habitPeriodKey, habitStreak, isoWeekKey, isValidRecurrence, localDateKey, levelFromXp, makeCategory,
+  makeId, makeTask, nextRecurrenceDue, rankForLevel, ACHIEVEMENTS, buildDemoWorkspace,
 } from "./logic";
 import { DEFAULT_DARK_THEME, DEFAULT_LIGHT_THEME, isLightTheme, themeExists, clampThemeForEdition, GC_THEME_VARS } from "./themes";
 import { EDITION, IS_PRO, APP_NAME } from "./editions";
@@ -161,11 +161,14 @@ function defaultState(): GoalCheckState {
       chimePack: "glass", chimeVolume: 0.8,
       onboardingDone: false, lastBackupAt: 0, backupNudgeDismissedAt: 0, syncFileEnabled: false,
       syncFileEncrypted: false, streakFreezes: true, fontScale: 1, lastDoctorScanAt: 0,
+      remindersEnabled: false, snapshotCadence: "off", snapshotsToKeep: 5,
     },
     brandMedia: "mono:rocket-launch",
     habits: [],
     achievements: {},
     customTheme: {},
+    reviews: [],
+    activeTimer: null,
   };
 }
 
@@ -197,8 +200,10 @@ function normalizeGoal(g: Partial<GoalBoard>): GoalBoard {
         pomoCount: typeof it.pomoCount === "number" ? it.pomoCount : 0,
         dependsOn: it.dependsOn || "",
         dueDate: typeof it.dueDate === "string" ? it.dueDate : "",
-        recurrence: it.recurrence === "daily" || it.recurrence === "weekly" ? it.recurrence : "none",
+        timeSpent: typeof it.timeSpent === "number" && it.timeSpent >= 0 ? it.timeSpent : 0,
+        recurrence: isValidRecurrence(it.recurrence) ? it.recurrence : "none",
         respawnedFrom: typeof it.respawnedFrom === "string" ? it.respawnedFrom : "",
+        completedAt: typeof it.completedAt === "number" && it.completedAt >= 0 ? it.completedAt : 0,
         createdAt: it.createdAt || Date.now(),
       })),
     })),
@@ -262,6 +267,12 @@ function migrateLegacyV1(p: Record<string, unknown>): GoalCheckState {
       streakFreezes: p.streakFreezes !== false,
       fontScale: typeof p.fontScale === "number" && p.fontScale >= 0.8 && p.fontScale <= 1.5 ? p.fontScale : 1,
       lastDoctorScanAt: typeof p.lastDoctorScanAt === "number" ? p.lastDoctorScanAt : 0,
+      /* v4.3 — read from the persisted settings object when present */
+      remindersEnabled: legacySettings?.remindersEnabled === true,
+      snapshotCadence: legacySettings?.snapshotCadence === "daily" || legacySettings?.snapshotCadence === "weekly"
+        ? (legacySettings.snapshotCadence as "daily" | "weekly") : "off",
+      snapshotsToKeep: typeof legacySettings?.snapshotsToKeep === "number"
+        ? Math.min(20, Math.max(1, Math.round(legacySettings.snapshotsToKeep))) : 5,
     },
     brandMedia: (p.brandMedia as string) || d.brandMedia,
     habits: (Array.isArray(p.habits) ? p.habits : []).map((raw): Habit => {
@@ -277,6 +288,25 @@ function migrateLegacyV1(p: Record<string, unknown>): GoalCheckState {
     }),
     achievements: (p.achievements && typeof p.achievements === "object" ? p.achievements : {}) as Record<string, number>,
     customTheme: (p.customTheme && typeof p.customTheme === "object" ? p.customTheme : {}) as Record<string, string>,
+    /* v4.3 — review journal + live stopwatch (stale timers > 12h are dropped) */
+    reviews: (Array.isArray(p.reviews) ? p.reviews : []).map((raw): ReviewEntry => {
+      const r = raw as Partial<ReviewEntry>;
+      return {
+        id: r.id || makeId("review"),
+        weekKey: typeof r.weekKey === "string" ? r.weekKey : "",
+        createdAt: typeof r.createdAt === "number" ? r.createdAt : Date.now(),
+        completedCount: typeof r.completedCount === "number" ? r.completedCount : 0,
+        carriedOver: Array.isArray(r.carriedOver) ? r.carriedOver.filter((x) => typeof x === "string") : [],
+        focus: Array.isArray(r.focus) ? r.focus.filter((x) => typeof x === "string") : [],
+        note: typeof r.note === "string" ? r.note : "",
+      };
+    }),
+    activeTimer: (() => {
+      const t = p.activeTimer as Partial<ActiveTimer> | null | undefined;
+      if (!t || typeof t.catId !== "string" || typeof t.taskId !== "string" || typeof t.startedAt !== "number") return null;
+      if (Date.now() - t.startedAt > 12 * 3_600_000) return null; // stale — don't resurrect a day-old stopwatch
+      return { catId: t.catId, taskId: t.taskId, startedAt: t.startedAt };
+    })(),
   };
 }
 
@@ -335,7 +365,7 @@ interface Store extends GoalCheckState, Transient {
   deleteTask: (catId: string, taskId: string) => void;
   moveTask: (catId: string, taskId: string, dir: -1 | 1) => void;
   cyclePriority: (catId: string, taskId: string) => void;
-  setTaskAdvanced: (catId: string, taskId: string, patch: { text?: string; priority?: Priority; pomosEstimate?: number; dependsOn?: string; completed?: boolean; status?: "todo" | "doing" | "done"; dueDate?: string; recurrence?: "none" | "daily" | "weekly" }) => void;
+  setTaskAdvanced: (catId: string, taskId: string, patch: { text?: string; priority?: Priority; pomosEstimate?: number; dependsOn?: string; completed?: boolean; status?: "todo" | "doing" | "done"; dueDate?: string; recurrence?: Task["recurrence"] | ""; notes?: string }) => void;
   toggleTask: (catId: string, taskId: string, origin?: { x: number; y: number }) => void;
   setTaskStatus: (taskId: string, status: "todo" | "doing" | "done") => void;
   bindPomo: (taskId: string) => void;
@@ -390,6 +420,19 @@ interface Store extends GoalCheckState, Transient {
   dismissBackupNudge: () => void;
   setSyncFileEnabled: (v: boolean) => void;
   completeOnboarding: () => void;
+
+  /* v4.3 — drag & drop reorder, stopwatch, weekly review, demo, reminders, snapshots */
+  moveTaskTo: (catId: string, taskId: string, toIndex: number) => void;
+  moveTaskToCategory: (fromCatId: string, taskId: string, toCatId: string, toIndex: number) => void;
+  moveCategoryTo: (catId: string, toIndex: number) => void;
+  startTimer: (catId: string, taskId: string) => void;
+  stopTimer: () => void;
+  saveReview: (entry: { weekKey: string; completedCount: number; carriedOver: string[]; focus: string[]; note: string }) => void;
+  removeReview: (id: string) => void;
+  loadDemoData: () => void;
+  clearDemoData: () => void;
+  setReminders: (on: boolean) => void;
+  setSnapshotConfig: (patch: { snapshotCadence?: "off" | "daily" | "weekly"; snapshotsToKeep?: number }) => void;
 
   /* internal RPG hooks (used by toggle flows) */
   internalOnTaskCompleted: (taskId: string, origin?: { x: number; y: number }) => void;
@@ -596,7 +639,7 @@ export const useStore = create<Store>()(
             ? {
                 ...g,
                 categories: g.categories.map((c) => c.id === catId
-                  ? { ...c, items: c.items.map((it) => (it.id === taskId ? { ...it, ...patch } : it)) }
+                  ? { ...c, items: c.items.map((it) => (it.id === taskId ? { ...it, ...patch, recurrence: (patch.recurrence === "" ? "none" : (patch.recurrence ?? it.recurrence)) as Task["recurrence"], completedAt: patch.completed === true ? Date.now() : patch.completed === false ? 0 : it.completedAt } : it)) }
                   : c),
               }
             : g),
@@ -631,9 +674,10 @@ export const useStore = create<Store>()(
                 if (nowCompleted) {
                   const hasLiveClone = c.items.some((t) => t.respawnedFrom === item.id && !t.completed);
                   if (hasLiveClone) return c;
-                  const nextDue = item.dueDate
-                    ? localDateKey(new Date(new Date(item.dueDate + "T00:00:00").getTime() + (item.recurrence === "daily" ? 86_400_000 : 7 * 86_400_000)))
-                    : "";
+                  /* v4.3 — smart recurrence: next due date from the spec,
+                     anchored on the existing due date when present, else today */
+                  const base = item.dueDate ? new Date(`${item.dueDate}T00:00:00`) : new Date();
+                  const nextDue = nextRecurrenceDue(item.recurrence, base);
                   const clone = makeTask(item.text, {
                     priority: item.priority,
                     notes: item.notes,
@@ -684,7 +728,7 @@ export const useStore = create<Store>()(
               items: c.items.map((it) => {
                 if (it.id !== taskId) return it;
                 changed = true;
-                return { ...it, status, completed: status === "done" };
+                return { ...it, status, completed: status === "done", completedAt: status === "done" ? Date.now() : 0 };
               }),
             })),
           };
@@ -1075,6 +1119,128 @@ export const useStore = create<Store>()(
       setSyncFileEnabled: (v) => set((s) => ({ settings: { ...s.settings, syncFileEnabled: v } })),
       completeOnboarding: () => set((s) => ({ settings: { ...s.settings, onboardingDone: true } })),
 
+      /* ---------- v4.3 — drag & drop reorder ---------- */
+      moveTaskTo: (catId, taskId, toIndex) => {
+        set((s) => ({
+          goals: s.goals.map((g) => g.id === s.activeGoalId
+            ? {
+                ...g,
+                categories: g.categories.map((c) => {
+                  if (c.id !== catId) return c;
+                  const from = c.items.findIndex((it) => it.id === taskId);
+                  if (from === -1) return c;
+                  const to = Math.max(0, Math.min(c.items.length - 1, toIndex));
+                  if (from === to) return c;
+                  const items = [...c.items];
+                  const [moved] = items.splice(from, 1);
+                  items.splice(to, 0, moved);
+                  return { ...c, items };
+                }),
+              }
+            : g),
+        }));
+      },
+      moveTaskToCategory: (fromCatId, taskId, toCatId, toIndex) => {
+        if (fromCatId === toCatId) { get().moveTaskTo(fromCatId, taskId, toIndex); return; }
+        set((s) => ({
+          goals: s.goals.map((g) => {
+            if (g.id !== s.activeGoalId) return g;
+            let moved: Task | null = null;
+            const cats = g.categories.map((c) => {
+              if (c.id !== fromCatId) return c;
+              moved = c.items.find((it) => it.id === taskId) ?? null;
+              return { ...c, items: c.items.filter((it) => it.id !== taskId) };
+            });
+            if (!moved) return g;
+            const task = moved;
+            const idx = Math.max(0, Math.min(toIndex, Number.MAX_SAFE_INTEGER));
+            const nextCats = cats.map((c) => {
+              if (c.id !== toCatId) return c;
+              const items = [...c.items];
+              items.splice(Math.min(idx, items.length), 0, task);
+              return { ...c, items };
+            });
+            return { ...g, categories: nextCats };
+          }),
+        }));
+      },
+      moveCategoryTo: (catId, toIndex) => {
+        set((s) => ({
+          goals: s.goals.map((g) => {
+            if (g.id !== s.activeGoalId) return g;
+            const from = g.categories.findIndex((c) => c.id === catId);
+            if (from === -1) return g;
+            const to = Math.max(0, Math.min(g.categories.length - 1, toIndex));
+            if (from === to) return g;
+            const cats = [...g.categories];
+            const [moved] = cats.splice(from, 1);
+            cats.splice(to, 0, moved);
+            return { ...g, categories: cats };
+          }),
+        }));
+      },
+
+      /* ---------- v4.3 — per-task stopwatch ---------- */
+      startTimer: (catId, taskId) => {
+        const cur = get().activeTimer;
+        if (cur) get().stopTimer(); // flush the previous run first
+        set({ activeTimer: { catId, taskId, startedAt: Date.now() } });
+        const t = findTask(get(), taskId);
+        notify(`Tracking time on: ${t?.text ?? "task"}`, "clock-hand");
+      },
+      stopTimer: () => {
+        const cur = get().activeTimer;
+        if (!cur) return;
+        const secs = Math.max(1, Math.round((Date.now() - cur.startedAt) / 1000));
+        set((s) => ({
+          activeTimer: null,
+          goals: s.goals.map((g) => g.id === s.activeGoalId
+            ? {
+                ...g,
+                categories: g.categories.map((c) => c.id === cur.catId
+                  ? { ...c, items: c.items.map((it) => (it.id === cur.taskId ? { ...it, timeSpent: (it.timeSpent || 0) + secs } : it)) }
+                  : c),
+              }
+            : g),
+        }));
+        const m = Math.floor(secs / 60);
+        notify(m >= 1 ? `Logged ${m} min of focused work.` : "Logged a short session.", "clock-hand");
+      },
+
+      /* ---------- v4.3 — weekly review journal ---------- */
+      saveReview: (entry) => {
+        const weekKey = entry.weekKey || isoWeekKey(new Date());
+        set((s) => ({
+          reviews: [
+            ...s.reviews.filter((r) => r.weekKey !== weekKey), // one entry per week (latest wins)
+            { ...entry, weekKey, id: makeId("review"), createdAt: Date.now() },
+          ].sort((a, b) => a.createdAt - b.createdAt),
+        }));
+        notify("Weekly review saved — nice reflection!", "book-flutter");
+      },
+      removeReview: (id) => set((s) => ({ reviews: s.reviews.filter((r) => r.id !== id) })),
+
+      /* ---------- v4.3 — demo workspace ---------- */
+      loadDemoData: () => {
+        const demo = buildDemoWorkspace();
+        set((s) => ({
+          goals: demo.goals,
+          habits: IS_PRO ? demo.habits : [],
+          activeGoalId: demo.goals[0]?.id || s.activeGoalId,
+          view: s.view,
+        }));
+        notifySuccess("Sample workspace loaded — explore freely!", "sparkle-star");
+      },
+      clearDemoData: () => {
+        const g = blankBoard("My First Goal", "Your real workspace starts here");
+        set({ goals: [g], habits: [], activeGoalId: g.id, reviews: [] });
+        notify("Demo data cleared — fresh start ready.", "broom-sweep");
+      },
+
+      /* ---------- v4.3 — reminders & snapshot cadence ---------- */
+      setReminders: (on) => set((s) => ({ settings: { ...s.settings, remindersEnabled: on } })),
+      setSnapshotConfig: (patch) => set((s) => ({ settings: { ...s.settings, ...patch } })),
+
       /* ---------- internal RPG helpers ---------- */
       internalOnTaskCompleted: (taskId, origin) => {
         bumpHistory(useStore.getState(), 1);
@@ -1134,6 +1300,8 @@ function pickPersisted(s: GoalCheckState & Transient): GoalCheckState {
     habits: s.habits,
     achievements: s.achievements,
     customTheme: s.customTheme,
+    reviews: s.reviews,
+    activeTimer: s.activeTimer,
   };
 }
 

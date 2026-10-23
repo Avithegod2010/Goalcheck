@@ -6,7 +6,21 @@ export type Priority = "normal" | "high" | "urgent";
 
 export type TaskStatus = "todo" | "doing" | "done";
 
-export type Recurrence = "none" | "daily" | "weekly";
+/**
+ * Task/category recurrence.
+ * v4: none | daily | weekly.  v4.3 additions are parameterised strings:
+ *   "weekdays"            — Monday–Friday
+ *   "every:N"             — every N days (N ≥ 2)
+ *   "monthly:o:w"         — the o-th (1..5) weekday w (0=Sun..6=Sat) of each month
+ * Encoded as plain strings so v4 storage stays forward-compatible.
+ */
+export type Recurrence =
+  | "none"
+  | "daily"
+  | "weekly"
+  | "weekdays"
+  | `every:${number}`
+  | `monthly:${number}:${number}`;
 
 export interface Subtask {
   id: string;
@@ -28,10 +42,14 @@ export interface Task {
   dependsOn: string;
   /** "" | YYYY-MM-DD — when this task is due (Advance feature) */
   dueDate: string;
-  /** none | daily | weekly — auto-respawn on completion (Advance feature) */
+  /** v4.3 — seconds of tracked (stopwatch) time spent on this task */
+  timeSpent: number;
+  /** v4.3 — smart recurrence (see Recurrence) — auto-respawn on completion (Advance feature) */
   recurrence: Recurrence;
   /** v4 — id of the original task when this is a recurring respawn */
   respawnedFrom: string;
+  /** v4.3 — epoch ms when completed (0 = unknown / legacy data) */
+  completedAt: number;
   createdAt: number;
 }
 
@@ -92,7 +110,9 @@ export type ParticleEngineId =
 
 export type CursorPhysics = "none" | "attract" | "repel" | "orbit";
 
-export type WorkspaceView = "checklist" | "kanban" | "matrix" | "graph" | "analytics" | "week";
+export type WorkspaceView =
+  | "checklist" | "week" | "calendar" | "timeline"
+  | "kanban" | "matrix" | "graph" | "analytics";
 
 export type FilterId = "all" | "active" | "completed" | "priority" | "week";
 
@@ -105,6 +125,34 @@ export interface AnalyticsState {
   hourCounts: Record<string, number>;
   /** v4 — goalId -> focus seconds (per-goal attribution) */
   perGoal: Record<string, number>;
+}
+
+/* =========================================================
+   v4.3 — Weekly review journal + live stopwatch
+   ========================================================= */
+
+/** One saved Weekly Review ritual outcome. */
+export interface ReviewEntry {
+  id: string;
+  /** ISO week key of the week being reviewed (YYYY-Wnn) */
+  weekKey: string;
+  /** epoch ms when the review was saved */
+  createdAt: number;
+  completedCount: number;
+  /** texts of tasks the user chose to carry over (rescheduled or kept) */
+  carriedOver: string[];
+  /** texts of tasks picked as next week's focus */
+  focus: string[];
+  /** free-form reflection note */
+  note: string;
+}
+
+/** The one task currently being stopwatch-timed (or null). */
+export interface ActiveTimer {
+  catId: string;
+  taskId: string;
+  /** epoch ms when the current run started */
+  startedAt: number;
 }
 
 /* =========================================================
@@ -143,6 +191,10 @@ export interface GoalCheckState {
   achievements: Record<string, number>;
   /** v4 — custom shared theme (JSON import) applied over the CSS engine */
   customTheme: Record<string, string>;
+  /** v4.3 — saved weekly review journal entries */
+  reviews: ReviewEntry[];
+  /** v4.3 — live stopwatch (one at a time), null when idle */
+  activeTimer: ActiveTimer | null;
 }
 
 export interface Settings {
@@ -178,6 +230,12 @@ export interface Settings {
   fontScale: number;
   /** v4.2 — epoch ms of the last Data Doctor scan (drives the monthly nudge) */
   lastDoctorScanAt: number;
+  /** v4.3 — local due-date reminders via the Notification API (opt-in) */
+  remindersEnabled: boolean;
+  /** v4.3 — auto-snapshot cadence for the linked snapshot folder */
+  snapshotCadence: "off" | "daily" | "weekly";
+  /** v4.3 — how many dated snapshots to keep (older ones pruned) */
+  snapshotsToKeep: number;
 }
 
 /* ---------- persistence envelope ---------- */

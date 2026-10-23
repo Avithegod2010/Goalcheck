@@ -10,7 +10,14 @@ import { createElement, type ReactNode } from "react";
 import { toast } from "sonner";
 import { GcIcon } from "./icons";
 
-export function notify(message: string, iconName?: string, opts?: { description?: string }): string | number {
+export interface NotifyOpts {
+  description?: string;
+  /** v4.3 — sonner passthrough (update-available toast uses an action button) */
+  duration?: number;
+  action?: { label: string; onClick: () => void };
+}
+
+export function notify(message: string, iconName?: string, opts?: NotifyOpts): string | number {
   if (!iconName) return toast(message, opts);
   const body = createElement(
     "span",

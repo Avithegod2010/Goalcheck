@@ -41,8 +41,10 @@ export function makeTask(text: string, opts: Partial<Task> = {}): Task {
     pomoCount: 0,
     dependsOn: "",
     dueDate: "",
+    timeSpent: 0,
     recurrence: "none" as Task["recurrence"],
     respawnedFrom: "",
+    completedAt: 0,
     createdAt: Date.now(),
     ...opts,
   };
@@ -480,4 +482,274 @@ export function evaluateAchievements(input: AchievementScanInput): string[] {
   }
 
   return Array.from(new Set(done));
+}
+
+/* =========================================================
+   v4.3 — Smart recurrence, fuzzy search, year recap, demo data
+   ========================================================= */
+
+const WD_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+/** Strict validator for the (parameterised) recurrence strings. */
+export function isValidRecurrence(rec: unknown): boolean {
+  return typeof rec === "string" && (
+    rec === "none" || rec === "daily" || rec === "weekly" || rec === "weekdays" ||
+    /^every:[2-9]\d*$/.test(rec) ||
+    /^monthly:[1-5]:[0-6]$/.test(rec)
+  );
+}
+
+/** Human label for a recurrence spec ("Monthly, second Fri"). */
+export function describeRecurrence(rec: string): string {
+  if (!rec || rec === "none") return "One-time";
+  if (rec === "daily") return "Every day";
+  if (rec === "weekly") return "Every week";
+  if (rec === "weekdays") return "Weekdays (Mon\u2013Fri)";
+  const every = /^every:(\d+)$/.exec(rec);
+  if (every) return `Every ${every[1]} days`;
+  const monthly = /^monthly:(\d+):(\d+)$/.exec(rec);
+  if (monthly) {
+    const ord = ["first", "second", "third", "fourth", "fifth"][parseInt(monthly[1], 10) - 1] ?? "first";
+    const wd = WD_SHORT[parseInt(monthly[2], 10)] ?? "";
+    return `Monthly, ${ord} ${wd}`;
+  }
+  return "Recurring";
+}
+
+function nthWeekdayOfMonth(monthStart: Date, ord: number, weekday: number): Date | null {
+  const first = new Date(monthStart.getFullYear(), monthStart.getMonth(), 1);
+  const offset = (weekday - first.getDay() + 7) % 7;
+  const d = new Date(first.getFullYear(), first.getMonth(), 1 + offset + (ord - 1) * 7);
+  return d.getMonth() === monthStart.getMonth() ? d : null;
+}
+
+/**
+ * Next due date (YYYY-MM-DD) strictly after `fromDate` for a recurrence
+ * spec, or "" when the spec has no next occurrence / is "none".
+ * Pure apart from the Date argument — fully unit-testable.
+ */
+export function nextRecurrenceDue(rec: string, fromDate: Date): string {
+  if (!rec || rec === "none") return "";
+  if (rec === "daily") return localDateKey(shiftDays(fromDate, 1));
+  if (rec === "weekly") return localDateKey(shiftDays(fromDate, 7));
+  if (rec === "weekdays") {
+    let d = shiftDays(fromDate, 1);
+    while (d.getDay() === 0 || d.getDay() === 6) d = shiftDays(d, 1);
+    return localDateKey(d);
+  }
+  const every = /^every:(\d+)$/.exec(rec);
+  if (every) return localDateKey(shiftDays(fromDate, Math.max(2, parseInt(every[1], 10) || 2)));
+  const monthly = /^monthly:(\d+):(\d+)$/.exec(rec);
+  if (monthly) {
+    const ord = Math.min(5, Math.max(1, parseInt(monthly[1], 10)));
+    const wd = Math.min(6, Math.max(0, parseInt(monthly[2], 10)));
+    let m = new Date(fromDate.getFullYear(), fromDate.getMonth(), 1);
+    for (let i = 0; i < 14; i++) {
+      const target = nthWeekdayOfMonth(m, ord, wd);
+      if (target && localDateKey(target) > localDateKey(fromDate)) return localDateKey(target);
+      m = new Date(m.getFullYear(), m.getMonth() + 1, 1);
+    }
+    return "";
+  }
+  return "";
+}
+
+/* ---------- v4.3 — fuzzy search ---------- */
+
+/**
+ * Subsequence fuzzy score: 0 = no match. Substring hits rank highest
+ * (1000 - index), ordered-subsequence matches score by contiguity.
+ */
+export function fuzzyScore(query: string, text: string): number {
+  const q = query.toLowerCase().trim();
+  const t = (text || "").toLowerCase();
+  if (!q) return 0;
+  const idx = t.indexOf(q);
+  if (idx >= 0) return 1000 - Math.min(999, idx);
+  let qi = 0, score = 0, streak = 0;
+  for (let ti = 0; ti < t.length && qi < q.length; ti++) {
+    if (t[ti] === q[qi]) { qi++; streak++; score += 2 + streak; } else streak = 0;
+  }
+  return qi === q.length ? score : 0;
+}
+
+/* ---------- v4.3 — year recap (Wrapped) ---------- */
+
+export interface YearRecap {
+  year: number;
+  /** tasks completed this calendar year (completedAt-aware) */
+  completed: number;
+  /** days with at least one logged action this year */
+  activeDays: number;
+  longestStreak: number;
+  focusHours: number;
+  xpTotal: number;
+  level: number;
+  topMonth: { label: string; count: number };
+  boards: number;
+}
+
+const MONTH_LABELS = ["January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December"];
+
+export function collectYearRecap(
+  goals: GoalBoard[],
+  rpg: RpgState,
+  analytics: { focusSeconds?: number },
+  now: Date = new Date(),
+): YearRecap {
+  const year = now.getFullYear();
+  const prefix = `${year}-`;
+  const monthCounts = new Array(12).fill(0) as number[];
+  let completed = 0;
+  for (const g of goals) {
+    for (const c of g.categories ?? []) {
+      for (const it of c.items ?? []) {
+        if (it.completed && it.completedAt) {
+          const d = new Date(it.completedAt);
+          if (d.getFullYear() === year) {
+            completed++;
+            monthCounts[d.getMonth()]++;
+          }
+        } else if (it.completed) {
+          // legacy data without completedAt: count in the current month bucket
+          completed++;
+          monthCounts[now.getMonth()]++;
+        }
+      }
+    }
+  }
+  let activeDays = 0;
+  let best = 0, run = 0;
+  const keys = Object.keys(rpg.history ?? {}).sort();
+  let prevTime = 0;
+  for (const k of keys) {
+    if (!k.startsWith(prefix) || !(rpg.history[k] > 0)) continue;
+    activeDays++;
+    monthCounts[parseInt(k.slice(5, 7), 10) - 1] += rpg.history[k];
+    const d = new Date(`${k}T00:00:00`);
+    const t = d.getTime();
+    run = t - prevTime <= 86_400_000 * 1.5 ? run + 1 : 1;
+    prevTime = t;
+    if (run > best) best = run;
+  }
+  let topIdx = 0;
+  for (let i = 1; i < 12; i++) if (monthCounts[i] > monthCounts[topIdx]) topIdx = i;
+  return {
+    year,
+    completed,
+    activeDays,
+    longestStreak: best,
+    focusHours: Math.round((analytics?.focusSeconds ?? 0) / 360) / 10,
+    xpTotal: rpg.xp ?? 0,
+    level: rpg.level ?? 1,
+    topMonth: { label: MONTH_LABELS[topIdx], count: monthCounts[topIdx] },
+    boards: goals.length,
+  };
+}
+
+/* ---------- v4.3 — demo workspace ---------- */
+
+export interface DemoWorkspace { goals: GoalBoard[]; habits: Habit[]; }
+
+/** A rich sample workspace for first-run visitors / "try it" flows. */
+export function buildDemoWorkspace(now: Date = new Date()): DemoWorkspace {
+  const due = (n: number) => (n === 0 ? "" : localDateKey(shiftDays(now, n)));
+  const ago = (days: number) => Date.now() - days * 86_400_000;
+
+  const g1: GoalBoard = {
+    id: makeId("goal"),
+    title: "Launch My Portfolio Site",
+    subtitle: "Design, build and ship the personal site",
+    media: "mono:laptop-code",
+    createdAt: ago(34),
+    categories: [
+      {
+        id: makeId("cat"), title: "Design -", media: "mono:palette-drop", recurrence: "none",
+        lastResetDate: localDateKey(now), lastWeekKey: isoWeekKey(now),
+        items: [
+          makeTask("Wireframe the homepage", { completed: true, status: "done", completedAt: ago(20), timeSpent: 2700, createdAt: ago(30) }),
+          makeTask("Pick fonts & colors", { completed: true, status: "done", completedAt: ago(12), timeSpent: 1800, createdAt: ago(28) }),
+          makeTask("Write about-me copy", { priority: "high", dueDate: due(1), createdAt: ago(9) }),
+        ],
+      },
+      {
+        id: makeId("cat"), title: "Build -", media: "mono:tools-wrench", recurrence: "none",
+        lastResetDate: localDateKey(now), lastWeekKey: isoWeekKey(now),
+        items: [
+          makeTask("Project gallery section", { priority: "urgent", dueDate: due(2), pomosEstimate: 4, createdAt: ago(15) }),
+          makeTask("Contact form + validation", { dueDate: due(4), createdAt: ago(12) }),
+          makeTask("Buy domain & deploy", { dependsOn: "", dueDate: due(8), createdAt: ago(10) }),
+        ],
+      },
+      {
+        id: makeId("cat"), title: "Spread the word -", media: "mono:rocket-launch", recurrence: "none",
+        lastResetDate: localDateKey(now), lastWeekKey: isoWeekKey(now),
+        items: [
+          makeTask("LinkedIn launch post", { priority: "high", dueDate: due(-1), createdAt: ago(8) }),
+          makeTask("DM 5 friends for feedback", { dueDate: due(5), createdAt: ago(6) }),
+        ],
+      },
+    ],
+  };
+
+  const g2: GoalBoard = {
+    id: makeId("goal"),
+    title: "Semester Finals Prep",
+    subtitle: "Revision plan for the May exams",
+    media: "mono:book-flutter",
+    createdAt: ago(50),
+    categories: [
+      {
+        id: makeId("cat"), title: "Daily Revision -", media: "mono:repeat-cycle", recurrence: "daily",
+        lastResetDate: localDateKey(now), lastWeekKey: isoWeekKey(now),
+        items: [
+          makeTask("Solve 2 past-year questions", { recurrence: "daily", priority: "high", timeSpent: 5400, createdAt: ago(21) }),
+          makeTask("Flashcards review — 15 min", { recurrence: "daily", createdAt: ago(21) }),
+        ],
+      },
+      {
+        id: makeId("cat"), title: "Subjects -", media: "mono:brain-cube", recurrence: "none",
+        lastResetDate: localDateKey(now), lastWeekKey: isoWeekKey(now),
+        items: [
+          makeTask("Physics formula sheet", { completed: true, status: "done", completedAt: ago(5), timeSpent: 3600, createdAt: ago(25) }),
+          makeTask("Chemistry organic reactions map", { dueDate: due(3), pomosEstimate: 3, createdAt: ago(18) }),
+          makeTask("Maths: integration speedruns", { dueDate: due(6), priority: "high", createdAt: ago(14) }),
+          makeTask("One full mock paper", { dueDate: due(9), pomosEstimate: 5, createdAt: ago(7) }),
+        ],
+      },
+    ],
+  };
+
+  const g3: GoalBoard = {
+    id: makeId("goal"),
+    title: "Home Reset",
+    subtitle: "A calmer space, one weekend at a time",
+    media: "mono:home-hearth",
+    createdAt: ago(20),
+    categories: [
+      {
+        id: makeId("cat"), title: "This Weekend -", media: "mono:calendar-tick", recurrence: "none",
+        lastResetDate: localDateKey(now), lastWeekKey: isoWeekKey(now),
+        items: [
+          makeTask("Kitchen drawer reorg", { completed: true, status: "done", completedAt: ago(2), timeSpent: 2400, createdAt: ago(10) }),
+          makeTask("Wardrobe: donate bag", { dueDate: due(2), createdAt: ago(9) }),
+          makeTask("Meal prep Sunday", { recurrence: "weekly", dueDate: due(3), createdAt: ago(8) }),
+        ],
+      },
+    ],
+  };
+
+  const habits: Habit[] = [
+    {
+      id: makeId("habit"), title: "Read 20 minutes", cadence: "daily", createdAt: ago(30), freezes: 1,
+      marks: Object.fromEntries([0, 1, 2, 4, 5, 6, 7, 8].map((i) => [localDateKey(shiftDays(now, -i)), true])),
+    },
+    {
+      id: makeId("habit"), title: "Gym session", cadence: "weekly", createdAt: ago(40), freezes: 0,
+      marks: { [isoWeekKey(now)]: true, [isoWeekKey(shiftDays(now, -7))]: true, [isoWeekKey(shiftDays(now, -14))]: true },
+    },
+  ];
+
+  return { goals: [g1, g2, g3], habits };
 }
