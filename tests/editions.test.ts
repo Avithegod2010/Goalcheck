@@ -1,4 +1,6 @@
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
+import "fake-indexeddb/auto";
+import { IDBFactory } from "fake-indexeddb";
 import { isoWeekKey, localDateKey } from "@/lib/goalcheck/logic";
 import type { GoalBoard } from "@/lib/goalcheck/types";
 
@@ -17,6 +19,8 @@ afterAll(() => {
 beforeEach(() => {
   vi.resetModules();
   localStorage.clear();
+  // fresh fake IndexedDB per test (v5 storage engine) — legacy import marker must not leak
+  (globalThis as { indexedDB: unknown }).indexedDB = new IDBFactory();
 });
 
 async function importEditions(edition?: "base" | "pro") {
@@ -108,7 +112,8 @@ describe("GoalCheck (base) edition", () => {
       JSON.stringify({ state: boardWithKanbanState(), version: 1 }),
     );
     const useStore = await importStore("base");
-    await Promise.resolve(useStore.persist.rehydrate());
+    await useStore.persist.rehydrate();
+    await vi.waitFor(() => expect(useStore.getState()._hydrated).toBe(true), { timeout: 5_000 });
     const s = useStore.getState();
 
     expect(s.view).toBe("checklist");  // kanban clamped

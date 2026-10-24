@@ -61,12 +61,25 @@ GoalCheck is an **installable, offline-first PWA**: a web app manifest (per-edit
 - **Desktop:** Chrome / Edge → install icon in the address bar, or the in-app **Install** card.
 - **Android:** Chrome → ⋮ → *Add to Home screen* / the in-app install card.
 - **iOS:** Share → *Add to Home Screen*.
-- Storage is quota-resilient: if localStorage fills up, the largest embedded images are pruned automatically (with a warning toast + backup nudge) — your tasks, notes and streaks are never dropped.
+- Storage lives in **IndexedDB** (schema v5) — orders of magnitude beyond the old localStorage ceiling, with the same quota-resilience guarantees: if the quota is ever hit, the largest embedded images are pruned automatically (with a warning toast + backup nudge) — your tasks, notes and streaks are never dropped. Existing users are migrated automatically; a localStorage backup copy is kept as belt-and-braces.
 - **App shortcuts** (Android/desktop PWA): long-press the launcher icon for Week view, Quick-add and Start focus.
 
 ## 🌍 Languages
 
-The UI ships in **English, हिन्दी (Hindi), Español and Deutsch** — switch anytime in **Settings → Language** (auto-detected from your browser on first visit). Every locale is key-complete and compile-enforced against the English source catalog, so a missing translation can never ship. Long-form onboarding paragraphs are translated too; only content data (sample tasks, stream names) stays English.
+The UI ships in **English, हिन्दी, Español, Deutsch, Français, Português (BR), 日本語 and Русский** — switch anytime in **Settings → Language** (auto-detected from your browser on first visit). Every locale is key-complete and compile-enforced against the English source catalog (783 keys), so a missing translation can never ship. Long-form onboarding paragraphs are translated too; only content data (sample tasks, stream names) stays English.
+
+## 🆕 v0.7.0 — real-life workflows
+
+- **Calendar interop (`.ics`)** — export any board's dated tasks to Google/Apple/Outlook; import `.ics` files back as a board.
+- **Natural-language quick add** — `milk #errands tomorrow !high ~2 every week` becomes chips (due date, priority, category, focus estimate, recurrence) before you hit Enter.
+- **Voice quick add** — a mic button (where the browser supports speech recognition) dictates the same line, in your UI language.
+- **Smart week planner** — rebalances overdue/overloaded/priority tasks across the next 7 days within a per-day focus capacity you control; one-tap Apply.
+- **Capacity bars** — every day header in Week view shows live load vs. capacity.
+- **Archive** — retire finished boards without deleting; restore anytime from the sidebar's Archived section.
+- **Share links** — a board compressed into a URL hash; the recipient imports a copy, 100% server-free.
+- **Task attachments** — up to 5 MB of files per task; bytes in IndexedDB, metadata in the workspace; image thumbnails inline.
+- **Print / PDF week plan** — a clean A4-landscape week table straight from Week view.
+- 8 languages, signed-Android-ready CI, Lighthouse + bundle-budget lanes, WebKit E2E, visual regression baselines.
 
 ## 🤖 Android app (zero permissions)
 
@@ -86,7 +99,7 @@ See [`capacitor/README.md`](capacitor/README.md) for prerequisites and [`downloa
 
 Full policy: **[privacy.html](https://avithegod2010.github.io/Goalcheck/privacy.html)** (also at `public/privacy.html` in the repo).
 
-- All state lives in `localStorage` on your machine (schema-versioned, with automatic migrations).
+- All state lives in **IndexedDB** on your machine (schema-versioned, with automatic migrations; a localStorage backup copy is kept after the v5 migration).
 - The only optional file access is the **sync-file** feature (Advance): you explicitly pick a local file, and the app writes your backup there. Nothing is uploaded.
 - Full JSON export/import anytime — your backup, your disk.
 - A full pre-publication security audit is documented in [`download/SECURITY-AUDIT.md`](download/SECURITY-AUDIT.md).
@@ -97,7 +110,7 @@ Full policy: **[privacy.html](https://avithegod2010.github.io/Goalcheck/privacy.
 |---|---|---|
 | Views | Checklist | + Week, Calendar, Roadmap, Kanban, Matrix, Mind Map, Analytics, Deep Focus |
 | Themes | 2 (Nebula / Nordic) | 11 + 13 particle engines + presets |
-| Extras | — | Habits, achievements, due dates + smart recurrence, time tracking, Markdown notes, weekly review, Year Wrapped, importers, reminders, auto-snapshots, palette, DnD, demo data, templates, audio studio, Data Doctor, theme sharing |
+| Extras | — | Habits, achievements, due dates + smart recurrence, time tracking, Markdown notes, weekly review, Year Wrapped, importers, reminders, auto-snapshots, palette, DnD, demo data, templates, audio studio, Data Doctor, theme sharing, `.ics` import/export, smart week planner + capacity bars, task attachments, NL quick add, voice input, share links, print week |
 
 Both editions read the **same storage schema**, so switching between them never loses data — and Advance builds let you switch **inside the app** with the always-visible header switcher (`Normal | Advance` — or Settings → Edition) anytime.
 
@@ -129,8 +142,8 @@ Quality gates (run in CI on every push):
 ```bash
 bun run lint         # ESLint
 bun run typecheck    # tsc --noEmit (strict)
-bunx vitest run      # 92 unit tests
-bunx playwright test # 14 E2E golden-path + drag-and-drop tests
+bunx vitest run      # 214 unit tests (engine, migrations, NLP, planner, ics, share links, attachments)
+bunx playwright test # E2E on Chromium + WebKit (golden path + drag-and-drop), visual baselines behind GC_VISUAL=1
 ```
 
 ## Project docs

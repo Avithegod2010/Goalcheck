@@ -6,12 +6,14 @@
    sliding pills on tabs, mono animated icons everywhere.
    ========================================================= */
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useStore, useActiveGoal, useUi } from "@/lib/goalcheck/goalcheck-exports";
 import { MediaBadge, AnimatedNumber } from "./atoms";
 import { GcIcon } from "@/lib/goalcheck/icons";
-import { calculateStats, looksLikeQuickPaste } from "@/lib/goalcheck/logic";
+import { calculateStats, describeRecurrence, localDateKey, makeTask, shiftDays } from "@/lib/goalcheck/logic";
+import { parseQuickAdd, type ParsedQuickAdd } from "@/lib/goalcheck/nlp";
+import { notifyError } from "@/lib/goalcheck/notify";
 import { runCommand } from "@/components/goalcheck/Overlays";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -21,10 +23,10 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Check, RotateCcw, Trash2, Pencil, Search, LayoutGrid, Rows3, Plus } from "lucide-react";
-import type { WorkspaceView, FilterId } from "@/lib/goalcheck/types";
+import { Check, RotateCcw, Trash2, Pencil, Search, LayoutGrid, Rows3, Plus, Mic, MicOff } from "lucide-react";
+import type { WorkspaceView, FilterId, Task } from "@/lib/goalcheck/types";
 import { hasFeature } from "@/lib/goalcheck/editions";
-import { useT } from "@/lib/goalcheck/i18n";
+import { getLocale, useT } from "@/lib/goalcheck/i18n";
 
 const springy = { type: "spring", stiffness: 320, damping: 24 } as const;
 
@@ -167,6 +169,72 @@ function Chip({ children, icon, tone }: { children: React.ReactNode; icon: strin
 
 /* ---------------- Quick add bar ---------------- */
 
+/* Task 17-b — minimal Web Speech typings (Chrome ships it behind the
+   webkit prefix; the DOM lib may not declare SpeechRecognition at all,
+   so they are declared locally — no @types dependency). */
+interface SpeechRecognitionAlternativeLike {
+  transcript: string;
+}
+interface SpeechRecognitionResultLike {
+  isFinal: boolean;
+  length: number;
+  [index: number]: SpeechRecognitionAlternativeLike;
+}
+interface SpeechRecognitionResultListLike {
+  length: number;
+  [index: number]: SpeechRecognitionResultLike;
+}
+interface SpeechRecognitionEventLike {
+  resultIndex: number;
+  results: SpeechRecognitionResultListLike;
+}
+interface SpeechRecognitionErrorEventLike {
+  error: string;
+}
+interface SpeechRecognitionLike {
+  lang: string;
+  continuous: boolean;
+  interimResults: boolean;
+  start(): void;
+  stop(): void;
+  onresult: ((e: SpeechRecognitionEventLike) => void) | null;
+  onerror: ((e: SpeechRecognitionErrorEventLike) => void) | null;
+  onend: (() => void) | null;
+}
+type SpeechRecognitionCtor = new () => SpeechRecognitionLike;
+
+function getSpeechRecognition(): SpeechRecognitionCtor | undefined {
+  if (typeof window === "undefined") return undefined;
+  const w = window as unknown as {
+    SpeechRecognition?: SpeechRecognitionCtor;
+    webkitSpeechRecognition?: SpeechRecognitionCtor;
+  };
+  return w.SpeechRecognition ?? w.webkitSpeechRecognition;
+}
+
+/* BCP-47 tag per supported locale (bare codes work, regional hints help) */
+const SR_LANGS: Record<string, string> = { en: "en-US", hi: "hi-IN", es: "es-ES", de: "de-DE", fr: "fr-FR", "pt-BR": "pt-BR", ja: "ja-JP", ru: "ru-RU" };
+
+/* never-fire subscribe — the speech API set is fixed for a page session */
+const subscribeNoop = () => () => {};
+const srAvailable = () => getSpeechRecognition() !== undefined;
+
+/* compact preview pill — same language as Checklist's DueBadge */
+function NlChip({ children, icon }: { children: React.ReactNode; icon: string }) {
+  return (
+    <motion.span
+      className="flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[0.65rem] font-extrabold"
+      style={{ background: "var(--gc-surface-2)", color: "var(--gc-text2)", borderColor: "var(--gc-border)" }}
+      initial={{ opacity: 0, scale: 0.85 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={springy}
+    >
+      <GcIcon name={icon} size={11} />
+      {children}
+    </motion.span>
+  );
+}
+
 export function QuickAddBar() {
   const addCategory = useStore((s) => s.addCategory);
   const quickCatMedia = useStore((s) => s.quickCatMedia);
@@ -175,6 +243,82 @@ export function QuickAddBar() {
   const [title, setTitle] = useState("");
   const [recurrence, setRecurrence] = useState("none");
   const inputRef = useRef<HTMLInputElement>(null);
+
+  /* Task 17-b — live natural-language preview (cheap parser, per keystroke).
+     Base edition keeps date phrases in the text (extractDates:false). */
+  const parsed = useMemo(
+    () => parseQuickAdd(title, { extractDates: hasFeature("due-dates") }),
+    [title]
+  );
+  const hasParsed =
+    parsed.dueDate !== undefined ||
+    parsed.priority !== undefined ||
+    parsed.categoryTitle !== undefined ||
+    parsed.estimate !== undefined ||
+    parsed.recurrence !== undefined;
+
+  const dueLabel = useMemo(() => {
+    if (!parsed.dueDate) return "";
+    const today = localDateKey(new Date());
+    if (parsed.dueDate === today) return t("task.today");
+    if (parsed.dueDate === localDateKey(shiftDays(new Date(), 1))) return t("hero.nlDueTomorrow");
+    const due = new Date(`${parsed.dueDate}T00:00:00`);
+    const days = Math.round((due.getTime() - new Date(`${today}T00:00:00`).getTime()) / 86400000);
+    if (days >= 0 && days < 7) return due.toLocaleDateString(getLocale(), { weekday: "long" });
+    return parsed.dueDate.slice(5); /* "MM-DD" — DueBadge convention */
+  }, [parsed.dueDate, t]);
+
+  /* Task 17-b — voice dictation (Web Speech API). useSyncExternalStore keeps
+     SSR/hydration honest (server: hidden) without setState-in-effect. */
+  const [listening, setListening] = useState(false);
+  const voiceReady = useSyncExternalStore(subscribeNoop, srAvailable, () => false);
+  const recRef = useRef<SpeechRecognitionLike | null>(null);
+  const voiceBaseRef = useRef("");
+
+  useEffect(() => () => recRef.current?.stop(), []);
+
+  const toggleVoice = () => {
+    if (listening) {
+      recRef.current?.stop();
+      return;
+    }
+    const Ctor = getSpeechRecognition();
+    if (!Ctor) return;
+    const rec = new Ctor();
+    recRef.current = rec;
+    voiceBaseRef.current = title.trim(); /* text typed before dictation is kept */
+    rec.lang = SR_LANGS[getLocale()] ?? getLocale();
+    rec.continuous = false;
+    rec.interimResults = true;
+    rec.onresult = (e) => {
+      let interim = "";
+      let finalText = "";
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const res = e.results[i];
+        const chunk = res[0]?.transcript ?? "";
+        if (res.isFinal) finalText += chunk;
+        else interim += chunk;
+      }
+      const base = voiceBaseRef.current;
+      const prefix = base ? `${base} ` : "";
+      /* interim streams into the input live; the final result replaces
+         the dictated segment (base text + final transcript) */
+      setTitle(finalText ? `${prefix}${finalText.trim()}` : `${prefix}${interim.trim()}`);
+    };
+    rec.onerror = (e) => {
+      setListening(false);
+      if (e.error === "not-allowed" || e.error === "service-not-allowed") notifyError(t("hero.voiceDenied"));
+      else if (e.error === "no-speech") notifyError(t("hero.voiceNoSpeech"));
+      else notifyError(t("hero.voiceError"));
+    };
+    rec.onend = () => setListening(false);
+    try {
+      rec.start();
+      setListening(true);
+    } catch {
+      setListening(false);
+    }
+  };
 
   /* v4.2 — external intake: extension handoff / share-sheet prefill+focus */
   useEffect(() => {
@@ -193,11 +337,66 @@ export function QuickAddBar() {
     };
   }, []);
 
-  /* v4.2 — natural-language routing: /commands run inline; multi-task
-     snippets open the Quick Paste preview; plain text stays a category. */
+  /* Task 17-b — apply parsed quick-add values: "#tag" resolves to an existing
+     category (case-insensitive, " -" suffix tolerated) or is created; without
+     a tag the task lands in the first category (creating a "Tasks" category
+     on an empty board). Task fields ride makeTask opts — the same factory
+     the store itself uses. */
+  const addParsedTask = (line: ParsedQuickAdd) => {
+    const text = line.clean;
+    const opts: Partial<Task> = {};
+    if (line.priority) opts.priority = line.priority;
+    if (line.dueDate) opts.dueDate = line.dueDate;
+    if (line.recurrence) opts.recurrence = line.recurrence;
+    if (line.estimate) opts.estimate = line.estimate;
+
+    const goalOf = () => {
+      const s = useStore.getState();
+      return s.goals.find((g) => g.id === s.activeGoalId);
+    };
+    const lastCatId = () => {
+      const cats = goalOf()?.categories;
+      return cats && cats.length > 0 ? cats[cats.length - 1].id : null;
+    };
+
+    let catId: string | null = null;
+    if (line.categoryTitle) {
+      const needle = line.categoryTitle.toLowerCase();
+      const existing = goalOf()?.categories.find(
+        (c) => c.title.replace(/\s*[-:]$/, "").trim().toLowerCase() === needle
+      );
+      if (existing) catId = existing.id;
+      else {
+        addCategory(line.categoryTitle, quickCatMedia, "none");
+        catId = lastCatId();
+      }
+    } else {
+      const cats = goalOf()?.categories;
+      if (cats && cats.length > 0) catId = cats[0].id;
+      else {
+        addCategory(t("hero.nlDefaultCategory"), quickCatMedia, "none");
+        catId = lastCatId();
+      }
+    }
+    if (!catId || !text) return;
+
+    useStore.setState((s) => ({
+      goals: s.goals.map((g) => g.id === s.activeGoalId
+        ? { ...g, categories: g.categories.map((c) => c.id === catId
+          ? { ...c, items: [...c.items, makeTask(text, opts)] }
+          : c) }
+        : g),
+    }));
+  };
+
+  /* v4.2 — natural-language routing: /commands run inline; the • / ;-list
+     multi-task syntax opens the Quick Paste preview; 17-b adds single-task
+     NL parsing (dates / !priority / #category / ~estimate / every-week) as
+     a task-add path; plain text stays a category. */
   const submitQuickAdd = () => {
     const raw = title.trim();
     if (!raw) return;
+    if (listening) recRef.current?.stop();
     if (raw.startsWith("/")) {
       const msg = runCommand(raw);
       if (msg) toast(msg);
@@ -205,8 +404,20 @@ export function QuickAddBar() {
       setTitle("");
       return;
     }
-    if (looksLikeQuickPaste(raw)) {
+    if (raw.includes("•") || raw.includes(";") || /\n/.test(raw) || /^\s*(\d+[.)]|[-*]|\[\s?[xX]?\s?\])\s+/.test(raw)) {
       useUi.setState({ pasteText: raw, pasteModal: true });
+      setTitle("");
+      return;
+    }
+    const parsedLine = parseQuickAdd(raw, { extractDates: hasFeature("due-dates") });
+    const hasExtras =
+      parsedLine.dueDate !== undefined ||
+      parsedLine.priority !== undefined ||
+      parsedLine.categoryTitle !== undefined ||
+      parsedLine.estimate !== undefined ||
+      parsedLine.recurrence !== undefined;
+    if (hasExtras && parsedLine.clean) {
+      addParsedTask(parsedLine);
       setTitle("");
       return;
     }
@@ -251,6 +462,20 @@ export function QuickAddBar() {
           aria-label={t("hero.inputAria")}
           required
         />
+        {voiceReady && (
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            className={`size-10 shrink-0 gc-btn ${listening ? "animate-pulse" : ""}`}
+            onClick={toggleVoice}
+            aria-pressed={listening}
+            aria-label={t("hero.voiceInput")}
+            title={t("hero.voiceInput")}
+          >
+            {listening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+          </Button>
+        )}
         <div className="w-[10.5rem] shrink-0">
           <Select value={recurrence} onValueChange={setRecurrence}>
             <SelectTrigger className="gc-input text-xs" aria-label={t("hero.recurrence")}>
@@ -265,6 +490,28 @@ export function QuickAddBar() {
         </div>
         <Button type="submit" className="shrink-0 gc-btn-primary"><Plus className="h-4 w-4" /> {t("common.add")}</Button>
       </form>
+      {hasParsed && (
+        <motion.div
+          className="flex w-full flex-wrap items-center gap-1.5"
+          initial={{ opacity: 0, y: -4 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.2 }}
+          role="status"
+          aria-label={t("hero.nlPreviewAria")}
+        >
+          {parsed.dueDate && <NlChip icon="calendar-tick">{dueLabel}</NlChip>}
+          {parsed.priority && (
+            <NlChip icon={parsed.priority === "urgent" ? "flame-ember" : "star-shine"}>
+              !{parsed.priority}
+            </NlChip>
+          )}
+          {parsed.categoryTitle && <NlChip icon="folder-open">#{parsed.categoryTitle}</NlChip>}
+          {parsed.estimate ? (
+            <NlChip icon="tomato-timer">{t("hero.nlChipEstimate", { count: parsed.estimate })}</NlChip>
+          ) : null}
+          {parsed.recurrence && <NlChip icon="repeat-cycle">{describeRecurrence(parsed.recurrence)}</NlChip>}
+        </motion.div>
+      )}
     </motion.section>
   );
 }

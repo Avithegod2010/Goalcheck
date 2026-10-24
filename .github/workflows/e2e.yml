@@ -4,6 +4,15 @@ name: E2E
 # Every push to main and every PR: boots the dev server (Advance edition)
 # and drives onboarding → board → task → views → themes → palette →
 # edition switch → encrypted export → report card → mobile smoke.
+#
+# v4.4 (task 17-g) — two lanes:
+#   - cross-engine: chromium (default) + webkit (Safari engine, 2 retries —
+#     webkit is the flakiest engine on Linux, chromium stays at 0 to stay fast)
+#   - visual regression: GC_VISUAL=1, chromium-only, dedicated job. Baselines
+#     are generated locally (`GC_VISUAL=1 bunx playwright test
+#     --update-snapshots`) and committed; the job is continue-on-error until
+#     they stabilize across font-rendering environments — flip it to hard
+#     once the snapshot dir is committed and green for a few runs.
 
 on:
   push:
@@ -15,9 +24,42 @@ permissions:
 
 jobs:
   e2e:
-    name: Golden path (chromium)
+    name: Golden path (chromium + webkit)
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      # webkit needs extra system libs on ubuntu — --with-deps handles both engines
+      - name: Install Playwright browsers (chromium + webkit)
+        run: bunx playwright install --with-deps webkit chromium
+
+      - name: Run E2E suite (all projects)
+        run: bunx playwright test
+
+      - name: Upload failure traces
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces
+          path: test-results/
+          retention-days: 7
+
+  visual:
+    name: Visual regression (chromium, baselines)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # TODO(flip-me): remove continue-on-error once tests/e2e/__snapshots__ is
+    # committed and this job has been green across a few runs — font AA and
+    # Chromium minor-version drift can still shift pixels on fresh runners.
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
 
@@ -31,13 +73,19 @@ jobs:
       - name: Install Playwright chromium
         run: bunx playwright install --with-deps chromium
 
-      - name: Run golden-path suite
-        run: bunx playwright test
+      # The whole visual spec self-skips unless GC_VISUAL=1 (see
+      # tests/e2e/visual.spec.ts) so normal lanes stay fast. Chromium-only:
+      # baselines are per-engine and webkit snapshots would double the
+      # maintenance surface for zero signal right now.
+      - name: Run visual suite (chromium only)
+        env:
+          GC_VISUAL: "1"
+        run: bunx playwright test --project=chromium tests/e2e/visual.spec.ts
 
-      - name: Upload failure traces
+      - name: Upload visual diffs
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-traces
+          name: visual-diffs
           path: test-results/
           retention-days: 7

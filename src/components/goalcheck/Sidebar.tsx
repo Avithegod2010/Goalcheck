@@ -9,6 +9,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useStore, useActiveGoal, useUi } from "@/lib/goalcheck/goalcheck-exports";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { notifyError, notifySuccess } from "@/lib/goalcheck/notify";
+import { SHARE_MAX_TOKEN_CHARS, boardShareUrl, encodeBoardShare } from "@/lib/goalcheck/sharelink";
 import { Panel, PanelTitle, MediaBadge, AnimatedNumber, usePomoRemaining, formatMs } from "./atoms";
 import { useT } from "@/lib/goalcheck/i18n";
 import { makeTask, localDateKey } from "@/lib/goalcheck/logic";
@@ -18,11 +21,11 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { TEMPLATES } from "@/lib/goalcheck/presets";
-import type { Task } from "@/lib/goalcheck/types";
+import type { GoalBoard, Task } from "@/lib/goalcheck/types";
 import { toast } from "sonner";
 import { calculateStats } from "@/lib/goalcheck/logic";
 import { startAudioStream, stopAudioStream, readFft } from "@/lib/goalcheck/audio";
-import { Play, Pause, RotateCcw, Plus, Bell, Timer, Square } from "lucide-react";
+import { Play, Pause, RotateCcw, Plus, Bell, Timer, Square, MoreVertical, ChevronDown } from "lucide-react";
 
 /* ---------------- Pomodoro widget ---------------- */
 
@@ -212,7 +215,31 @@ export function GoalNav() {
   const goals = useStore((s) => s.goals);
   const activeGoalId = useStore((s) => s.activeGoalId);
   const setActive = useStore((s) => s.setActiveGoal);
+  const archiveBoard = useStore((s) => s.archiveBoard);
+  const unarchiveBoard = useStore((s) => s.unarchiveBoard);
   const openBoardModal = useUi((s) => s.openBoardModal);
+  /* v4.4 — archived-board section (collapsed by default) */
+  const [archOpen, setArchOpen] = useState(false);
+
+  /* archived boards never appear in the normal nav list */
+  const boards = useMemo(() => goals.filter((g) => !g.archived), [goals]);
+  const archived = useMemo(() => goals.filter((g) => g.archived), [goals]);
+
+  /* 17-e — encode a local-first share link (gzip→base64url token) and copy it */
+  const copyShareLink = async (g: GoalBoard) => {
+    try {
+      const token = await encodeBoardShare(g);
+      if (token.length > SHARE_MAX_TOKEN_CHARS) {
+        notifyError(t("side.shareTooLarge", { chars: token.length }));
+        return;
+      }
+      await navigator.clipboard.writeText(boardShareUrl(token));
+      notifySuccess(t("side.shareCopied", { name: g.title }), "link-combo");
+    } catch {
+      /* clipboard unavailable / encode failed — mirror the export-modal fallback */
+      notifyError(t("modal.export.clipboardUnavailable"));
+    }
+  };
 
   return (
     <Panel>
@@ -227,21 +254,16 @@ export function GoalNav() {
         {t("side.boards")}
       </PanelTitle>
       <div className="flex flex-col gap-1">
-        {goals.map((g, i) => {
+        {boards.map((g, i) => {
           const stats = calculateStats(g);
           const active = g.id === activeGoalId;
           return (
-            <motion.button
+            <motion.div
               key={g.id}
-              type="button"
-              onClick={() => setActive(g.id)}
-              className="relative flex w-full items-center justify-between gap-2 rounded-xl border border-transparent px-3 py-2 text-left focus-visible:outline-2"
+              className="relative flex w-full items-center gap-0.5"
               initial={{ opacity: 0, x: -16 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.35, delay: Math.min(i * 0.06, 0.3), ease: [0.22, 1, 0.36, 1] }}
-              whileHover={{ x: 3 }}
-              whileTap={{ scale: 0.98 }}
-              aria-current={active ? "true" : undefined}
             >
               {active && (
                 <motion.span
@@ -251,29 +273,122 @@ export function GoalNav() {
                   transition={{ type: "spring", stiffness: 420, damping: 34 }}
                 />
               )}
-              <span className="relative flex min-w-0 items-center gap-2.5">
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-lg border" style={{ borderColor: "var(--gc-border)", background: "var(--gc-surface-2)" }}>
-                  <MediaBadge value={g.media} fallback="mono:target-radar" iconSize={17} />
-                </span>
-                <span className="min-w-0">
-                  <span className="block truncate text-[0.82rem] font-bold">{g.title}</span>
-                  <span className="block text-[0.68rem]" style={{ color: "var(--gc-text2)" }}>{t("side.completedCount", { completed: stats.completed, total: stats.total })}</span>
-                </span>
-              </span>
-              <motion.span
-                key={`${g.id}-${stats.percent}`}
-                className="relative shrink-0 rounded-full px-2 py-0.5 font-mono text-[0.7rem] font-bold"
-                style={active ? { background: "color-mix(in srgb, var(--gc-accent) 85%, black)", color: "#ffffff" } : { background: "var(--gc-surface-2)", color: "var(--gc-text2)" }}
-                initial={{ scale: 1.15 }}
-                animate={{ scale: 1 }}
-                transition={{ type: "spring", stiffness: 460, damping: 18 }}
+              <motion.button
+                type="button"
+                onClick={() => setActive(g.id)}
+                className="relative min-w-0 flex-1 rounded-xl px-3 py-2 text-left focus-visible:outline-2"
+                whileHover={{ x: 3 }}
+                whileTap={{ scale: 0.98 }}
+                aria-current={active ? "true" : undefined}
               >
-                {stats.percent}%
-              </motion.span>
-            </motion.button>
+                <span className="flex w-full items-center justify-between gap-2">
+                  <span className="flex min-w-0 items-center gap-2.5">
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-lg border" style={{ borderColor: "var(--gc-border)", background: "var(--gc-surface-2)" }}>
+                      <MediaBadge value={g.media} fallback="mono:target-radar" iconSize={17} />
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block truncate text-[0.82rem] font-bold">{g.title}</span>
+                      <span className="block text-[0.68rem]" style={{ color: "var(--gc-text2)" }}>{t("side.completedCount", { completed: stats.completed, total: stats.total })}</span>
+                    </span>
+                  </span>
+                  <motion.span
+                    key={`${g.id}-${stats.percent}`}
+                    className="shrink-0 rounded-full px-2 py-0.5 font-mono text-[0.7rem] font-bold"
+                    style={active ? { background: "color-mix(in srgb, var(--gc-accent) 85%, black)", color: "#ffffff" } : { background: "var(--gc-surface-2)", color: "var(--gc-text2)" }}
+                    initial={{ scale: 1.15 }}
+                    animate={{ scale: 1 }}
+                    transition={{ type: "spring", stiffness: 460, damping: 18 }}
+                  >
+                    {stats.percent}%
+                  </motion.span>
+                </span>
+              </motion.button>
+              {/* v4.4 — per-board kebab: copy share link / archive (reversible, no confirm) */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="relative size-7 shrink-0 gc-btn opacity-50 transition-opacity hover:opacity-100"
+                    aria-label={t("side.boardMenuLabel")}
+                    title={t("side.boardMenuLabel")}
+                  >
+                    <MoreVertical className="h-3.5 w-3.5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-52">
+                  <DropdownMenuItem onClick={() => { void copyShareLink(g); }}>
+                    <GcIcon name="link-combo" size={14} /><span className="ml-2">{t("side.copyShareLink")}</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => archiveBoard(g.id)}>
+                    <GcIcon name="folder-open" size={14} /><span className="ml-2">{t("side.archiveBoard")}</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </motion.div>
           );
         })}
       </div>
+
+      {/* v4.4 — archived boards: hidden from the workspace, never deleted */}
+      {archived.length > 0 && (
+        <div className="mt-2 border-t pt-2" style={{ borderColor: "var(--gc-border)" }}>
+          <button
+            type="button"
+            onClick={() => setArchOpen((o) => !o)}
+            aria-expanded={archOpen}
+            className="flex w-full items-center gap-1.5 rounded-lg px-2 py-1.5 text-[0.68rem] font-extrabold uppercase tracking-wide transition-opacity hover:opacity-75"
+            style={{ color: "var(--gc-text2)" }}
+          >
+            <ChevronDown className={`h-3.5 w-3.5 shrink-0 transition-transform ${archOpen ? "" : "-rotate-90"}`} />
+            {t("side.archivedSection")}
+            <span className="ml-auto rounded-full px-1.5 py-0.5 font-mono text-[0.62rem] normal-case" style={{ background: "var(--gc-surface-2)" }}>
+              {archived.length}
+            </span>
+          </button>
+          <AnimatePresence initial={false}>
+            {archOpen && (
+              <motion.div
+                key="archived-list"
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
+                className="overflow-hidden"
+              >
+                <div className="mt-1 flex flex-col gap-0.5">
+                  {archived.map((g) => (
+                    <div key={g.id} className="flex items-center gap-1.5 rounded-lg px-2 py-1.5" style={{ background: "var(--gc-surface-2)" }}>
+                      <GcIcon name="folder-open" size={13} className="shrink-0" />
+                      <button
+                        type="button"
+                        onClick={() => { setActive(g.id); setArchOpen(false); }}
+                        className="min-w-0 flex-1 truncate text-left text-[0.75rem] font-bold"
+                        title={t("side.openBoard")}
+                        aria-label={`${t("side.openBoard")}: ${g.title}`}
+                      >
+                        {g.title}
+                      </button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="size-6 shrink-0 gc-btn"
+                        title={t("side.restoreBoard")}
+                        aria-label={`${t("side.restoreBoard")}: ${g.title}`}
+                        onClick={() => unarchiveBoard(g.id)}
+                      >
+                        <GcIcon name="undo-ccw" size={12} />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      )}
     </Panel>
   );
 }

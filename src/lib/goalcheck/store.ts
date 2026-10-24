@@ -2,8 +2,9 @@
 
 /* =========================================================
    GoalCheck (Advance edition) — Typed Zustand store
-   - localStorage persistence WITH schema version + migration
-     (auto-imports the legacy v1 key from the old HTML app)
+   - IndexedDB persistence WITH schema version + migration
+     (v5 storage engine in ./idb.ts; one-time import of the
+     legacy localStorage payload keeps every existing byte)
    - timestamp-based pomodoro (drift-free, survives reload)
    - effects bus for imperative canvas/audio celebrations
    ========================================================= */
@@ -11,12 +12,13 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import { notify, notifyError, notifySuccess } from "./notify";
-import type { ChimePack } from "./types";
+import type { AttachmentMeta, ChimePack } from "./types";
 import type {
   Category, FilterId, GoalBoard, GoalCheckState, Habit, PomoMode, Priority,
   Task, WorkspaceView, ParticleEngineId, CursorPhysics, ReviewEntry, ActiveTimer,
 } from "./types";
 import { STORAGE_KEY, STORAGE_VERSION } from "./types";
+import { idbStorage } from "./idb";
 import {
   blankBoard, calculateStats, comboMultiplier, computeStreaks, evaluateAchievements, goalFromTemplate,
   habitPeriodKey, habitStreak, isoWeekKey, isValidRecurrence, localDateKey, levelFromXp, makeCategory,
@@ -29,10 +31,11 @@ import { nativeBackgroundNotify, ensureNotificationPermission } from "./native";
 /* =========================================================
    Quota-safe persistence — Phase 2 (PWA) storage resilience
    ---------------------------------------------------------
-   localStorage has a hard quota (~5MB). Embedded images are
-   the only heavy payload in our state (data:image URLs on
-   goals/categories/brand media). When setItem throws
-   QuotaExceededError we:
+   Since v5 the workspace lives in IndexedDB (large quota),
+   but the payload can still carry heavy embedded images
+   (data:image URLs on goals/categories/brand media — e.g.
+   freshly imported legacy workspaces). When a write fails
+   with a quota error we:
      1. prune the largest embedded images (replace with the
         `mono:image-pic` placeholder), retrying after each;
      2. never drop tasks, notes, streaks or analytics;
@@ -75,52 +78,41 @@ function pruneLargestImage(state: Record<string, unknown>): boolean {
   return true;
 }
 
-/** zustand StateStorage wrapper: transparent unless the quota is hit. */
-const quotaSafeStorage = {
-  getItem: (name: string): string | null => {
+/** zustand StateStorage wrapper over the IndexedDB adapter: transparent unless a write hits a quota error. */
+const quotaSafeIdbStorage = {
+  getItem: (name: string): Promise<string | null> => idbStorage.getItem(name),
+  setItem: async (name: string, value: string): Promise<void> => {
     try {
-      return localStorage.getItem(name);
-    } catch {
-      return null;
-    }
-  },
-  setItem: (name: string, value: string): void => {
-    try {
-      localStorage.setItem(name, value);
+      await idbStorage.setItem(name, value);
+      return;
     } catch (e) {
       if (!isQuotaError(e)) throw e;
-      // prune loop — up to 40 embedded images, then give up gracefully
-      let saved = false;
-      try {
-        const envelope = JSON.parse(value) as { state?: Record<string, unknown> };
-        if (envelope && typeof envelope === "object" && envelope.state) {
-          for (let i = 0; i < 40; i++) {
-            if (!pruneLargestImage(envelope.state)) break;
-            try {
-              localStorage.setItem(name, JSON.stringify(envelope));
-              saved = true;
-              break;
-            } catch {
-              /* still full — prune again */
-            }
+    }
+    // quota loop — up to 40 embedded images, then give up gracefully
+    let saved = false;
+    try {
+      const envelope = JSON.parse(value) as { state?: Record<string, unknown> };
+      if (envelope && typeof envelope === "object" && envelope.state) {
+        for (let i = 0; i < 40; i++) {
+          if (!pruneLargestImage(envelope.state)) break;
+          try {
+            await idbStorage.setItem(name, JSON.stringify(envelope));
+            saved = true;
+            break;
+          } catch {
+            /* still full — prune again */
           }
         }
-      } catch {
-        /* keep original error path below */
       }
-      if (!saved && typeof window !== "undefined") {
-        window.dispatchEvent(new CustomEvent("gc-storage-quota-failed"));
-      }
-      if (saved) window.dispatchEvent(new CustomEvent("gc-storage-quota"));
-    }
-  },
-  removeItem: (name: string): void => {
-    try {
-      localStorage.removeItem(name);
     } catch {
-      /* ignore */
+      /* keep original error path below */
     }
+    if (!saved && typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("gc-storage-quota-failed"));
+    }
+    if (saved) window.dispatchEvent(new CustomEvent("gc-storage-quota"));
   },
+  removeItem: (name: string): Promise<void> => idbStorage.removeItem(name),
 };
 
 /* ---------- effects bus (confetti / ripple / chime / xp floats) ---------- */
@@ -141,9 +133,11 @@ export const bus = {
 /* ---------- defaults ---------- */
 
 function defaultState(): GoalCheckState {
-  const g1 = goalFromTemplate("devices");
-  const g2 = goalFromTemplate("vacation");
-  const g3 = goalFromTemplate("exam");
+  /* normalizeGoal = v5 shim for the logic.ts templates (adds archived /
+     estimate / attachments defaults without touching template content) */
+  const g1 = normalizeGoal(goalFromTemplate("devices"));
+  const g2 = normalizeGoal(goalFromTemplate("vacation"));
+  const g3 = normalizeGoal(goalFromTemplate("exam"));
   return {
     theme: DEFAULT_DARK_THEME,
     particles: IS_PRO ? "fire" : "off",
@@ -174,6 +168,20 @@ function defaultState(): GoalCheckState {
 
 /* ---------- normalization for loaded data ---------- */
 
+/** v5 — keep only well-formed AttachmentMeta entries; preserves valid ones byte-for-byte. */
+function normalizeAttachmentMeta(raw: unknown): AttachmentMeta | null {
+  const a = raw as Partial<AttachmentMeta> | null;
+  if (!a || typeof a !== "object") return null;
+  if (typeof a.id !== "string" || !a.id) return null;
+  return {
+    id: a.id,
+    name: typeof a.name === "string" ? a.name : "",
+    mime: typeof a.mime === "string" ? a.mime : "application/octet-stream",
+    size: typeof a.size === "number" && a.size >= 0 ? a.size : 0,
+    addedAt: typeof a.addedAt === "number" && a.addedAt >= 0 ? a.addedAt : 0,
+  };
+}
+
 function normalizeGoal(g: Partial<GoalBoard>): GoalBoard {
   return {
     id: g.id || makeId("goal"),
@@ -181,11 +189,16 @@ function normalizeGoal(g: Partial<GoalBoard>): GoalBoard {
     subtitle: g.subtitle || "",
     media: g.media || "🎯",
     createdAt: g.createdAt || Date.now(),
+    /* v5 — archived boards stay in the workspace, just out of sight */
+    archived: g.archived === true,
     categories: (g.categories || []).map((c): Category => ({
       id: c.id || makeId("cat"),
       title: c.title || "Untitled -",
       media: c.media || "📌",
-      recurrence: c.recurrence === "daily" || c.recurrence === "weekly" ? c.recurrence : "none",
+      /* v4.3 fix — validate with isValidRecurrence so smart specs
+         ("weekdays", "every:N", "monthly:o:w") survive migration
+         instead of being downgraded to "none" */
+      recurrence: isValidRecurrence(c.recurrence) ? c.recurrence : "none",
       lastResetDate: c.lastResetDate || localDateKey(new Date()),
       lastWeekKey: c.lastWeekKey || isoWeekKey(new Date()),
       items: (c.items || []).map((it): Task => ({
@@ -204,9 +217,29 @@ function normalizeGoal(g: Partial<GoalBoard>): GoalBoard {
         recurrence: isValidRecurrence(it.recurrence) ? it.recurrence : "none",
         respawnedFrom: typeof it.respawnedFrom === "string" ? it.respawnedFrom : "",
         completedAt: typeof it.completedAt === "number" && it.completedAt >= 0 ? it.completedAt : 0,
+        /* v5 — required fields with migration defaults; existing values pass through untouched */
+        estimate: typeof it.estimate === "number" && it.estimate >= 0 ? it.estimate : 0,
+        attachments: Array.isArray(it.attachments)
+          ? it.attachments.map(normalizeAttachmentMeta).filter((a): a is AttachmentMeta => a !== null)
+          : [],
         createdAt: it.createdAt || Date.now(),
       })),
     })),
+  };
+}
+
+/**
+ * v5 runtime shim — logic.ts factories (makeTask) predate schema v5.
+ * Guarantees the required v5 fields on tasks the store creates in-session;
+ * caller-provided opts (which may set estimate/attachments) still win.
+ */
+function taskV5(t: Task): Task {
+  return {
+    ...t,
+    /* runtime guard — pre-v5 factories leave these undefined even though
+       the type says otherwise; caller-provided values win when present */
+    estimate: typeof t.estimate === "number" && t.estimate >= 0 ? t.estimate : 0,
+    attachments: Array.isArray(t.attachments) ? t.attachments : [],
   };
 }
 
@@ -226,6 +259,7 @@ function migrateLegacyV1(p: Record<string, unknown>): GoalCheckState {
     theme: themeExists(p.theme as string) ? clampThemeForEdition(p.theme as string) : d.theme,
     particles: IS_PRO ? ((p.particles as ParticleEngineId) || d.particles) : "off",
     view: IS_PRO ? ((p.view as WorkspaceView) || d.view) : "checklist",
+    filter: (p.filter as FilterId) || d.filter,
     layoutMode: p.layoutMode === "single" ? "single" : "grid",
     rpg: {
       enabled: typeof rpg.enabled === "boolean" ? rpg.enabled : true,
@@ -245,11 +279,33 @@ function migrateLegacyV1(p: Record<string, unknown>): GoalCheckState {
             ? (p.analytics as { perGoal?: Record<string, number> }).perGoal : {}) as Record<string, number>,
         }
       : d.analytics),
+    /* v5 — v2..v4 envelopes carry a pomo object; preserve the user's
+       timer prefs (mode/focusMinutes/remainingMs/bound task). A running
+       timer is never resurrected across a migration. (v0/v1 payloads
+       have no pomo and keep the defaults.) */
+    pomo: (() => {
+      const pp = p.pomo as Partial<GoalCheckState["pomo"]> | undefined;
+      if (!pp || typeof pp !== "object") return d.pomo;
+      return {
+        mode: pp.mode === "short" || pp.mode === "long" ? pp.mode : "focus",
+        focusMinutes: typeof pp.focusMinutes === "number" && pp.focusMinutes > 0
+          ? Math.round(pp.focusMinutes) : d.pomo.focusMinutes,
+        running: false,
+        endsAt: 0,
+        remainingMs: typeof pp.remainingMs === "number" && pp.remainingMs >= 0
+          ? pp.remainingMs : d.pomo.remainingMs,
+        attachedTaskId: typeof pp.attachedTaskId === "string" ? pp.attachedTaskId : "",
+      };
+    })(),
     settings: {
       ...s,
       rpgEnabled: typeof rpg.enabled === "boolean" ? rpg.enabled : s.rpgEnabled,
-      heatmapEnabled: typeof p.heatmapEnabled === "boolean" ? p.heatmapEnabled : s.heatmapEnabled,
-      autoParent: typeof p.autoParent === "boolean" ? p.autoParent : s.autoParent,
+      /* settings-object values (v2..v5 envelopes) win; top-level fallbacks
+         keep the v0/v1 flat-HTML import working */
+      heatmapEnabled: typeof legacySettings?.heatmapEnabled === "boolean" ? legacySettings.heatmapEnabled
+        : typeof p.heatmapEnabled === "boolean" ? p.heatmapEnabled : s.heatmapEnabled,
+      autoParent: typeof legacySettings?.autoParent === "boolean" ? legacySettings.autoParent
+        : typeof p.autoParent === "boolean" ? p.autoParent : s.autoParent,
       reduceEffects: typeof legacySettings?.reduceEffects === "boolean" ? legacySettings.reduceEffects : false,
       colorMode: legacySettings?.colorMode === "system" ? "system" : "manual",
       cursorPhysics: (legacySettings?.cursorPhysics as CursorPhysics) || (p.cursorPhysics as CursorPhysics) || s.cursorPhysics,
@@ -263,10 +319,14 @@ function migrateLegacyV1(p: Record<string, unknown>): GoalCheckState {
       lastBackupAt: typeof legacySettings?.lastBackupAt === "number" ? legacySettings.lastBackupAt : 0,
       backupNudgeDismissedAt: typeof legacySettings?.backupNudgeDismissedAt === "number" ? legacySettings.backupNudgeDismissedAt : 0,
       syncFileEnabled: legacySettings?.syncFileEnabled === true,
-      syncFileEncrypted: p.syncFileEncrypted === true,
-      streakFreezes: p.streakFreezes !== false,
-      fontScale: typeof p.fontScale === "number" && p.fontScale >= 0.8 && p.fontScale <= 1.5 ? p.fontScale : 1,
-      lastDoctorScanAt: typeof p.lastDoctorScanAt === "number" ? p.lastDoctorScanAt : 0,
+      syncFileEncrypted: typeof legacySettings?.syncFileEncrypted === "boolean" ? legacySettings.syncFileEncrypted : p.syncFileEncrypted === true,
+      streakFreezes: typeof legacySettings?.streakFreezes === "boolean" ? legacySettings.streakFreezes : p.streakFreezes !== false,
+      fontScale: (() => {
+        const fs = typeof legacySettings?.fontScale === "number" ? legacySettings.fontScale : p.fontScale;
+        return typeof fs === "number" && fs >= 0.8 && fs <= 1.5 ? fs : 1;
+      })(),
+      lastDoctorScanAt: typeof legacySettings?.lastDoctorScanAt === "number" ? legacySettings.lastDoctorScanAt
+        : typeof p.lastDoctorScanAt === "number" ? p.lastDoctorScanAt : 0,
       /* v4.3 — read from the persisted settings object when present */
       remindersEnabled: legacySettings?.remindersEnabled === true,
       snapshotCadence: legacySettings?.snapshotCadence === "daily" || legacySettings?.snapshotCadence === "weekly"
@@ -310,6 +370,19 @@ function migrateLegacyV1(p: Record<string, unknown>): GoalCheckState {
   };
 }
 
+/**
+ * Persisted-state migration -> current schema (v5).
+ *
+ * Every historical shape (v0/v1 flat HTML payload, v2..v4 envelopes)
+ * flows through migrateLegacyV1 + normalizeGoal, which apply the v5
+ * defaults (Task.estimate = 0, Task.attachments = [], GoalBoard.archived
+ * = false) while keeping every persisted value byte-for-byte. Exported
+ * for unit tests (tests/unit/migrate-v5.test.ts).
+ */
+export function migratePersistedState(persisted: unknown, _fromVersion: number): GoalCheckState {
+  return migrateLegacyV1(persisted as Record<string, unknown>);
+}
+
 /* ---------- store ---------- */
 
 interface Transient {
@@ -348,6 +421,12 @@ interface Store extends GoalCheckState, Transient {
   addBoard: (title: string, subtitle: string) => void;
   updateBoard: (title: string, subtitle: string) => void;
   deleteBoard: (id: string) => void;
+  /** v4.4 — hide a board from the workspace without deleting it (data intact) */
+  archiveBoard: (id: string) => void;
+  /** v4.4 — bring an archived board back into the workspace */
+  unarchiveBoard: (id: string) => void;
+  /** v4.4 — import a decoded share-link board (sharelink.ts) as a NEW board; returns false when invalid */
+  importSharedBoard: (goal: GoalBoard) => boolean;
   loadTemplate: (key: string) => void;
   setBoardMedia: (media: string) => void;
 
@@ -482,7 +561,7 @@ export const useStore = create<Store>()(
       /* ---------- boards ---------- */
       addBoard: (title, subtitle) => {
         if (!title.trim()) return;
-        const b = blankBoard(title.trim(), subtitle.trim());
+        const b = normalizeGoal(blankBoard(title.trim(), subtitle.trim())); // normalizeGoal = v5 shim
         set((s) => ({ goals: [b, ...s.goals], activeGoalId: b.id }));
         notify(`Created goal board: ${title}`, "plus-round");
       },
@@ -500,6 +579,37 @@ export const useStore = create<Store>()(
         });
         notify("Board deleted.", "trash-flame");
       },
+      archiveBoard: (id) => {
+        set((s) => {
+          const goals = s.goals.map((g) => (g.id === id ? { ...g, archived: true } : g));
+          /* if the archived board was active, fall back to the first non-archived one */
+          const active = goals.find((g) => g.id === s.activeGoalId);
+          const nextActive = active && !active.archived ? s.activeGoalId : (goals.find((g) => !g.archived)?.id || "");
+          return { goals, activeGoalId: nextActive };
+        });
+        notify("Board archived — find it under Archived.", "folder-open");
+      },
+      unarchiveBoard: (id) => {
+        set((s) => ({
+          goals: s.goals.map((g) => (g.id === id ? { ...g, archived: false } : g)),
+        }));
+        notify("Board restored.", "undo-ccw");
+      },
+      importSharedBoard: (goal) => {
+        if (!goal || typeof goal !== "object" || !Array.isArray(goal.categories)) {
+          notifyError("That share link is not a valid GoalCheck board.");
+          return false;
+        }
+        const clean = normalizeGoal(goal);
+        set((s) => {
+          /* never collide with an existing board id */
+          const exists = s.goals.some((g) => g.id === clean.id);
+          const board = exists ? { ...clean, id: `${clean.id}-${Date.now().toString(36)}` } : clean;
+          return { goals: [board, ...s.goals], activeGoalId: board.id };
+        });
+        notifySuccess(`Imported shared board: ${clean.title}`, "link-combo");
+        return true;
+      },
       loadTemplate: (key) => {
         if (!IS_PRO) {
           notifyError("Goal templates are a GoalCheck Advance feature.");
@@ -507,8 +617,9 @@ export const useStore = create<Store>()(
         }
         const g = goalFromTemplate(key);
         if (!g) return;
-        set((s) => ({ goals: [g, ...s.goals], activeGoalId: g.id }));
-        notify(`Loaded "${g.title}" template!`, "rocket-launch");
+        const board = normalizeGoal(g); // v5 shim
+        set((s) => ({ goals: [board, ...s.goals], activeGoalId: board.id }));
+        notify(`Loaded "${board.title}" template!`, "rocket-launch");
       },
       setBoardMedia: (media) => {
         set((s) => ({ goals: s.goals.map((g) => (g.id === s.activeGoalId ? { ...g, media } : g)) }));
@@ -571,7 +682,7 @@ export const useStore = create<Store>()(
         if (!t) return;
         set((s) => ({
           goals: s.goals.map((g) => g.id === s.activeGoalId
-            ? { ...g, categories: g.categories.map((c) => (c.id === catId ? { ...c, items: [...c.items, makeTask(t)] } : c)) }
+            ? { ...g, categories: g.categories.map((c) => (c.id === catId ? { ...c, items: [...c.items, taskV5(makeTask(t))] } : c)) }
             : g),
         }));
       },
@@ -678,14 +789,14 @@ export const useStore = create<Store>()(
                      anchored on the existing due date when present, else today */
                   const base = item.dueDate ? new Date(`${item.dueDate}T00:00:00`) : new Date();
                   const nextDue = nextRecurrenceDue(item.recurrence, base);
-                  const clone = makeTask(item.text, {
+                  const clone = taskV5(makeTask(item.text, {
                     priority: item.priority,
                     notes: item.notes,
                     pomosEstimate: item.pomosEstimate,
                     dueDate: nextDue,
                     recurrence: item.recurrence,
                     respawnedFrom: item.id,
-                  });
+                  }));
                   const idx = c.items.findIndex((t) => t.id === item.id);
                   const items = [...c.items];
                   items.splice(idx + 1, 0, clone);
@@ -1224,7 +1335,7 @@ export const useStore = create<Store>()(
       loadDemoData: () => {
         const demo = buildDemoWorkspace();
         set((s) => ({
-          goals: demo.goals,
+          goals: demo.goals.map(normalizeGoal), // v5 shim for logic.ts demo boards
           habits: IS_PRO ? demo.habits : [],
           activeGoalId: demo.goals[0]?.id || s.activeGoalId,
           view: s.view,
@@ -1232,7 +1343,7 @@ export const useStore = create<Store>()(
         notifySuccess("Sample workspace loaded — explore freely!", "sparkle-star");
       },
       clearDemoData: () => {
-        const g = blankBoard("My First Goal", "Your real workspace starts here");
+        const g = normalizeGoal(blankBoard("My First Goal", "Your real workspace starts here")); // v5 shim
         set({ goals: [g], habits: [], activeGoalId: g.id, reviews: [] });
         notify("Demo data cleared — fresh start ready.", "broom-sweep");
       },
@@ -1262,11 +1373,14 @@ export const useStore = create<Store>()(
     {
       name: STORAGE_KEY,
       version: STORAGE_VERSION,
-      storage: createJSONStorage(() => quotaSafeStorage),
+      storage: createJSONStorage(() => quotaSafeIdbStorage),
       partialize: (s) => pickPersisted(s),
       migrate: (persisted, version) => {
-        // v0/v1: legacy flat shape (or unknown) -> v2
-        return migrateLegacyV1(persisted as Record<string, unknown>);
+        // v0/v1: legacy flat shape (or unknown) -> normalized current schema.
+        // v2..v4 envelopes flow through the same normalizer, which applies the
+        // v5 defaults (task.estimate, task.attachments, goal.archived) without
+        // touching any value that is already present.
+        return migratePersistedState(persisted, version);
       },
       onRehydrateStorage: () => (state) => {
         if (state) {

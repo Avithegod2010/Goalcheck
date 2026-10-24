@@ -20,6 +20,20 @@ export const metadata: Metadata = {
     : "Local-first goal tracker: boards → categories → tasks, priorities, notes, Pomodoro focus timer, light & dark themes. No account, no network — your data stays on your device.",
   keywords: ["goal tracker", "checklist", "pomodoro", "productivity", "offline first", "FOSS"],
   applicationName: APP_NAME,
+  /* v4.4 — social share card (repo banner lives at public/social-banner.png;
+     absolute URL since OG crawlers fetch it off-site). */
+  openGraph: {
+    title: IS_PRO
+      ? "GoalCheck Advance — Multi-Goal Checklists, Focus Timer & Analytics"
+      : "GoalCheck — Multi-Goal Checklists & Focus Timer",
+    description: "Local-first goal tracker — no account, no network. Free & open source.",
+    images: [{ url: "https://avithegod2010.github.io/Goalcheck/social-banner.png", width: 1280, height: 640 }],
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    images: ["https://avithegod2010.github.io/Goalcheck/social-banner.png"],
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",

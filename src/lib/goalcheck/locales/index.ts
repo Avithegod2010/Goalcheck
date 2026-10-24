@@ -20,15 +20,19 @@ import en from "./en";
 import hi from "./hi";
 import es from "./es";
 import de from "./de";
+import fr from "./fr";
+import ptBR from "./pt-BR";
+import ja from "./ja";
+import ru from "./ru";
 import type { Catalog } from "./en";
 
 export type { Catalog, CatalogKey } from "./en";
 
-export type Locale = "en" | "hi" | "es" | "de";
+export type Locale = "en" | "hi" | "es" | "de" | "fr" | "pt-BR" | "ja" | "ru";
 
-export const CATALOGS: Record<Locale, Catalog> = { en, hi, es, de };
+export const CATALOGS: Record<Locale, Catalog> = { en, hi, es, de, fr, "pt-BR": ptBR, ja, ru };
 
-export const SUPPORTED_LOCALES: readonly Locale[] = ["en", "hi", "es", "de"];
+export const SUPPORTED_LOCALES: readonly Locale[] = ["en", "hi", "es", "de", "fr", "pt-BR", "ja", "ru"];
 
 /** Endonym per locale — for the settings language picker. */
 export const LOCALE_LABELS: Record<Locale, string> = {
@@ -36,4 +40,8 @@ export const LOCALE_LABELS: Record<Locale, string> = {
   hi: "हिन्दी",
   es: "Español",
   de: "Deutsch",
+  fr: "Français",
+  "pt-BR": "Português (BR)",
+  ja: "日本語",
+  ru: "Русский",
 };

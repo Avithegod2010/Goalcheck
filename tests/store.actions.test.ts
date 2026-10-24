@@ -1,5 +1,41 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { STORAGE_KEY } from "@/lib/goalcheck/types";
+
+/*
+ * v5 storage engine — persist writes go through "@/lib/goalcheck/idb".
+ * The quota tests need a controllable write layer, so the whole file runs
+ * against an in-memory IDB double that can be told to throw QuotaExceeded.
+ */
+const idbMock = vi.hoisted(() => ({
+  failOnce: false,
+  failAll: false,
+  written: new Map<string, string>(),
+}));
+
+vi.mock("@/lib/goalcheck/idb", async (importOriginal) => {
+  const mod = await importOriginal<typeof import("@/lib/goalcheck/idb")>();
+  const quotaErr = (msg: string) => {
+    const e = new Error(msg);
+    e.name = "QuotaExceededError";
+    return e;
+  };
+  return {
+    ...mod,
+    idbStorage: {
+      getItem: async (key: string) => idbMock.written.get(key) ?? null,
+      setItem: async (key: string, value: string) => {
+        if (idbMock.failAll || idbMock.failOnce) {
+          idbMock.failOnce = false;
+          throw quotaErr("quota exceeded");
+        }
+        idbMock.written.set(key, value);
+      },
+      removeItem: async (key: string) => {
+        idbMock.written.delete(key);
+      },
+    },
+  };
+});
 import { isoWeekKey, localDateKey, makeTask } from "@/lib/goalcheck/logic";
 import type { GoalBoard, Task } from "@/lib/goalcheck/types";
 
@@ -11,6 +47,9 @@ import type { GoalBoard, Task } from "@/lib/goalcheck/types";
 beforeEach(() => {
   vi.resetModules();
   localStorage.clear();
+  idbMock.failOnce = false;
+  idbMock.failAll = false;
+  idbMock.written.clear();
 });
 
 afterEach(() => {
@@ -199,20 +238,7 @@ describe("quota-safe storage (Phase 2 resilience)", () => {
     const useStore = await freshStore();
     const bigImage = "data:image/png;base64," + "A".repeat(4000);
     useStore.setState({ brandMedia: bigImage });
-
-    const realSetItem = Storage.prototype.setItem.bind(localStorage);
-    let quotaThrown = false;
-    const writtenKeys: string[] = [];
-    vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (key, value) {
-      if (!quotaThrown) {
-        quotaThrown = true;
-        const err = new Error("exceeded");
-        err.name = "QuotaExceededError";
-        throw err;
-      }
-      writtenKeys.push(key);
-      return realSetItem(key, value);
-    });
+    idbMock.failOnce = true; // first write attempt fails, the retry succeeds
 
     const prunedEvent = new Promise<void>((resolve) =>
       window.addEventListener("gc-storage-quota", () => resolve(), { once: true }),
@@ -221,21 +247,16 @@ describe("quota-safe storage (Phase 2 resilience)", () => {
     useStore.getState().completeOnboarding(); // triggers a persist write
     await prunedEvent;
 
-    const envelope = JSON.parse(localStorage.getItem(STORAGE_KEY)!) as { state: { brandMedia: string } };
+    const raw = idbMock.written.get(STORAGE_KEY)!;
+    expect(raw).toBeTruthy();
+    const envelope = JSON.parse(raw) as { state: { brandMedia: string } };
     expect(envelope.state.brandMedia).toBe("mono:image-pic"); // pruned to the fallback
-    expect(writtenKeys).toContain(STORAGE_KEY);
-    expect(quotaThrown).toBe(true);
   });
 
   it("broadcasts gc-storage-quota-failed when nothing can be pruned and the quota is still hit", async () => {
     const useStore = await freshStore();
     useStore.setState({ brandMedia: "mono:rocket-launch" }); // nothing prunable
-
-    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
-      const err = new Error("still full");
-      err.name = "QuotaExceededError";
-      throw err;
-    });
+    idbMock.failAll = true;
 
     const failedEvent = new Promise<void>((resolve) =>
       window.addEventListener("gc-storage-quota-failed", () => resolve(), { once: true }),

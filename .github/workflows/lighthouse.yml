@@ -1,0 +1,122 @@
+name: Lighthouse CI
+
+# Task 17-g — performance/quality lane.
+#
+# Builds the pro edition as a REAL server build (no BUILD_TARGET=pages → no
+# /Goalcheck basePath — Lighthouse must audit the standalone app, not the
+# Pages export), serves it via the standalone Node server (the same command
+# shape as `bun run start` — Next 16 refuses `next start` for
+# output:"standalone" configs) and runs Lighthouse 12 headless.
+#
+# Category gates: performance ≥ 0.70, accessibility ≥ 0.90,
+# best-practices ≥ 0.90, seo ≥ 0.85.
+#
+# Bundle budget: `node scripts/check-bundle.mjs` fails the job when the
+# total JS under .next/static/chunks exceeds 2.6 MiB (advance edition,
+# main chunks + workers — see the script header).
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  lighthouse:
+    name: Lighthouse + bundle budget
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      # Chromium for Lighthouse (no workflow in this repo shipped a browser
+      # before; playwright's --with-deps variant also pulls the system libs).
+      - name: Install Chromium (for Lighthouse)
+        run: npx -y playwright install --with-deps chromium
+
+      - name: Build (pro edition, server build — no basePath)
+        run: NEXT_PUBLIC_GC_EDITION=pro bunx next build
+
+      # Next 16 standalone output needs the static assets copied next to the
+      # server bundle (mirrors the cp steps in package.json "build").
+      - name: Stage static assets for standalone server
+        run: |
+          cp -r .next/static .next/standalone/.next/
+          cp -r public .next/standalone/
+
+      - name: Start production server
+        run: |
+          PORT=3000 HOSTNAME=127.0.0.1 NODE_ENV=production \
+            nohup bun .next/standalone/server.js > lighthouse-server.log 2>&1 &
+          echo "started"
+
+      - name: Wait for server
+        run: |
+          for i in $(seq 1 60); do
+            code="$(curl -s -o /dev/null -w '%{http_code}' http://localhost:3000 || true)"
+            if [ "$code" = "200" ]; then echo "✓ server is up (attempt $i)"; exit 0; fi
+            sleep 2
+          done
+          echo "::error::server never returned 200 — log tail:"
+          tail -50 lighthouse-server.log
+          exit 1
+
+      - name: Run Lighthouse
+        env:
+          # resolve the playwright-managed Chromium binary for Lighthouse
+          CHROME_PATH: /home/runner/.cache/ms-playwright/chromium-*/chrome-linux*/chrome
+        run: |
+          CHROME_BIN="$(ls $CHROME_PATH | sort -V | tail -1)"
+          echo "Using Chrome: $CHROME_BIN"
+          npx -y lighthouse@12 http://localhost:3000 \
+            --quiet \
+            --chrome-flags="--headless=new" \
+            --output=json \
+            --output-path=./lh.json
+          test -f lh.json
+
+      - name: Assert Lighthouse category gates
+        run: |
+          node -e '
+            const report = JSON.parse(require("fs").readFileSync("./lh.json", "utf8"));
+            const gates = {
+              performance: 0.70,
+              accessibility: 0.90,
+              "best-practices": 0.90,
+              seo: 0.85,
+            };
+            let failed = 0;
+            for (const [key, min] of Object.entries(gates)) {
+              const cat = report.categories[key];
+              const score = cat ? cat.score : null;
+              const ok = score !== null && score >= min;
+              console.log(`${ok ? "✓" : "✗"} ${key}: ${score} (gate ≥ ${min})`);
+              if (!ok) failed++;
+            }
+            if (failed > 0) {
+              console.error(`\n${failed} Lighthouse gate(s) failed — see the full report above/artifact.`);
+              process.exit(1);
+            }
+            console.log("\nAll Lighthouse gates passed.");
+          '
+
+      - name: Bundle budget check
+        run: node scripts/check-bundle.mjs
+
+      - name: Upload Lighthouse report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lighthouse-report
+          path: lh.json
+          retention-days: 14

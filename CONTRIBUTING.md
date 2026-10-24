@@ -13,16 +13,40 @@ bun run dev:base       # GoalCheck (base) edition
 bun run test           # Vitest suite (CI gate)
 bun run lint           # ESLint
 bun run typecheck      # tsc --noEmit (strict)
+bunx playwright test   # E2E: chromium + webkit (boots the dev server itself)
 ```
 
-CI runs lint + typecheck + tests + **both edition builds** on every PR and push to `main`.
-Please make sure all four pass locally before opening a PR.
+## The gates
+
+CI runs lint + typecheck + tests + **both edition builds** on every PR and push to `main`
+(plus a Playwright E2E lane and a Lighthouse/bundle-budget lane). Run locally first:
+
+| Gate | Command |
+|---|---|
+| Types | `bunx tsc --noEmit` |
+| Lint | `bun run lint` |
+| Unit tests | `bunx vitest run` |
+| E2E (chromium + webkit) | `bunx playwright test` |
+| Both edition builds | `NEXT_PUBLIC_GC_EDITION=pro bunx next build` and `NEXT_PUBLIC_GC_EDITION=base bunx next build` |
+
+## Two editions, one codebase
+
+`NEXT_PUBLIC_GC_EDITION` is the switch: `pro` → **GoalCheck Advance**, `base` → **GoalCheck**.
+Everything UI-visible must work in BOTH — Advance-only features are gated through
+`hasFeature()` (`src/lib/goalcheck/editions.ts`), and base builds must never render pro views.
+
+## i18n catalog rule (non-negotiable)
+
+Every user-visible string lives in the catalogs in `src/lib/goalcheck/locales/` —
+`en.ts`, `hi.ts`, `es.ts`, `de.ts`. **A new UI string must be added to ALL four catalogs
+in the same PR**; the catalog parity check makes a missing key a compile-time build
+error, and English hardcoded in a component will be caught in review.
 
 ## Architecture in 60 seconds
 
-- `src/lib/goalcheck/store.ts` — the entire app state (Zustand, persisted to `localStorage`,
-  schema-versioned with migration hooks). **Schema changes MUST** bump `STORAGE_VERSION`
-  and add a migration; both editions share the same schema.
+- `src/lib/goalcheck/store.ts` — the entire app state (Zustand, persisted to IndexedDB via a
+  localStorage backup, schema-versioned with migration hooks). **Schema changes MUST** bump
+  `STORAGE_VERSION` and add a migration; both editions share the same schema.
 - `src/lib/goalcheck/editions.ts` — the feature registry. Pro-only features are listed there;
   `hasFeature()` gates UI, and the store clamps edition-specific settings.
   Advance builds additionally offer a runtime Normal⇄Advance switch — keep both paths safe.
@@ -58,3 +82,13 @@ the Android shells derive `versionName`/`versionCode` from it). Tag trains:
 
 Short imperative subject, blank line, motivation + notes. Conventional-ish prefixes
 (`feat:`, `fix:`, `test:`, `docs:`, `chore:`) keep the changelog honest.
+
+## PR flow
+
+1. Fork / branch from `main`, keep the diff focused (one feature or fix per PR).
+2. Run the gates above — including **both editions** and `bunx playwright test`.
+3. Open the PR using the template checklist; link the issue it closes.
+4. CI must be green (lint, typecheck, Vitest, both builds, E2E, Lighthouse/bundle budget).
+   The visual-regression job is advisory (`continue-on-error`) until baselines stabilize —
+   see `tests/e2e/visual.spec.ts` for how baselines are generated.
+5. Maintainer squash-merges; release trains are maintainer-cut (see below).

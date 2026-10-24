@@ -8,16 +8,21 @@ apply plugin: 'com.android.application'
    automatically versions the native shells:
      versionCode  = major*10000 + minor*100 + patch   (0.4.1 → 401)
 
-   Release signing reads keystore.properties (gitignored) from the
-   android/ root:
-     storeFile=keystore.jks          (resolved against android/)
-     storePassword=…
-     keyAlias=…
-     keyPassword=…
-   CI materializes it from GitHub Secrets (see android.yml);
-   locally create it via keytool (see download/ANDROID.md).
-   Without it, release builds fall back to debug signing so the
-   pipeline never hard-blocks on missing signing setup.
+   Release signing has two optional sources (CI passes gradle properties,
+   local devs use a properties file) — with neither, release builds fall
+   back to debug signing so the pipeline never hard-blocks:
+
+   1. CI (android.yml): -PgcKeystoreFile=<abs path> -PgcKeystorePassword=…
+      -PgcKeyAlias=… -PgcKeyPassword=… — passed ONLY when all four signing
+      secrets (KEYSTORE_BASE64 / KEYSTORE_PASSWORD / KEY_ALIAS /
+      KEY_PASSWORD) are configured on the repo. The keystore file itself is
+      decoded from the base64 secret into $RUNNER_TEMP, never the repo.
+   2. Local: keystore.properties (gitignored) in the android/ root:
+        storeFile=keystore.jks      (resolved against android/)
+        storePassword=…
+        keyAlias=…
+        keyPassword=…
+      create it via keytool (see download/ANDROID.md).
    ========================================================= */
 
 def keystorePropsFile = rootProject.file("keystore.properties")
@@ -31,12 +36,23 @@ def packageJson = new groovy.json.JsonSlurper().parse(packageJsonFile)
 def gcSemver = packageJson.version.tokenize('.')
 def gcVersionCode = (gcSemver[0] as Integer) * 10000 + (gcSemver[1] as Integer) * 100 + (gcSemver[2] as Integer)
 
-def keystoreStoreFile = keystoreProps['storeFile']
-def keystoreStorePassword = keystoreProps['storePassword']
-def keystoreKeyAlias = keystoreProps['keyAlias']
-def keystoreKeyPassword = keystoreProps['keyPassword']
+/* Gradle -P properties (CI) take precedence over keystore.properties
+   (local). A release signing config is only registered when ALL four
+   values are present — partial inputs are ignored, never fatal. */
+def propStoreFile = project.findProperty("gcKeystoreFile")
+def propStorePassword = project.findProperty("gcKeystorePassword")
+def propKeyAlias = project.findProperty("gcKeyAlias")
+def propKeyPassword = project.findProperty("gcKeyPassword")
+def hasPropSigning = propStoreFile != null && propStorePassword != null &&
+                    propKeyAlias != null && propKeyPassword != null
 
-def hasReleaseKeystore = keystorePropsFile.exists() && keystoreStoreFile != null
+def keystoreStoreFile = hasPropSigning ? propStoreFile : keystoreProps['storeFile']
+def keystoreStorePassword = hasPropSigning ? propStorePassword : keystoreProps['storePassword']
+def keystoreKeyAlias = hasPropSigning ? propKeyAlias : keystoreProps['keyAlias']
+def keystoreKeyPassword = hasPropSigning ? propKeyPassword : keystoreProps['keyPassword']
+
+def hasReleaseKeystore = hasPropSigning ||
+                        (keystorePropsFile.exists() && keystoreStoreFile != null)
 
 android {
     namespace "io.github.avithegod2010.goalcheckadvance"

@@ -519,3 +519,38 @@ html[data-gc-theme] * { border-color: var(--gc-border); }
 
 /* Prevent any accidental horizontal page scroll (safe for sticky) */
 html, body { overflow-x: clip; }
+
+/* =========================================================
+   Task 17-c — Print / PDF week plan (APPEND-ONLY, print only)
+   WeekView renders a .gc-print-root week table; when printing,
+   everything else is hidden and only that table is output.
+   Plain hex colors only — the printout must survive B/W.
+   ========================================================= */
+@media print {
+  body * { visibility: hidden; }
+  .gc-print-root, .gc-print-root * { visibility: visible; }
+  .gc-print-root {
+    position: absolute;
+    inset: 0;
+    padding: 8mm;
+    background: #fff;
+    color: #111;
+  }
+  .gc-print-root table { width: 100%; border-collapse: collapse; }
+  .gc-print-root th, .gc-print-root td {
+    border: 1px solid #bbb;
+    padding: 6px;
+    text-align: left;
+    font-size: 11px;
+    vertical-align: top;
+  }
+  .gc-print-root th { background: #eee; font-weight: 700; }
+  .gc-print-root h1 { font-size: 15px; }
+  @page { size: A4 landscape; margin: 10mm; }
+}
+
+/* Keep the print-only week plan out of the on-screen layout
+   (print media re-reveals it via the visibility rules above). */
+@media screen {
+  .gc-print-root { display: none; }
+}

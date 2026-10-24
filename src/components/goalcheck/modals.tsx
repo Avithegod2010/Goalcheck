@@ -26,6 +26,7 @@ import { isImageUrl, isMonoIcon } from "@/lib/goalcheck/presets";
 import { RPG_AURAS, RPG_SKILLS, ACHIEVEMENTS, buildMarkdownExport, buildPlainExport, localDateKey, rankForLevel, totalXpForLevel, xpForLevel, parseQuickPaste, calculateStats, habitStreak, levelFromXp, isValidRecurrence, isoWeekKey, collectYearRecap, shiftDays } from "@/lib/goalcheck/logic";
 import { Markdown, toggleMarkdownCheckbox } from "@/lib/goalcheck/markdown";
 import { detectAndParse, type ImportedGoal } from "@/lib/goalcheck/importers";
+import { buildIcs, parseIcs } from "@/lib/goalcheck/ics";
 import { encryptString, decryptString, isEncryptedPayload } from "@/lib/goalcheck/crypto";
 import { useT, t, getLocale, setLocale } from "@/lib/goalcheck/i18n";
 import { SUPPORTED_LOCALES, LOCALE_LABELS, type Locale } from "@/lib/goalcheck/locales";
@@ -671,7 +672,7 @@ function ExportModal() {
   const goal = useActiveGoal();
   const exportWorkspace = useStore((st) => st.exportWorkspace);
   const importWorkspace = useStore((st) => st.importWorkspace);
-  const [format, setFormat] = useState<"plain" | "markdown" | "json" | "enc">("plain");
+  const [format, setFormat] = useState<"plain" | "markdown" | "json" | "enc" | "ics">("plain");
   const [pass, setPass] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
   const t = useT();
@@ -680,13 +681,14 @@ function ExportModal() {
     if (!open) return "";
     if (format === "enc") return "";
     if (format === "json") return exportWorkspace();
+    if (goal && format === "ics") return buildIcs([goal]);
     if (goal && format === "markdown") return buildMarkdownExport(goal);
     if (goal) return buildPlainExport(goal);
     return "";
   }, [open, format, goal, exportWorkspace]);
 
-  const saveBlob = (content: string, name: string) => {
-    const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+  const saveBlob = (content: string, name: string, mime = "text/plain;charset=utf-8") => {
+    const blob = new Blob([content], { type: mime });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -709,6 +711,13 @@ function ExportModal() {
       }
       return;
     }
+    if (format === "ics") {
+      if (!goal) { toast.error(t("modal.export.icsNoBoard")); return; }
+      const base = goal.title.trim().replace(/[^\p{L}\p{N}_-]+/gu, "-").replace(/^-+|-+$/g, "").slice(0, 60) || "goalcheck";
+      saveBlob(text, `${base}.ics`, "text/calendar;charset=utf-8");
+      toast.success(t("modal.export.downloaded"));
+      return;
+    }
     const ext = format === "json" ? "json" : format === "markdown" ? "md" : "txt";
     saveBlob(text, format === "json" ? "goalcheck-backup.json" : `goalcheck-export.${ext}`);
     toast.success(t("modal.export.downloaded"));
@@ -723,6 +732,15 @@ function ExportModal() {
     }
   };
 
+  /* format tabs — the .ics tab exists only in Advance (due dates are a pro feature) */
+  const exportTabs: Array<readonly ["plain" | "markdown" | "json" | "enc" | "ics", string]> = [
+    ["plain", "modal.export.tabPlain"],
+    ["markdown", "modal.export.tabMarkdown"],
+    ["json", "modal.export.tabJson"],
+    ["enc", "modal.export.tabEnc"],
+    ...(hasFeature("due-dates") ? ([["ics", "modal.export.tabIcs"]] as const) : []),
+  ];
+
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) useUi.setState({ exportModal: false }); }}>
       <DialogContent className="gc-modal max-w-xl">
@@ -734,7 +752,7 @@ function ExportModal() {
         {hasFeature("sync-file") && <SyncFileSection />}
 
         <div className="flex flex-wrap gap-1 rounded-xl p-1" style={{ background: "var(--gc-surface-2)" }} role="tablist">
-          {([["plain", "modal.export.tabPlain"], ["markdown", "modal.export.tabMarkdown"], ["json", "modal.export.tabJson"], ["enc", "modal.export.tabEnc"]] as const).map(([id, label]) => (
+          {exportTabs.map(([id, label]) => (
             <button key={id} type="button" role="tab" aria-selected={format === id} onClick={() => setFormat(id)}
               className="rounded-lg px-3 py-1.5 text-xs font-bold"
               style={format === id ? { background: "var(--gc-surface)", color: "color-mix(in srgb, var(--gc-accent) 55%, var(--gc-text))" } : { color: "var(--gc-text2)" }}>
@@ -742,6 +760,18 @@ function ExportModal() {
             </button>
           ))}
         </div>
+
+        {format === "ics" && (
+          <p className="text-xs" style={{ color: "var(--gc-text2)" }}>{t("modal.export.icsNote")}</p>
+        )}
+
+        {/* base edition: the whole .ics feature is Advance-only — same upgrade hint as other pro surfaces */}
+        {!hasFeature("due-dates") && (
+          <div className="rounded-xl border p-3" style={{ borderColor: "var(--gc-border)", background: "var(--gc-surface-2)" }}>
+            <p className="mb-2 text-xs" style={{ color: "var(--gc-text2)" }}>{t("modal.export.icsProHint")}</p>
+            <p className="text-[0.65rem] font-bold" style={{ color: "var(--gc-muted)" }}>{t("settings.upgradeWhere")}</p>
+          </div>
+        )}
 
         {format === "enc" ? (
           <div className="flex flex-col gap-2">
@@ -2331,10 +2361,13 @@ function ImportModal() {
   const close = () => useUi.setState({ importModal: false });
   const [raw, setRaw] = useState("");
   const [detected, setDetected] = useState<{ format: string; goals: ImportedGoal[] } | null>(null);
+  const icsFileRef = useRef<HTMLInputElement>(null);
+  const [ics, setIcs] = useState<ReturnType<typeof parseIcs> | null>(null);
 
   const runDetect = () => {
     const res = detectAndParse(raw);
     setDetected(res);
+    setIcs(null);
     if (res.format === "unknown") toast.error(t("modal.import.detectFailed"));
   };
 
@@ -2348,6 +2381,7 @@ function ImportModal() {
       subtitle: g.subtitle || "Imported workspace",
       media: "mono:briefcase-check",
       createdAt: Date.now(),
+      archived: false,
       categories: g.categories.map((c) => ({
         id: `cat_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
         title: `${c.title.slice(0, 60)} -`,
@@ -2372,6 +2406,8 @@ function ImportModal() {
           respawnedFrom: "",
           completedAt: it.completed ? Date.now() : 0,
           createdAt: Date.now(),
+          estimate: 0,
+          attachments: [],
         })),
       })),
     }));
@@ -2383,8 +2419,56 @@ function ImportModal() {
     }
   };
 
+  /* .ics calendar import: one new board, one "Calendar events" category,
+   * one open task per dated event — same composition as commit() above. */
+  const commitIcs = () => {
+    if (!ics || ics.events.length === 0) return;
+    const now = localDateKey(new Date());
+    const weekKey = isoWeekKey(new Date());
+    const board = {
+      id: `goal_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
+      title: (ics.calendarName.trim() || t("modal.import.icsBoardTitle")).slice(0, 80),
+      subtitle: t("modal.import.icsBoardSub"),
+      media: "mono:briefcase-check",
+      createdAt: Date.now(),
+      archived: false,
+      categories: [{
+        id: `cat_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
+        title: `${t("modal.import.icsCategory").slice(0, 60)} -`,
+        media: "mono:clipboard-check",
+        recurrence: "none" as const,
+        lastResetDate: now,
+        lastWeekKey: weekKey,
+        items: ics.events.map((ev) => ({
+          id: `task_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
+          text: (ev.title.trim() || t("modal.import.icsUntitled")).slice(0, 200),
+          completed: false,
+          priority: "normal" as const,
+          notes: (ev.notes || "").slice(0, 2000),
+          status: "todo" as const,
+          subtasks: [],
+          pomosEstimate: 1,
+          pomoCount: 0,
+          dependsOn: "",
+          dueDate: ev.date,
+          timeSpent: 0,
+          recurrence: "none" as const,
+          respawnedFrom: "",
+          completedAt: 0,
+          createdAt: Date.now(),
+          estimate: 0,
+          attachments: [],
+        })),
+      }],
+    };
+    useStore.setState((s) => ({ goals: [board, ...s.goals], activeGoalId: board.id }));
+    toast.success(t("modal.import.importedOne", { count: 1, format: ".ics" }));
+    setIcs(null);
+    close();
+  };
+
   return (
-    <Dialog open={open} onOpenChange={(o) => { if (!o) { setDetected(null); close(); } }}>
+    <Dialog open={open} onOpenChange={(o) => { if (!o) { setDetected(null); setIcs(null); close(); } }}>
       <DialogContent className="gc-modal max-h-[85vh] max-w-lg overflow-y-auto gc-scroll" aria-describedby={undefined}>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2"><GcIcon name="luggage-trip" size={17} /> {t("modal.import.title")}</DialogTitle>
@@ -2399,6 +2483,42 @@ function ImportModal() {
           placeholder='{"projects":[{"name":"Work","items":[{"content":"Ship it","checked":false}]}]}   ← or CSV with projectName,title,…'
           aria-label={t("modal.import.pasteAria")}
         />
+        {hasFeature("due-dates") ? (
+          <div className="rounded-xl border p-3" style={{ borderColor: "var(--gc-border)", background: "var(--gc-surface-2)" }}>
+            <p className="mb-1 text-sm font-extrabold">{t("modal.import.icsTitle")}</p>
+            <p className="mb-2 text-xs" style={{ color: "var(--gc-text2)" }}>{t("modal.import.icsHint")}</p>
+            <Button type="button" size="sm" variant="outline" className="gc-btn" onClick={() => icsFileRef.current?.click()}>
+              <Upload className="mr-1 h-3.5 w-3.5" /> {t("modal.import.icsPick")}
+            </Button>
+            <input
+              ref={icsFileRef} type="file" accept=".ics,text/calendar,text/plain" className="hidden" aria-label={t("modal.import.icsPickAria")}
+              onChange={async (e) => {
+                const f = e.target.files?.[0];
+                e.target.value = "";
+                if (!f) return;
+                try {
+                  const parsed = parseIcs(await f.text());
+                  setDetected(null);
+                  setIcs(parsed);
+                  if (parsed.events.length === 0) toast.error(t("modal.import.icsEmpty"));
+                } catch {
+                  toast.error(t("modal.common.readFileError"));
+                }
+              }}
+            />
+            {ics && ics.events.length > 0 && (
+              <p className="mt-2 text-xs font-extrabold">
+                {t("modal.import.icsFound", { count: ics.events.length, name: ics.calendarName || t("modal.import.icsBoardTitle") })}
+              </p>
+            )}
+          </div>
+        ) : (
+          /* base edition: .ics import is Advance-only — same upgrade hint as other pro surfaces */
+          <div className="rounded-xl border p-3" style={{ borderColor: "var(--gc-border)" }}>
+            <p className="mb-2 text-xs" style={{ color: "var(--gc-text2)" }}>{t("modal.import.icsProHint")}</p>
+            <p className="text-[0.65rem] font-bold" style={{ color: "var(--gc-muted)" }}>{t("settings.upgradeWhere")}</p>
+          </div>
+        )}
         {detected && detected.format !== "unknown" && (
           <div className="rounded-xl border p-3" style={{ borderColor: "var(--gc-border)", background: "var(--gc-surface-2)" }}>
             <p className="mb-1.5 text-xs font-extrabold">
@@ -2418,9 +2538,9 @@ function ImportModal() {
           </div>
         )}
         <DialogFooter>
-          <Button type="button" variant="outline" className="gc-btn" onClick={() => { setRaw(""); setDetected(null); }}>{t("modal.common.clear")}</Button>
+          <Button type="button" variant="outline" className="gc-btn" onClick={() => { setRaw(""); setDetected(null); setIcs(null); }}>{t("modal.common.clear")}</Button>
           <Button type="button" variant="outline" className="gc-btn" onClick={runDetect} disabled={!raw.trim()}>{t("modal.import.detect")}</Button>
-          <Button type="button" className="gc-btn-primary" onClick={commit} disabled={!detected || detected.goals.length === 0}>{t("modal.import.import")}</Button>
+          <Button type="button" className="gc-btn-primary" onClick={() => (ics && ics.events.length > 0 ? commitIcs() : commit())} disabled={!(detected && detected.goals.length > 0) && !(ics && ics.events.length > 0)}>{t("modal.import.import")}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

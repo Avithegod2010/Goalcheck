@@ -3,6 +3,45 @@
 All notable changes to GoalCheck & GoalCheck Advance.
 Format: [Keep a Changelog](https://keepachangelog.com/) · Versions follow [SemVer](https://semver.org/).
 
+## [0.7.0] — 2026-10-24
+
+The 19-item "real-life workflows" drop (v4.4).
+
+### Added
+- **IndexedDB storage engine (schema v5)** — the workspace moved off localStorage:
+  virtually unlimited quota, one-time automatic migration with a retained
+  localStorage backup, quota-prune loop preserved. New per-task fields:
+  `estimate` (focus units) and `attachments`; boards gained `archived`.
+- **Calendar interop (`.ics`, Advance)** — RFC 5545 export (all-day events,
+  folding, escaping) + tolerant `.ics`/VTODO import into a new board.
+- **Natural-language quick add** — dates ("tomorrow", "next monday", "in 3 days"),
+  `#category`, `!urgent`, `~2` focus estimate and "every week" recurrence parsed
+  live into preview chips (dates stay plain text in the base edition).
+- **Voice quick add** — Web Speech mic button in the quick-add bar, localized to
+  the active UI language; hidden where unsupported.
+- **Smart week planner (Advance)** — greedy capacity-aware rebalancing of
+  overdue, overloaded and undated-urgent tasks across 7 days, preview +
+  one-tap apply; per-day load bars in every Week view header.
+- **Task attachments (Advance)** — up to 5 MB per file, bytes in the IndexedDB
+  blob store, metadata in the workspace, inline image thumbnails, one-click open.
+- **Archive** — boards retire instead of getting deleted; collapsible Archived
+  section in the sidebar with restore/open.
+- **Share links** — gzip-compressed board token in the URL hash (`#share=…`),
+  server-free import dialog on open.
+- **Print / PDF week plan (Advance)** — A4-landscape B/W week table via the
+  print stylesheet.
+- **4 new languages** — Français, Português (BR), 日本語, Русский (783-key
+  catalogs each; hi/es/de caught up on the new keys).
+- **Repo infrastructure** — optional-secrets Android signing (KEYSTORE_*),
+  Lighthouse CI lane (perf/a11y/bp/seo budgets) + 2.6 MiB JS bundle budget,
+  WebKit E2E project, visual-regression baselines (`GC_VISUAL=1`), Play Store
+  listing kit + feature graphic, social share banner + OpenGraph tags,
+  F-Droid/IzzyOnDroid prep sheet, PR template, FUNDING.
+
+### Fixed
+- Legacy v1 importer now preserves timer preferences and settings-object
+  values that previously fell back to defaults on re-migration.
+
 ## [0.6.2] — 2026-10-23
 
 ### Added

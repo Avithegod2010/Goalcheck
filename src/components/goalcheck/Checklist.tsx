@@ -15,11 +15,14 @@ import { MediaBadge } from "./atoms";
 import { GcIcon } from "@/lib/goalcheck/icons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ChevronDown, ChevronUp, GripVertical, Pencil, Trash2, Plus, Lock, Settings2, Puzzle, Crosshair, Play, Square } from "lucide-react";
-import type { Category, Task } from "@/lib/goalcheck/types";
+import { ChevronDown, ChevronUp, GripVertical, Paperclip, Pencil, Trash2, Plus, Lock, Settings2, Puzzle, Crosshair, Play, Square, X } from "lucide-react";
+import type { AttachmentMeta, Category, Task } from "@/lib/goalcheck/types";
 import { dueStatus, inCurrentWeek, describeRecurrence } from "@/lib/goalcheck/logic";
 import { hasFeature } from "@/lib/goalcheck/editions";
 import { useT } from "@/lib/goalcheck/i18n";
+import { notifyError, notifySuccess } from "@/lib/goalcheck/notify";
+import { attachmentUrl, deleteAttachmentBlob, putAttachmentBlob } from "@/lib/goalcheck/attachments";
+import { formatBytes, isImageMime, makeAttachment, validateFile, type AttachmentRejectToken } from "@/lib/goalcheck/attachment-ui";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
 
@@ -36,6 +39,32 @@ function rowDragFrom(e: React.DragEvent): RowDrag | undefined {
     return undefined;
   }
 }
+
+/* ---------------- v5 — per-task attachments ---------------- */
+
+/** Store patch type for setTaskAdvanced, derived from the store itself. */
+type TaskPatch = Parameters<ReturnType<typeof useStore.getState>["setTaskAdvanced"]>[2];
+
+/** setTaskAdvanced spreads its patch onto the task, but its declared patch
+ *  type doesn't (yet) name the v5 attachments field — thread it through this
+ *  cast, which stays valid whether or not the store type is widened later. */
+function patchAttachments(attachments: AttachmentMeta[]): TaskPatch {
+  return { attachments } as unknown as TaskPatch;
+}
+
+/** Fresh attachments array for a task, read straight from the store
+ *  (render props can go stale inside sequential async loops). */
+function currentAttachments(catId: string, taskId: string): AttachmentMeta[] {
+  const s = useStore.getState();
+  const goal = s.goals.find((g) => g.id === s.activeGoalId);
+  return goal?.categories.find((c) => c.id === catId)?.items.find((it) => it.id === taskId)?.attachments ?? [];
+}
+
+/** validateFile reject token → catalog key (registered in gc-i18n-17-f). */
+const ATT_TOKEN_KEY: Record<AttachmentRejectToken, string> = {
+  tooLarge: "task.att.tooLarge",
+  emptyName: "task.att.emptyName",
+};
 
 export function ChecklistGrid() {
   const goal = useActiveGoal();
@@ -362,7 +391,10 @@ function TaskRow({ catId, task, seq, index, subOpen }: { catId: string; task: Ta
   const openDeepFocus = useUi((s) => s.openDeepFocus);
   const goals = useStore((s) => s.goals);
   const activeGoalId = useStore((s) => s.activeGoalId);
+  const setTaskAdvanced = useStore((s) => s.setTaskAdvanced);
   const [dropEdge, setDropEdge] = useState<"" | "above" | "below">("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const mediaRich = hasFeature("media-rich");
 
   const isEditing = editingTaskId === `${catId}::${task.id}`;
   const prereq = task.dependsOn
@@ -370,6 +402,40 @@ function TaskRow({ catId, task, seq, index, subOpen }: { catId: string; task: Ta
     : null;
   const locked = !!(prereq && !prereq.completed && !task.completed);
   const subDone = task.subtasks.filter((s) => s.completed).length;
+
+  /* v5 — attachments: pick files → validate → store blob → append meta.
+     Files are processed strictly sequentially (each await settles before
+     the next starts) so blob writes and store patches never interleave. */
+  const onFilesPicked = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    e.target.value = ""; /* allow re-picking the same file later */
+    if (files.length === 0) return;
+    for (const file of files) {
+      const token = validateFile(file);
+      if (token) {
+        notifyError(t(ATT_TOKEN_KEY[token], { name: file.name }));
+        continue;
+      }
+      try {
+        const { meta, blob } = await makeAttachment(file);
+        await putAttachmentBlob(meta.id, blob);
+        setTaskAdvanced(catId, task.id, patchAttachments([...currentAttachments(catId, task.id), meta]));
+        notifySuccess(t("task.att.added", { name: meta.name }));
+      } catch {
+        notifyError(t("task.att.failed", { name: file.name }));
+      }
+    }
+  };
+
+  const removeAttachment = async (meta: AttachmentMeta) => {
+    try {
+      await deleteAttachmentBlob(meta.id);
+    } catch {
+      /* blob already gone — still drop the meta */
+    }
+    setTaskAdvanced(catId, task.id, patchAttachments(currentAttachments(catId, task.id).filter((a) => a.id !== meta.id)));
+    notifySuccess(t("task.att.removed", { name: meta.name }));
+  };
 
   if (isEditing) {
     return (
@@ -560,6 +626,19 @@ function TaskRow({ catId, task, seq, index, subOpen }: { catId: string; task: Ta
               <ChevronDown className="h-3 w-3" />
             </Button>
           </div>
+          {mediaRich && (
+            <motion.button
+              type="button"
+              className="flex size-7 items-center justify-center rounded-lg gc-btn"
+              title={t("task.att.add")}
+              aria-label={t("task.att.add")}
+              onClick={() => fileInputRef.current?.click()}
+              whileHover={{ scale: 1.12, rotate: 8 }}
+              whileTap={{ scale: 0.85 }}
+            >
+              <Paperclip className="h-3.5 w-3.5" />
+            </motion.button>
+          )}
           <motion.button
             type="button"
             className="flex size-7 items-center justify-center rounded-lg gc-btn"
@@ -595,6 +674,36 @@ function TaskRow({ catId, task, seq, index, subOpen }: { catId: string; task: Ta
           </motion.button>
         </div>
       </div>
+
+      <AnimatePresence>
+        {mediaRich && task.attachments.length > 0 && (
+          <motion.div
+            key="attachments"
+            className="ml-[34px] flex flex-wrap gap-1.5 overflow-hidden"
+            role="list"
+            aria-label={t("task.att.label")}
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.25, ease: EASE }}
+          >
+            {task.attachments.map((meta) => (
+              <AttachmentChip key={meta.id} meta={meta} onRemove={removeAttachment} />
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
+      {mediaRich && (
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          className="hidden"
+          aria-hidden="true"
+          tabIndex={-1}
+          onChange={onFilesPicked}
+        />
+      )}
 
       <AnimatePresence>
         {task.notes.trim() && (
@@ -673,6 +782,84 @@ function TaskRow({ catId, task, seq, index, subOpen }: { catId: string; task: Ta
       </AnimatePresence>
       </motion.div>
     </li>
+  );
+}
+
+/* ---------------- v5 — attachment chip ---------------- */
+
+function AttachmentChip({ meta, onRemove }: { meta: AttachmentMeta; onRemove: (meta: AttachmentMeta) => void }) {
+  const t = useT();
+  const isImage = isImageMime(meta.mime);
+  const [url, setUrl] = useState<string | null>(null);
+
+  /* lazy thumbnail: load a blob URL ONLY for image chips; the URL is ours,
+     so it must be revoked when the chip unmounts (or the load raced it) */
+  useEffect(() => {
+    if (!isImage) return;
+    let alive = true;
+    let made: string | null = null;
+    attachmentUrl(meta.id)
+      .then((u) => {
+        if (!alive) {
+          if (u) URL.revokeObjectURL(u);
+          return;
+        }
+        made = u;
+        setUrl(u);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+      if (made) URL.revokeObjectURL(made);
+    };
+  }, [isImage, meta.id]);
+
+  const open = () => {
+    /* an already-loaded image URL opens synchronously (popup-blocker safe);
+       everything else resolves its blob URL on demand */
+    if (url) {
+      window.open(url, "_blank", "noopener,noreferrer");
+      return;
+    }
+    void attachmentUrl(meta.id).then((u) => {
+      if (u) window.open(u, "_blank", "noopener,noreferrer");
+    });
+  };
+
+  return (
+    <div
+      role="listitem"
+      className="flex max-w-full items-stretch overflow-hidden rounded-lg border text-xs"
+      style={{ borderColor: "var(--gc-border)", background: "var(--gc-surface-2)" }}
+    >
+      <button
+        type="button"
+        className="flex min-w-0 items-center gap-1.5 py-1 pl-1.5 pr-1 focus-visible:outline-2"
+        title={meta.name}
+        aria-label={t("task.att.open", { name: meta.name })}
+        onClick={open}
+      >
+        {isImage ? (
+          url ? (
+            <img src={url} alt="" width={28} height={28} className="h-7 w-7 shrink-0 rounded object-cover" />
+          ) : (
+            <span aria-hidden="true" className="h-7 w-7 shrink-0 animate-pulse rounded" style={{ background: "var(--gc-border)" }} />
+          )
+        ) : (
+          <GcIcon name="doc-lines" size={14} className="shrink-0" />
+        )}
+        <span className="max-w-[9rem] truncate font-semibold">{meta.name}</span>
+        <span className="shrink-0 font-mono text-[0.6rem]" style={{ color: "var(--gc-muted)" }}>{formatBytes(meta.size)}</span>
+      </button>
+      <button
+        type="button"
+        className="flex shrink-0 items-center px-1.5 transition-colors hover:bg-[var(--gc-danger-soft)] focus-visible:outline-2"
+        aria-label={t("task.att.remove", { name: meta.name })}
+        onClick={() => onRemove(meta)}
+      >
+        <X className="h-3 w-3 text-[var(--gc-danger)]" />
+      </button>
+    </div>
   );
 }
 

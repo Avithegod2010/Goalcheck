@@ -45,6 +45,9 @@ export function makeTask(text: string, opts: Partial<Task> = {}): Task {
     recurrence: "none" as Task["recurrence"],
     respawnedFrom: "",
     completedAt: 0,
+    /* v5 — schema defaults; opts may override */
+    estimate: 0,
+    attachments: [],
     createdAt: Date.now(),
     ...opts,
   };
@@ -71,6 +74,7 @@ export function goalFromTemplate(tplKey: string): GoalBoard {
     media: tpl.media,
     categories: [],
     createdAt: Date.now(),
+    archived: false,
   };
   g.categories = tpl.categories.map((c) => ({
     id: makeId("cat"),
@@ -102,6 +106,7 @@ export function blankBoard(title: string, subtitle: string): GoalBoard {
       { ...makeCategory("Todo in phone", "mono:phone-pulse", "none"), items: [makeTask("Call & sync notes")] },
     ],
     createdAt: Date.now(),
+    archived: false,
   };
 }
 
@@ -663,6 +668,7 @@ export function buildDemoWorkspace(now: Date = new Date()): DemoWorkspace {
     subtitle: "Design, build and ship the personal site",
     media: "mono:laptop-code",
     createdAt: ago(34),
+    archived: false,
     categories: [
       {
         id: makeId("cat"), title: "Design -", media: "mono:palette-drop", recurrence: "none",
@@ -699,6 +705,7 @@ export function buildDemoWorkspace(now: Date = new Date()): DemoWorkspace {
     subtitle: "Revision plan for the May exams",
     media: "mono:book-flutter",
     createdAt: ago(50),
+    archived: false,
     categories: [
       {
         id: makeId("cat"), title: "Daily Revision -", media: "mono:repeat-cycle", recurrence: "daily",
@@ -727,6 +734,7 @@ export function buildDemoWorkspace(now: Date = new Date()): DemoWorkspace {
     subtitle: "A calmer space, one weekend at a time",
     media: "mono:home-hearth",
     createdAt: ago(20),
+    archived: false,
     categories: [
       {
         id: makeId("cat"), title: "This Weekend -", media: "mono:calendar-tick", recurrence: "none",

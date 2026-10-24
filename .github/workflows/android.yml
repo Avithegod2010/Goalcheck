@@ -13,10 +13,13 @@ name: Android APK
 # merged manifest permissions and FAIL if android.permission.INTERNET is
 # present. The local-only promise is enforced here, not just documented.
 #
-# Signing: keystore.properties + keystore.jks are materialized from GitHub
-# Secrets (see "Restore release signing" step) or created locally — they are
-# gitignored and NEVER committed. Without the secret the job still ships
-# debug builds so the pipeline never hard-blocks on missing signing setup.
+# Signing (optional-secrets pattern): when ALL FOUR repo secrets
+# KEYSTORE_BASE64 / KEYSTORE_PASSWORD / KEY_ALIAS / KEY_PASSWORD are set,
+# the keystore is decoded into $RUNNER_TEMP and the release build receives
+# -PgcKeystoreFile/-PgcKeystorePassword/-PgcKeyAlias/-PgcKeyPassword (see
+# capacitor/android/app/build.gradle). The legacy ANDROID_-prefixed secret
+# names are still honoured as a fallback. Without the secrets the job ships
+# debug artifacts only and prints a notice — it never hard-blocks.
 
 on:
   workflow_dispatch:
@@ -59,32 +62,48 @@ jobs:
       - name: Static export + sync into Capacitor shell (${{ matrix.edition }})
         run: bun run build:capacitor:${{ matrix.edition }}
 
-      - name: Restore release signing (from secrets, optional)
-        id: keystore
+      - name: Resolve release signing (optional secrets)
+        id: signing
         env:
-          GC_KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-          GC_KEYSTORE_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          GC_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          GC_KEY_PASS: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          GC_KEYSTORE_B64: ${{ secrets.KEYSTORE_BASE64 || secrets.ANDROID_KEYSTORE_BASE64 }}
+          GC_KEYSTORE_PASS: ${{ secrets.KEYSTORE_PASSWORD || secrets.ANDROID_KEYSTORE_PASSWORD }}
+          GC_KEY_ALIAS: ${{ secrets.KEY_ALIAS || secrets.ANDROID_KEY_ALIAS }}
+          GC_KEY_PASS: ${{ secrets.KEY_PASSWORD || secrets.ANDROID_KEY_PASSWORD }}
         run: |
-          if [ -n "$GC_KEYSTORE_B64" ]; then
-            echo "$GC_KEYSTORE_B64" | base64 -d > capacitor/android/keystore.jks
-            printf 'storeFile=keystore.jks\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' \
-              "$GC_KEYSTORE_PASS" "$GC_KEY_ALIAS" "$GC_KEY_PASS" \
-              > capacitor/android/keystore.properties
-            echo "present=true" >> "$GITHUB_OUTPUT"
-            echo "✓ keystore restored — release APK + AAB will be signed"
+          # A signing config is activated only when ALL FOUR are present —
+          # partial sets are ignored (with a notice) so a half-configured
+          # repo can never produce a wrongly-signed artifact.
+          if [ -n "$GC_KEYSTORE_B64" ] && [ -n "$GC_KEYSTORE_PASS" ] && [ -n "$GC_KEY_ALIAS" ] && [ -n "$GC_KEY_PASS" ]; then
+            # decode into RUNNER_TEMP — the keystore never touches the checkout
+            echo "$GC_KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/gc-release.keystore.jks"
+            echo "signed=true" >> "$GITHUB_OUTPUT"
+            echo "file=$RUNNER_TEMP/gc-release.keystore.jks" >> "$GITHUB_OUTPUT"
+            echo "::notice::Release keystore restored from secrets — APK + AAB will be signed (gcKeystore* gradle properties)."
+          elif [ -n "$GC_KEYSTORE_B64" ] || [ -n "$GC_KEYSTORE_PASS" ] || [ -n "$GC_KEY_ALIAS" ] || [ -n "$GC_KEY_PASS" ]; then
+            echo "signed=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Signing secrets incomplete — all four of KEYSTORE_BASE64, KEYSTORE_PASSWORD, KEY_ALIAS, KEY_PASSWORD are required. Building unsigned (debug) artifacts only."
           else
-            echo "present=false" >> "$GITHUB_OUTPUT"
-            echo "ℹ no ANDROID_KEYSTORE_BASE64 secret — building debug artifacts only"
+            echo "signed=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::No signing secrets configured — building unsigned (debug) artifacts. Set KEYSTORE_BASE64/KEYSTORE_PASSWORD/KEY_ALIAS/KEY_PASSWORD to enable signed releases (see download/fdroid-prep.md)."
           fi
 
       - name: Assemble debug APK
         run: cd capacitor/android && bash ./gradlew assembleDebug --no-daemon
 
       - name: Assemble + bundle signed release (APK + AAB)
-        if: steps.keystore.outputs.present == 'true'
-        run: cd capacitor/android && bash ./gradlew assembleRelease bundleRelease --no-daemon
+        if: steps.signing.outputs.signed == 'true'
+        env:
+          GC_KS_FILE: ${{ steps.signing.outputs.file }}
+          GC_KS_PASS: ${{ secrets.KEYSTORE_PASSWORD || secrets.ANDROID_KEYSTORE_PASSWORD }}
+          GC_KEY_ALIAS: ${{ secrets.KEY_ALIAS || secrets.ANDROID_KEY_ALIAS }}
+          GC_KEY_PASS: ${{ secrets.KEY_PASSWORD || secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          cd capacitor/android
+          bash ./gradlew assembleRelease bundleRelease --no-daemon \
+            "-PgcKeystoreFile=$GC_KS_FILE" \
+            "-PgcKeystorePassword=$GC_KS_PASS" \
+            "-PgcKeyAlias=$GC_KEY_ALIAS" \
+            "-PgcKeyPassword=$GC_KEY_PASS"
 
       - name: Zero-internet check (fail if INTERNET permission is present)
         run: |

@@ -322,3 +322,46 @@ User ask: "I told you to have a button to switch to normal and advance, where is
 - Suite now: 92 unit + **15 E2E** tests (new header-switcher round-trip);
   shipped as [`advance/v0.6.2`](https://github.com/Avithegod2010/Goalcheck/releases/tag/advance/v0.6.2)
   + [`base/v0.6.2`](https://github.com/Avithegod2010/Goalcheck/releases/tag/base/v0.6.2).
+
+## v4.4 — the 19-item "real-life workflows" drop ✅ (2026-10-24)
+
+User call: "Ok i want you to build all 19." Six parallel feature agents, seven
+parallel translation agents, one foundation.
+
+- **#16 Foundation — IndexedDB engine (schema v5).** Workspace JSON leaves the
+  5 MB localStorage ceiling; one-time `ensureLegacyImport()` keeps every legacy
+  byte (localStorage copy retained as backup); the quota-prune loop survives the
+  move. Task gained `estimate` + `attachments`, boards gained `archived`.
+- **#1 `.ics` interop (pro).** RFC 5545 build/parse (folding, escaping,
+  VEVENT+VTODO, TZID/Z/floating) + export tab and import source in the
+  existing modals. 17 unit tests.
+- **#2 NL quick add.** `parseQuickAdd` extracts dates/`#category`/`!urgent`/
+  `~estimate`/recurrence into live chips; composes with (never breaks) the
+  legacy `•` quick syntax. 25 unit tests.
+- **#3 Voice quick add.** Web Speech mic, SR language follows the UI locale,
+  graceful degradation everywhere.
+- **#4+#5 Smart planner + capacity.** Pure `buildWeekPlan()` (greedy,
+  capacity-aware, never-moves-earlier-unless-overdue) + panel with preview /
+  Apply; load bars on every day header; capacity persisted per device.
+- **#6 Archive.** `archiveBoard`/`unarchiveBoard` + sidebar Archived section.
+- **#7 Share links.** CompressionStream gzip → base64url → `#share=` hash;
+  dependency-free inflate fallback; intake dialog with structural validation.
+- **#8 Print week.** `@media print` A4-landscape table + Print button.
+- **#9 Attachments (pro).** 5 MB blobs in IndexedDB `attachments` store,
+  metadata on tasks, thumbnails, orphan-purge API for Data Doctor.
+- **#10 Locales.** fr / pt-BR / ja / ru full 783-key catalogs + hi/es/de deltas;
+  compile-enforced parity; voice recognition language map extended.
+- **#11 Android signing.** Four optional secrets (`KEYSTORE_BASE64`,
+  `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`) → signed APK/AAB; unsigned
+  flow untouched when absent.
+- **#12+#14 Assets.** Play Store listing kit + 1024×500 feature graphic;
+  1280×640 social banner in `public/` + OpenGraph/Twitter tags.
+- **#13 F-Droid/Izzy prep** sheet (honest blockers documented).
+- **#15 Community pack.** CONTRIBUTING/SECURITY refresh, PR template, FUNDING.
+- **#17 WebKit E2E lane** (per-project retries) + **#18 visual regression**
+  (5 baselines behind `GC_VISUAL=1`, advisory job) + **#19 Lighthouse CI**
+  (perf ≥ .70, a11y ≥ .90, bp ≥ .90, seo ≥ .85) + 2.6 MiB bundle budget.
+- Quality: **214 unit tests**, E2E on two engines, tsc/eslint clean.
+- Shipped as [`advance/v0.7.0`](https://github.com/Avithegod2010/Goalcheck/releases/tag/advance/v0.7.0)
+  + [`base/v0.7.0`](https://github.com/Avithegod2010/Goalcheck/releases/tag/base/v0.7.0)
+  + `android/v0.7.0` APK pipeline tag.

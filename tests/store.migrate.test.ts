@@ -1,22 +1,43 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import "fake-indexeddb/auto";
+import { IDBFactory } from "fake-indexeddb";
 import { STORAGE_KEY, STORAGE_VERSION } from "@/lib/goalcheck/types";
 import { isoWeekKey, localDateKey } from "@/lib/goalcheck/logic";
 
 /*
  * Schema migration tests — the lossless base<->Advance promise.
- * Seeds real localStorage envelopes and rehydrates the real zustand
- * store, exactly like a browser upgrade of the app would.
+ *
+ * Since the v5 storage engine the workspace lives in IndexedDB
+ * ("goalcheck-idb" → kv store). These tests exercise the REAL browser
+ * upgrade path end-to-end:
+ *   pre-v5 localStorage payload → one-time ensureLegacyImport() copy
+ *   → zustand async rehydration from IDB → migrate → v5 defaults.
+ * fake-indexeddb provides a fresh IndexedDB per test; the localStorage
+ * seeding simulates the payload left behind by the previous app version.
  */
 
 beforeEach(() => {
   vi.resetModules();
   localStorage.clear();
+  // fresh fake IndexedDB per test so the one-time legacy-import marker never leaks
+  (globalThis as { indexedDB: unknown }).indexedDB = new IDBFactory();
 });
 
 async function freshStore() {
   vi.resetModules();
   const mod = await import("@/lib/goalcheck/store");
   return mod.useStore;
+}
+
+/* Async-storage rehydration: rehydrate() plus the _hydrated flag contract. */
+async function rehydrated(store: {
+  persist: { rehydrate(): Promise<void> };
+  getState(): { _hydrated: boolean };
+}): Promise<void> {
+  await store.persist.rehydrate();
+  await vi.waitFor(() => {
+    if (!store.getState()._hydrated) throw new Error("store not hydrated yet");
+  }, { timeout: 5_000 });
 }
 
 /* A realistic legacy v1 payload from the original single-file HTML app. */
@@ -57,14 +78,14 @@ function seedEnvelope(state: unknown, version: number) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify({ state, version }));
 }
 
-describe("schema migration v1 -> v4", () => {
+describe("schema migration v1 -> v5 (IndexedDB engine)", () => {
   it("migrates a legacy v1 envelope and preserves every piece of user data", async () => {
     seedEnvelope(LEGACY_V1, 1);
     const useStore = await freshStore();
-    await Promise.resolve(useStore.persist.rehydrate());
+    await rehydrated(useStore);
     const s = useStore.getState();
 
-    // goals + tasks survive, fields normalized to v4 shape
+    // goals + tasks survive, fields normalized to the current shape
     expect(s.goals).toHaveLength(1);
     expect(s.goals[0].title).toBe("My Goals");
     expect(s.goals[0].categories[0].items[0]).toMatchObject({
@@ -104,7 +125,7 @@ describe("schema migration v1 -> v4", () => {
   it("keeps pro-only theme/view under the Advance edition", async () => {
     seedEnvelope(LEGACY_V1, 1);
     const useStore = await freshStore();
-    await Promise.resolve(useStore.persist.rehydrate());
+    await rehydrated(useStore);
     const s = useStore.getState();
     expect(s.theme).toBe("sakura");   // exists + pro -> kept
     expect(s.view).toBe("kanban");    // pro view -> kept
@@ -114,37 +135,51 @@ describe("schema migration v1 -> v4", () => {
   it("falls back to the first goal when the stored activeGoalId no longer exists", async () => {
     seedEnvelope({ ...LEGACY_V1, activeGoalId: "deleted-goal" }, 1);
     const useStore = await freshStore();
-    await Promise.resolve(useStore.persist.rehydrate());
+    await rehydrated(useStore);
     expect(useStore.getState().activeGoalId).toBe("goal-1");
   });
 
-  it("rehydrates a current-version (v4) envelope without touching it", async () => {
+  it("rehydrates a v4 envelope and applies the v5 defaults without touching existing data", async () => {
     seedEnvelope(
       {
-        goals: [{ id: "goal-1", title: "V4 Board", subtitle: "", media: "m", createdAt: 1, categories: [] }],
+        goals: [{
+          id: "goal-1", title: "V4 Board", subtitle: "", media: "m", createdAt: 1,
+          categories: [{
+            id: "c1", title: "C -", media: "m", recurrence: "none",
+            lastResetDate: "2020-01-01", lastWeekKey: "2020-W1",
+            items: [{ id: "t1", text: "Old task", completed: false }],
+          }],
+        }],
         activeGoalId: "goal-1",
         theme: "nebula",
         rpg: { enabled: true, xp: 7, level: 1, combo: 0, skillPoints: 1, skills: {}, aura: "", history: {} },
         settings: { onboardingDone: true },
       },
-      STORAGE_VERSION,
+      4,
     );
     const useStore = await freshStore();
-    await Promise.resolve(useStore.persist.rehydrate());
+    await rehydrated(useStore);
     const s = useStore.getState();
-    expect(s.goals[0].title).toBe("V4 Board");
-    expect(s.rpg.xp).toBe(7);
-    expect(s.settings.onboardingDone).toBe(true);
-    expect(s.view).toBe("checklist"); // untouched default, no kanban leak
+    expect(s.goals[0].title).toBe("V4 Board");        // untouched
+    expect(s.rpg.xp).toBe(7);                          // untouched
+    expect(s.settings.onboardingDone).toBe(true);      // untouched
+    expect(s.view).toBe("checklist");                  // untouched default, no kanban leak
+    // v5 defaults applied on top of the v4 payload
+    expect(s.goals[0].archived).toBe(false);
+    const t = s.goals[0].categories[0].items[0];
+    expect(t.text).toBe("Old task");
+    expect(t.estimate).toBe(0);
+    expect(t.attachments).toEqual([]);
   });
 
-  it("writes back with the current schema version + no transient fields", async () => {
+  it("writes back to IndexedDB with the current schema version + keeps the localStorage backup", async () => {
     seedEnvelope(LEGACY_V1, 1);
     const useStore = await freshStore();
-    await Promise.resolve(useStore.persist.rehydrate());
+    await rehydrated(useStore);
 
     useStore.getState().completeOnboarding(); // triggers a persist write
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const { idbGet, KV_STORE } = await import("@/lib/goalcheck/idb");
+    const raw = await idbGet<string>(KV_STORE, STORAGE_KEY);
     expect(raw).toBeTruthy();
     const envelope = JSON.parse(raw!) as { version: number; state: Record<string, unknown> };
     expect(envelope.version).toBe(STORAGE_VERSION);
@@ -153,6 +188,8 @@ describe("schema migration v1 -> v4", () => {
     expect(envelope.state.searchQuery).toBeUndefined();
     expect(envelope.state.editingTaskId).toBeUndefined();
     expect(envelope.state._hydrated).toBeUndefined();
+    // belt-and-braces: the pre-v5 localStorage copy is never deleted
+    expect(localStorage.getItem(STORAGE_KEY)).toBeTruthy();
   });
 
   it("recurring categories reset on rehydrate when the stored day/week is stale", async () => {
@@ -174,7 +211,7 @@ describe("schema migration v1 -> v4", () => {
       1,
     );
     const useStore = await freshStore();
-    await Promise.resolve(useStore.persist.rehydrate());
+    await rehydrated(useStore);
     const cats = useStore.getState().goals[0].categories;
     // daily category reset to today + all items open again
     expect(cats[0].lastResetDate).toBe(today);
@@ -187,7 +224,7 @@ describe("schema migration v1 -> v4", () => {
   it("exportWorkspace produces a versioned envelope importWorkspace accepts", async () => {
     seedEnvelope(LEGACY_V1, 1);
     const useStore = await freshStore();
-    await Promise.resolve(useStore.persist.rehydrate());
+    await rehydrated(useStore);
 
     const json = useStore.getState().exportWorkspace();
     const parsed = JSON.parse(json) as { app: string; edition: string; version: number; state: Record<string, unknown> };

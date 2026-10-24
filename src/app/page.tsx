@@ -20,6 +20,7 @@ import { PomodoroWidget, GoalNav, Templates, AudioStudio } from "@/components/go
 import { HeroCard, QuickAddBar, FilterBar } from "@/components/goalcheck/Hero";
 import { ChecklistGrid } from "@/components/goalcheck/Checklist";
 import { ModalHost } from "@/components/goalcheck/modals";
+import ShareIntake from "@/components/goalcheck/ShareIntake"; // 17-e — #share= link receiver
 import { ZenHud, FloatingPill, CommandPalette } from "@/components/goalcheck/Overlays";
 import { HabitsWidget } from "@/components/goalcheck/Habits";
 import Onboarding from "@/components/goalcheck/Onboarding";
@@ -243,6 +244,7 @@ export default function Page() {
         </footer>
 
         <ModalHost />
+        <ShareIntake /> {/* 17-e — decodes #share=<token>, offers one-tap import */}
         {hasFeature("zen") && <ZenHud />}
         <DeepFocus />
         {hasFeature("command-palette") && <CommandPalette />}

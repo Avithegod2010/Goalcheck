@@ -22,6 +22,25 @@ export type Recurrence =
   | `every:${number}`
   | `monthly:${number}:${number}`;
 
+/* =========================================================
+   v5 — Task attachments (metadata lives in the workspace JSON,
+   blob bytes live in the IndexedDB `attachments` store —
+   see src/lib/goalcheck/attachments.ts)
+   ========================================================= */
+
+export interface AttachmentMeta {
+  /** blob key in the IndexedDB `attachments` store (== meta id) */
+  id: string;
+  /** original file name (display only) */
+  name: string;
+  /** MIME type, e.g. "image/png" */
+  mime: string;
+  /** byte size of the stored blob (≤ 5 MB, enforced by attachments.ts) */
+  size: number;
+  /** epoch ms when the attachment was added */
+  addedAt: number;
+}
+
 export interface Subtask {
   id: string;
   text: string;
@@ -50,6 +69,10 @@ export interface Task {
   respawnedFrom: string;
   /** v4.3 — epoch ms when completed (0 = unknown / legacy data) */
   completedAt: number;
+  /** v5 — pomodoro estimate for this task (0 = no estimate set) */
+  estimate: number;
+  /** v5 — attachment metadata; the bytes live in IndexedDB (attachments.ts) */
+  attachments: AttachmentMeta[];
   createdAt: number;
 }
 
@@ -73,6 +96,8 @@ export interface GoalBoard {
   media: string;
   categories: Category[];
   createdAt: number;
+  /** v5 — archived boards are hidden from the workspace but never deleted */
+  archived: boolean;
 }
 
 export type PomoMode = "focus" | "short" | "long";
@@ -240,7 +265,16 @@ export interface Settings {
 
 /* ---------- persistence envelope ---------- */
 
-export const STORAGE_VERSION = 4;
+/**
+ * v5 (Task 17-a) — persistence moves from localStorage to IndexedDB
+ * (`goalcheck-idb`, see src/lib/goalcheck/idb.ts). Schema additions:
+ *   - Task.estimate: number (0 = none)
+ *   - Task.attachments: AttachmentMeta[] ([] = none)
+ *   - GoalBoard.archived: boolean (false)
+ * All three are REQUIRED in the types; the migrate path applies the
+ * defaults to pre-v5 data so downstream code never optional-chains.
+ */
+export const STORAGE_VERSION = 5;
 export const STORAGE_KEY = "goalcheck_pro_state";
 
 export interface PersistEnvelope {
