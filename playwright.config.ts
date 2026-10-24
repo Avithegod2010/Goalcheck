@@ -29,6 +29,16 @@ export default defineConfig({
     baseURL: "http://localhost:3000",
     trace: "retain-on-failure",
     colorScheme: "dark",
+    /* v4.4.1 — emulate prefers-reduced-motion in every browser context.
+       Root cause of the Linux-webkit onboarding failure: framer-motion's
+       spring on the onboarding panel (y + scale) never settles to a stable
+       bounding box under WPE's headless rAF pacing, so Playwright's
+       actionability check ("stable") retried the Skip click until timeout.
+       The app already wraps every screen in <MotionConfig reducedMotion="user">,
+       so honoring the preference here skips transform springs in ALL engines
+       — deterministic clicks everywhere, and it doubles as an a11y guarantee
+       that the whole golden path works with reduced motion on. */
+    reducedMotion: "reduce",
   },
   projects: [
     { name: "chromium", use: { ...devices["Desktop Chrome"] }, retries: isCI ? 1 : 0 },

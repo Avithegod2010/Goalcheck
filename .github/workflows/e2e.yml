@@ -8,6 +8,10 @@ name: E2E
 # v4.4 (task 17-g) — two lanes:
 #   - cross-engine: chromium (default) + webkit (Safari engine, 2 retries —
 #     webkit is the flakiest engine on Linux, chromium stays at 0 to stay fast)
+#     v4.4.1: webkit is a HARD gate — the systematic onboarding failure was
+#     root-caused to framer-motion springs never settling under WPE headless
+#     rAF pacing; the suite now runs with reducedMotion: "reduce" (app already
+#     honours prefers-reduced-motion via MotionConfig) and is green end-to-end.
 #   - visual regression: GC_VISUAL=1, chromium-only, dedicated job. Baselines
 #     are generated locally (`GC_VISUAL=1 bunx playwright test
 #     --update-snapshots`) and committed; the job is continue-on-error until
@@ -43,14 +47,11 @@ jobs:
       - name: Install Playwright browsers (chromium + webkit)
         run: bunx playwright install --with-deps webkit chromium
 
-      # v4.4 — chromium (every user's engine) is the hard gate. The webkit
-      # lane is NEW and currently fails systematically at onboarding under
-      # Linux webkit (engine-specific render/event issue — needs a dedicated
-      # debugging pass, not retries). Run it advisory via continue-on-error:
-      # failures surface here as red hints without blocking main.
+      # v4.4.1 — both engines are hard gates now. The webkit onboarding
+      # failure was fixed by emulating prefers-reduced-motion in the test
+      # contexts (see playwright.config.ts for the root-cause writeup).
       - name: Run E2E suite (all projects)
         run: bunx playwright test
-        continue-on-error: true
 
       - name: Upload failure traces
         if: failure()
