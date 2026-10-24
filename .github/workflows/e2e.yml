@@ -26,7 +26,9 @@ jobs:
   e2e:
     name: Golden path (chromium + webkit)
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    # v4.4 — all-projects suite: webkit install (--with-deps) + webkit on
+    # software-GL is slow; 25 min killed healthy runs mid-suite.
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
 
