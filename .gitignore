@@ -98,3 +98,28 @@ out/
 .next-pages/
 .next-capacitor/
 test-results/
+
+# ── sandbox boilerplate guard ────────────────────────────────────────────────
+# The dev sandbox periodically re-materializes stock template files (shadcn
+# extras whose npm deps are intentionally not installed, prisma/api starter
+# files, runtime probe scripts). None are referenced by GoalCheck — keeping
+# them gitignored stops snapshot auto-commits from breaking CI typecheck.
+prisma/schema.prisma
+src/app/api/
+src/lib/db.ts
+src/components/ui/calendar.tsx
+src/components/ui/carousel.tsx
+src/components/ui/chart.tsx
+src/components/ui/drawer.tsx
+src/components/ui/form.tsx
+src/components/ui/input-otp.tsx
+src/components/ui/resizable.tsx
+src/components/ui/sidebar.tsx
+src/components/ui/sonner.tsx
+src/components/ui/toast.tsx
+src/components/ui/toaster.tsx
+src/hooks/use-mobile.ts
+src/hooks/use-toast.ts
+tests/database-runtime-build.sh
+tests/python-runtime-build.sh
+tests/python-runtime-container.sh
