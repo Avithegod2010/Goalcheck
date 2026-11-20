@@ -1,16 +1,13 @@
-<div align="center">
+# GoalCheck & GoalCheck Advance
 
-# ⚡ GoalCheck & GoalCheck Advance
+Plan goals, check off tasks and focus offline. Your progress stays in your browser.
 
-**Local-first multi-goal checklists, focus timer & analytics — no account, no network, no tracking.**
+**[Try GoalCheck Advance](https://avithegod2010.github.io/Goalcheck/)** · [Android downloads](https://github.com/Avithegod2010/Goalcheck/releases/tag/android/v0.7.0)
 
-One codebase, two editions. Your data is yours: everything lives in your browser's local storage.
-
-`MIT License` · `No telemetry` · `Works offline` · `Installable PWA` · `Android APK (zero permissions)` · `EN · हिन्दी · ES · DE` · `Built with Next.js 16 + TypeScript`
-
-</div>
-
----
+| GoalCheck Base | GoalCheck Advance |
+| :---: | :---: |
+| A simple checklist, progress rings and a focus timer. | Adds calendar, Kanban, analytics and more ways to plan. |
+| <img src="docs/screenshots/base-checklist.png" alt="GoalCheck Base checklist" width="360" /> | <img src="docs/screenshots/advance-checklist.png" alt="GoalCheck Advance checklist" width="360" /> |
 
 ## What is it?
 
@@ -19,14 +16,6 @@ GoalCheck turns any checklist into a **multi-goal board**: boards → categories
 **GoalCheck Advance** (default build) adds the power tools: Checklist / Week / **Calendar month grid** (drag a chip to another day to reschedule) / **Roadmap timeline** / Kanban / Eisenhower Matrix / Mind Map / Analytics views, a 365-day activity heatmap, RPG gamification (XP, levels, combo, skills, auras, achievements), habits & streaks, task due dates + **smart recurrence** ("every 2nd Tuesday", weekdays-only), per-goal focus attribution, **per-task time tracking** (manual logs + stopwatch), **Markdown notes with inline checklists**, a global fuzzy search palette (`Ctrl/⌘+K`), **Deep Focus** (a fullscreen one-task overlay), a guided **Weekly Review** ritual, an annual **Year-in-Review Wrapped** card, **importers for Todoist / TickTick / Google Tasks** exports, local due-date reminders (service worker, opt-in), auto-snapshot rotation for the sync file, drag-and-drop everywhere, a demo-data generator, 11 themes, 13 particle engines, atmosphere presets, an audio studio with 7 generative ambient streams, theme JSON sharing, and a Data Doctor for storage integrity.
 
 **GoalCheck (base)** is the calm edition: the core planner, 2 themes, completion confetti — nothing else.
-
-## 🌐 Try it live
-
-**GoalCheck Advance runs right now on GitHub Pages — no install, no account:**
-
-> ### [▶ Open GoalCheck Advance Demo](https://avithegod2010.github.io/Goalcheck/)
-
-*(100% client-side — your demo data never leaves your browser. Export a JSON backup before switching devices.)*
 
 ## 📸 Screenshots
 
