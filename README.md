@@ -13,6 +13,8 @@
 
 </div>
 
+<a name="choose-your-edition"></a>
+
 ## 🗂️ Choose your edition
 
 | GoalCheck Base | GoalCheck Advance |
