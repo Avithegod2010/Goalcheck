@@ -1,27 +1,41 @@
-# GoalCheck & GoalCheck Advance
+<div align="center">
 
-Plan goals, check off tasks and focus offline. Your progress stays in your browser.
+<h1>GoalCheck &amp; GoalCheck Advance</h1>
 
-**[Try GoalCheck Advance](https://avithegod2010.github.io/Goalcheck/)** · [Android downloads](https://github.com/Avithegod2010/Goalcheck/releases/tag/android/v0.7.0)
+<p><strong>Plan goals, check off tasks and focus offline. Your progress stays in your browser.</strong></p>
+
+<p><strong><a href="https://avithegod2010.github.io/Goalcheck/">🚀 Try GoalCheck Advance</a></strong> · <a href="#choose-your-edition">🗂️ Compare editions</a> · <a href="https://github.com/Avithegod2010/Goalcheck/releases/tag/android/v0.7.0">⬇️ Android downloads</a></p>
+
+<picture>
+  <source media="(prefers-reduced-motion: reduce)" srcset="readme-hero.png" />
+  <img src="readme-hero.gif" width="820" alt="An illustrated checklist and progress ring" />
+</picture>
+
+</div>
+
+## 🗂️ Choose your edition
 
 | GoalCheck Base | GoalCheck Advance |
 | :---: | :---: |
-| A simple checklist, progress rings and a focus timer. | Adds calendar, Kanban, analytics and more ways to plan. |
-| <img src="docs/screenshots/base-checklist.png" alt="GoalCheck Base checklist" width="360" /> | <img src="docs/screenshots/advance-checklist.png" alt="GoalCheck Advance checklist" width="360" /> |
+| <a href="docs/screenshots/base-checklist.png"><img src="docs/screenshots/base-checklist.png" width="365" alt="Base edition checklist with goals and task progress" /></a> | <a href="https://avithegod2010.github.io/Goalcheck/"><img src="docs/screenshots/advance-checklist.png" width="365" alt="Advance edition checklist with focus timer, heatmap and habits" /></a> |
+| A focused checklist, progress rings and a Pomodoro timer. | Adds calendar, Kanban, analytics and more ways to plan. |
 
-## What is it?
+<a name="what-is-it"></a>
+
+## ✅ What is it?
 
 GoalCheck turns any checklist into a **multi-goal board**: boards → categories → tasks, with progress rings, priorities, notes, micro-steps, dependency locks, recurring categories, rapid-add parsing (`!high` `@today`), and a drift-free Pomodoro focus timer with a floating pill.
+
+<details>
+<summary>Full edition feature list</summary>
 
 **GoalCheck Advance** (default build) adds the power tools: Checklist / Week / **Calendar month grid** (drag a chip to another day to reschedule) / **Roadmap timeline** / Kanban / Eisenhower Matrix / Mind Map / Analytics views, a 365-day activity heatmap, RPG gamification (XP, levels, combo, skills, auras, achievements), habits & streaks, task due dates + **smart recurrence** ("every 2nd Tuesday", weekdays-only), per-goal focus attribution, **per-task time tracking** (manual logs + stopwatch), **Markdown notes with inline checklists**, a global fuzzy search palette (`Ctrl/⌘+K`), **Deep Focus** (a fullscreen one-task overlay), a guided **Weekly Review** ritual, an annual **Year-in-Review Wrapped** card, **importers for Todoist / TickTick / Google Tasks** exports, local due-date reminders (service worker, opt-in), auto-snapshot rotation for the sync file, drag-and-drop everywhere, a demo-data generator, 11 themes, 13 particle engines, atmosphere presets, an audio studio with 7 generative ambient streams, theme JSON sharing, and a Data Doctor for storage integrity.
 
 **GoalCheck (base)** is the calm edition: the core planner, 2 themes, completion confetti — nothing else.
 
+</details>
+
 ## 📸 Screenshots
-
-**GoalCheck Advance — Checklist** (Nebula dark, heatmap, habits, focus timer)
-
-![GoalCheck Advance — Checklist](docs/screenshots/advance-checklist.png)
 
 **Kanban view** — drag & drop across To Do / In Progress / Done
 
@@ -38,10 +52,6 @@ GoalCheck turns any checklist into a **multi-goal board**: boards → categories
 **Analytics view** — completion rate, focus time per goal, category workload
 
 ![GoalCheck Advance — Analytics](docs/screenshots/advance-analytics.png)
-
-**GoalCheck (base)** — the same data, the calm planner edition
-
-![GoalCheck base — Checklist](docs/screenshots/base-checklist.png)
 
 ## 📱 Install it as an app (PWA)
 
