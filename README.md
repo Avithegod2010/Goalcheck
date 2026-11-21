@@ -6,11 +6,6 @@
 
 <p><strong><a href="https://avithegod2010.github.io/Goalcheck/">🚀 Try GoalCheck Advance</a></strong> · <a href="#choose-your-edition">🗂️ Compare editions</a> · <a href="https://github.com/Avithegod2010/Goalcheck/releases/tag/android/v0.7.0">⬇️ Android downloads</a></p>
 
-<picture>
-  <source media="(prefers-reduced-motion: reduce)" srcset="readme-hero.png" />
-  <img src="readme-hero.gif" width="820" alt="An illustrated checklist and progress ring" />
-</picture>
-
 </div>
 
 <a name="choose-your-edition"></a>
@@ -19,10 +14,20 @@
 
 | GoalCheck Base | GoalCheck Advance |
 | :---: | :---: |
-| <a href="docs/screenshots/base-checklist.png"><img src="docs/screenshots/base-checklist.png" width="365" alt="Base edition checklist with goals and task progress" /></a> | <a href="https://avithegod2010.github.io/Goalcheck/"><img src="docs/screenshots/advance-checklist.png" width="365" alt="Advance edition checklist with focus timer, heatmap and habits" /></a> |
+| <a href="docs/screenshots/base-checklist.png"><img src="docs/screenshots/base-checklist.png" width="350" alt="Base edition checklist with goals and task progress" /></a> | <a href="https://avithegod2010.github.io/Goalcheck/"><img src="docs/screenshots/advance-checklist.png" width="350" alt="Advance edition checklist with focus timer, heatmap and habits" /></a> |
 | A focused checklist, progress rings and a Pomodoro timer. | Adds calendar, Kanban, analytics and more ways to plan. |
 
 <a name="what-is-it"></a>
+
+<details>
+<summary>Project illustration</summary>
+
+<picture>
+  <source media="(prefers-reduced-motion: reduce)" srcset="readme-hero.png" />
+  <img src="readme-hero.gif" width="820" alt="An illustrated checklist and progress ring" />
+</picture>
+
+</details>
 
 ## ✅ What is it?
 
