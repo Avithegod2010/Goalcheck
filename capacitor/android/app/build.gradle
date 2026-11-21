@@ -86,11 +86,16 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
             if (hasReleaseKeystore) {
                 signingConfig signingConfigs.release
-            } else {
-                // no keystore configured — debug-signed so local release
-                // builds stay installable (CI attaches releases only when
-                // the keystore secret is present)
+            } else if (project.hasProperty('allowDebugSigning') || System.getenv('ALLOW_DEBUG_SIGNING') == '1') {
+                // Explicit opt-in only: anyone can rebuild the AOSP debug key, so a
+                // release APK signed with it can be impersonated by an impostor update.
                 signingConfig signingConfigs.debug
+            } else {
+                throw new GradleException(
+                    "No release keystore configured. Set the keystore properties, or pass " +
+                    "-PallowDebugSigning=true for a local build that must stay installable. " +
+                    "Refusing to sign a release with the public debug key."
+                )
             }
         }
     }
