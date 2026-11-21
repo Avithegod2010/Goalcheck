@@ -1,0 +1,34 @@
+# Dependabot configuration
+#
+# This project is managed by Bun: dependencies are resolved by `bun install`
+# and pinned in `bun.lock`. Dependabot's `npm_and_yarn` ecosystem cannot write
+# `bun.lock`, so every update job aborted with "misconfigured_tooling" and the
+# three open `next` advisories (GHSA-vvgp-ww4w-46vf, GHSA-vc7v-qv4w-wrv8,
+# GHSA-mfr8-8qww-v76h) could never be applied. The `bun` ecosystem reads and
+# writes `bun.lock` directly, which also makes advisory matching see the real
+# resolved versions instead of guessing from package.json ranges.
+version: 2
+updates:
+  - package-ecosystem: "bun"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    groups:
+      # Next/React majors are deliberate migrations, not drive-by bumps.
+      runtime-patch:
+        update-types:
+          - "patch"
+    ignore:
+      - dependency-name: "next"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "react"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "react-dom"
+        update-types: ["version-update:semver-major"]
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
