@@ -55,6 +55,8 @@ export async function linkSyncFile(): Promise<boolean> {
   const w = window as PickerWindow;
   if (!w.showSaveFilePicker) return false;
   const encrypted = useStore.getState().settings.syncFileEncrypted;
+  // Never link a vault file we cannot actually encrypt.
+  if (encrypted && !vaultPass) return false;
   try {
     handle = await w.showSaveFilePicker({
       suggestedName: encrypted ? "goalcheck-vault.gcenc" : "goalcheck-workspace-sync.json",
@@ -80,6 +82,10 @@ export async function writeNow(): Promise<boolean> {
   try {
     const json = useStore.getState().exportWorkspace();
     const encrypted = useStore.getState().settings.syncFileEncrypted;
+    // Fail closed: with encryption enabled but no passphrase, the old code fell
+    // through to `json` and wrote the plaintext workspace into a file named
+    // *.gcenc — a silent fail-open on the feature the product sells.
+    if (encrypted && !vaultPass) return false;
     const out = encrypted && vaultPass ? await encryptString(json, vaultPass) : json;
     if (out === lastWritten) return true;
     const writable = await handle.createWritable();
