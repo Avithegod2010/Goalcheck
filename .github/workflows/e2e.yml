@@ -55,7 +55,7 @@ jobs:
 
       - name: Upload failure traces
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: playwright-traces
           path: test-results/
@@ -93,7 +93,7 @@ jobs:
 
       - name: Upload visual diffs
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: visual-diffs
           path: test-results/
