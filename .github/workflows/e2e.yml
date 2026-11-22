@@ -34,7 +34,7 @@ jobs:
     # software-GL is slow; 25 min killed healthy runs mid-suite.
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: oven-sh/setup-bun@v2
         with:
@@ -70,7 +70,7 @@ jobs:
     # Chromium minor-version drift can still shift pixels on fresh runners.
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: oven-sh/setup-bun@v2
         with:
