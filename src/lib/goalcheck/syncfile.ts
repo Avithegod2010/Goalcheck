@@ -21,6 +21,7 @@
 
 import { useStore } from "./store";
 import { encryptString, decryptString, isEncryptedPayload } from "./crypto";
+import { checkNewPassphrase } from "./passphrase";
 
 type PickerWindow = Window & {
   showSaveFilePicker?: (opts?: { suggestedName?: string; types?: { description: string; accept: Record<string, string[]> }[] }) => Promise<FileSystemFileHandle>;
@@ -43,6 +44,12 @@ export function vaultNeedsPassphrase(): boolean {
   return !!useStore.getState().settings.syncFileEncrypted && !vaultPass;
 }
 
+/* A passphrase may encrypt only if it meets the creation floor (passphrase.ts).
+   Decrypt and pull never consult this — old vaults must still open. */
+function vaultPassUsable(): boolean {
+  return vaultPass !== null && checkNewPassphrase(vaultPass).ok;
+}
+
 export function syncFileSupported(): boolean {
   return typeof window !== "undefined" && typeof (window as PickerWindow).showSaveFilePicker === "function";
 }
@@ -55,8 +62,9 @@ export async function linkSyncFile(): Promise<boolean> {
   const w = window as PickerWindow;
   if (!w.showSaveFilePicker) return false;
   const encrypted = useStore.getState().settings.syncFileEncrypted;
-  // Never link a vault file we cannot actually encrypt.
-  if (encrypted && !vaultPass) return false;
+  // Never link a vault file we cannot actually encrypt — and not under a
+  // passphrase weaker than the creation floor either (passphrase.ts).
+  if (encrypted && !vaultPassUsable()) return false;
   try {
     handle = await w.showSaveFilePicker({
       suggestedName: encrypted ? "goalcheck-vault.gcenc" : "goalcheck-workspace-sync.json",
@@ -85,8 +93,13 @@ export async function writeNow(): Promise<boolean> {
     // Fail closed: with encryption enabled but no passphrase, the old code fell
     // through to `json` and wrote the plaintext workspace into a file named
     // *.gcenc — a silent fail-open on the feature the product sells.
-    if (encrypted && !vaultPass) return false;
-    const out = encrypted && vaultPass ? await encryptString(json, vaultPass) : json;
+    // The same branch refuses a passphrase below the creation floor, so no
+    // caller can produce ciphertext an offline attacker cracks in hours.
+    let out = json;
+    if (encrypted) {
+      if (!vaultPass || !vaultPassUsable()) return false;
+      out = await encryptString(json, vaultPass);
+    }
     if (out === lastWritten) return true;
     const writable = await handle.createWritable();
     await writable.write(out);

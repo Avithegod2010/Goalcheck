@@ -28,6 +28,7 @@ import { Markdown, toggleMarkdownCheckbox } from "@/lib/goalcheck/markdown";
 import { detectAndParse, type ImportedGoal } from "@/lib/goalcheck/importers";
 import { buildIcs, parseIcs } from "@/lib/goalcheck/ics";
 import { encryptString, decryptString, isEncryptedPayload } from "@/lib/goalcheck/crypto";
+import { checkNewPassphrase, PASSPHRASE_MIN_LENGTH, type PassphraseVerdict } from "@/lib/goalcheck/passphrase";
 import { useT, t, getLocale, setLocale } from "@/lib/goalcheck/i18n";
 import { SUPPORTED_LOCALES, LOCALE_LABELS, type Locale } from "@/lib/goalcheck/locales";
 import { playChime } from "@/lib/goalcheck/audio";
@@ -667,6 +668,18 @@ function EditionSwitchCard() {
    EXPORT / BACKUP (+ IMPORT)
    ========================================================= */
 
+/* One message policy for every path that CREATES encrypted output: the
+   .gcenc file and its passphrase are what an offline attacker gets, so the
+   cost of a guess is decided here. Opening an existing vault never passes
+   through this check (see passphrase.ts). */
+function toastPassphraseProblem(verdict: Extract<PassphraseVerdict, { ok: false }>) {
+  toast.error(
+    verdict.reason === "empty"
+      ? t("modal.common.passphraseRequired")
+      : t("modal.common.passphraseTooShort", { count: PASSPHRASE_MIN_LENGTH }),
+  );
+}
+
 function ExportModal() {
   const open = useUi((s) => s.exportModal);
   const goal = useActiveGoal();
@@ -701,9 +714,11 @@ function ExportModal() {
 
   const download = async () => {
     if (format === "enc") {
-      if (pass.trim().length < 4) { toast.error(t("modal.export.passphraseRequired")); return; }
+      const verdict = checkNewPassphrase(pass);
+      if (!verdict.ok) { toastPassphraseProblem(verdict); return; }
+      if (verdict.weak) toast.warning(t("modal.common.passphraseWeak"));
       try {
-        const enc = await encryptString(exportWorkspace(), pass.trim());
+        const enc = await encryptString(exportWorkspace(), verdict.value);
         saveBlob(enc, "goalcheck-vault.gcenc");
         toast.success(t("modal.export.vaultDownloaded"));
       } catch {
@@ -1375,9 +1390,11 @@ function SyncFileSection() {
               className="gc-input h-8 w-56 text-xs" placeholder={t("modal.common.passphrase")} aria-label={t("modal.common.passphrase")} autoComplete="new-password" />
             <Button type="button" size="sm" variant="outline" className="gc-btn"
               onClick={() => {
-                if (vaultPass.trim().length < 4) { toast.error(t("modal.sync.passphraseTooShort")); return; }
-                setVaultPassphrase(vaultPass.trim());
-                toast.success(t("modal.sync.passphraseSet"));
+                const verdict = checkNewPassphrase(vaultPass);
+                if (!verdict.ok) { toastPassphraseProblem(verdict); return; }
+                setVaultPassphrase(verdict.value);
+                if (verdict.weak) toast.warning(t("modal.common.passphraseWeak"));
+                else toast.success(t("modal.sync.passphraseSet"));
               }}>
               {t("modal.sync.applyPassphrase")}
             </Button>
