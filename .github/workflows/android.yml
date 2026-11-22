@@ -43,7 +43,7 @@ jobs:
     name: APK (${{ matrix.edition }})
     runs-on: ubuntu-latest # GitHub runners ship JDK + the Android SDK preinstalled
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: oven-sh/setup-bun@v2
         with:
