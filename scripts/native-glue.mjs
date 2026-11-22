@@ -23,13 +23,27 @@
  *   - MainActivity.java patch (idempotent, marker `// GC-NATIVE-GLUE`):
  *       registerPlugin(GoalCheckNativePlugin.class) in onCreate + onNewIntent → emitIntent
  *   - AndroidManifest.xml patch (idempotent, marker `<!-- GC-NATIVE-GLUE -->`):
- *       widget receivers (full + compact) + tile service + ACTION_SEND text/plain filter on the MAIN activity
+ *       widget receivers (full + compact) + tile service + ACTION_SEND text/plain filter on the MAIN activity,
+ *       and `android:allowBackup="false"` on <application> (the template ships `true`)
  *   - res/layout/widget_goalcheck.xml, res/xml/goalcheck_widget_info.xml (resizable, previewLayout),
  *     res/layout/widget_goalcheck_quick.xml, res/xml/goalcheck_quick_widget_info.xml,
  *     res/drawable/widget_bg.xml + widget strings in res/values/strings.xml (idempotent patch)
  *   - Kotlin build wiring (idempotent): kotlin-gradle-plugin classpath in android/build.gradle,
  *     `org.jetbrains.kotlin.android` plugin + jvmTarget 21 in app/build.gradle
  *     (the Capacitor template app module compiles Java only — Kotlin sources need this).
+ *
+ * BACKUP POLICY (audit M2)
+ *   The workspace is plaintext JSON in IndexedDB plus a permanent duplicate in
+ *   localStorage, and attachments are unencrypted blobs — the whole user's task
+ *   and note history. The Capacitor template ships `android:allowBackup="true"`,
+ *   which on a default phone uploads all of that to the user's Google Drive backup
+ *   (and permits adb backup / device-transfer extraction), while the product and
+ *   every store listing promise "your data stays on your device". The vault
+ *   encryption does not cover it: that only wraps the optional sync file.
+ *   So the attribute is forced to "false" here — and because the template also
+ *   regenerates the manifest, this is the copy that survives `cap add android`.
+ *   The module hard-fails if the final manifest still enables backups, so a
+ *   template change cannot silently re-open the upload path.
  *
  * ZERO-INTERNET GUARANTEE
  *   Nothing injected here adds a <uses-permission>. Widget, tile and ACTION_SEND intake
@@ -783,11 +797,41 @@ function patchMainActivity(ANDROID_DIR, PKG) {
 
 // ─── AndroidManifest.xml (idempotent patch) ─────────────────────────────
 
+/** The one attribute that keeps the workspace out of cloud/ADB backups. */
+const BACKUP_ATTR = 'android:allowBackup="false"';
+
+/**
+ * Force `android:allowBackup="false"` on <application> (audit M2).
+ *
+ * `android:allowBackup` defaults to **true**, so an attribute that is merely
+ * absent is the same as the template's `"true"` — both must be rewritten, not
+ * ignored. Targets Android 12+ here, where "false" also blocks device-to-device
+ * transfer. Only the <application> opening tag is touched, so repeated runs are
+ * byte-stable.
+ */
+function disableAppBackups(xml) {
+  const openTag = xml.match(/<application\b[^>]*>/);
+  if (!openTag) fail("AndroidManifest.xml has no <application> opening tag");
+  const tag = openTag[0];
+  if (/android:allowBackup\s*=\s*"false"/.test(tag)) return { xml, changed: false };
+
+  const next = /android:allowBackup\s*=\s*"[^"]*"/.test(tag)
+    ? tag.replace(/android:allowBackup\s*=\s*"[^"]*"/g, BACKUP_ATTR)
+    : tag.replace(/^<application\b/, `<application
+        ${BACKUP_ATTR}`);
+  return { xml: xml.replace(tag, () => next), changed: true };
+}
+
 function patchManifest(ANDROID_DIR) {
   const p = join(ANDROID_DIR, "app", "src", "main", "AndroidManifest.xml");
   if (!existsSync(p)) fail(`AndroidManifest.xml not found at ${p}`);
   let xml = readFileSync(p, "utf8");
   const notes = [];
+
+  // 0. Backup policy — the workspace is plaintext on disk, so no cloud/ADB copy (audit M2).
+  const backup = disableAppBackups(xml);
+  xml = backup.xml;
+  if (backup.changed) notes.push("allowBackup disabled");
 
   // 1. Widget receiver + tile service + bare marker — rebuilt deterministically.
   //    Step A: strip any previous injection (block and/or marker line) wherever it is.
@@ -846,6 +890,12 @@ function patchManifest(ANDROID_DIR) {
   // 3. Belt-and-braces: the glue must never be the reason INTERNET appears.
   if (/<uses-permission[^>]*INTERNET/.test(xml)) {
     fail("patched manifest declares android.permission.INTERNET — zero-INTERNET guarantee violated");
+  }
+
+  // 4. Belt-and-braces: the workspace must never be eligible for cloud backup.
+  const appTag = xml.match(/<application\b[^>]*>/);
+  if (!appTag || !/android:allowBackup\s*=\s*"false"/.test(appTag[0])) {
+    fail("patched manifest still allows Android backup — plaintext workspace would go to Google Drive");
   }
 
   return notes.length > 0

@@ -44,6 +44,12 @@ For the Android shell this is enforced, not promised — `android.permission.INT
 from the merged manifest and CI (`android.yml`) fails any build whose APK declares it.
 Changes that weaken this property are treated as security regressions.
 
+Android backup is deliberately off as well: the workspace is plaintext JSON (IndexedDB plus a
+localStorage copy) and attachments are unencrypted blobs, so cloud backup or device transfer would
+upload the whole task history to Google Drive — the opposite of the promise above. The manifest
+sets `android:allowBackup="false"`, and `scripts/native-glue.mjs` re-applies it after every
+`cap add android` regeneration and fails the build if the attribute is missing.
+
 ## Audits
 
 - 2026-10-18: full manual audit (XSS class, secret/credential leak scan, dependency audit — 0 vulnerabilities) before the first public push. See [`download/SECURITY-AUDIT.md`](download/SECURITY-AUDIT.md).
