@@ -37,13 +37,6 @@ let vaultPass: string | null = null;
 export function setVaultPassphrase(pass: string | null): void {
   vaultPass = pass && pass.trim() ? pass.trim() : null;
 }
-export function hasVaultPassphrase(): boolean {
-  return vaultPass !== null;
-}
-export function vaultNeedsPassphrase(): boolean {
-  return !!useStore.getState().settings.syncFileEncrypted && !vaultPass;
-}
-
 /* A passphrase may encrypt only if it meets the creation floor (passphrase.ts).
    Decrypt and pull never consult this — old vaults must still open. */
 function vaultPassUsable(): boolean {

@@ -20,7 +20,7 @@ import type {
 import { STORAGE_KEY, STORAGE_VERSION } from "./types";
 import { idbStorage } from "./idb";
 import {
-  blankBoard, calculateStats, comboMultiplier, computeStreaks, evaluateAchievements, goalFromTemplate,
+  blankBoard, calculateStats, comboMultiplier, evaluateAchievements, goalFromTemplate,
   habitPeriodKey, habitStreak, isoWeekKey, isValidRecurrence, localDateKey, levelFromXp, makeCategory,
   makeId, makeTask, nextRecurrenceDue, rankForLevel, ACHIEVEMENTS, buildDemoWorkspace,
 } from "./logic";
@@ -1537,9 +1537,4 @@ function patchTaskWithCount(taskId: string) {
 
 export function useActiveGoal(): GoalBoard | null {
   return useStore((s) => s.goals.find((g) => g.id === s.activeGoalId) ?? null);
-}
-
-export function useStreaks(): { current: number; best: number } {
-  const history = useStore((s) => s.rpg.history);
-  return computeStreaks(history, new Date(new Date().setHours(0, 0, 0, 0)));
 }
