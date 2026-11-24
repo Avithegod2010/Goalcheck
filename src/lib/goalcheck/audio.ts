@@ -275,11 +275,6 @@ export function playChime(kind: "celebrate" | "pomo-done" | "tap" | "complete" |
    Audio-Reactive Studio — synthesized generative streams + FFT
    ========================================================= */
 
-export interface AudioStudioState {
-  running: boolean;
-  currentStream: string;
-}
-
 const studio = {
   analyser: null as AnalyserNode | null,
   dataArr: null as Uint8Array<ArrayBuffer> | null,
@@ -621,14 +616,6 @@ export function stopAudioStream() {
   }
   studio.running = false;
   studio.reactLevel = 0;
-}
-
-export function isStudioRunning() {
-  return studio.running;
-}
-
-export function getReactLevel() {
-  return studio.running ? studio.reactLevel : 0;
 }
 
 export async function startAudioStream(kind: string): Promise<boolean> {
