@@ -55,7 +55,7 @@
    ========================================================= */
 
 import { useCallback, useSyncExternalStore } from "react";
-import { CATALOGS, SUPPORTED_LOCALES, type Locale } from "./locales";
+import { CATALOGS, type Locale } from "./locales";
 
 export type { Catalog, CatalogKey, Locale } from "./locales";
 
@@ -184,23 +184,3 @@ export function useT(): TFn {
 /* ------------------------------------------------------------------ */
 /* Helpers                                                            */
 /* ------------------------------------------------------------------ */
-
-/**
- * True when a BCP-47 tag (or, without an argument, the user's browser
- * languages) maps to a supported locale prefix. SSR-safe (no navigator
- * on the server → false when called without a tag).
- */
-export function isI18nSupported(tag?: string): boolean {
-  if (tag) return localeFromTag(tag) !== null;
-  if (typeof navigator === "undefined") return false;
-  const candidates =
-    navigator.languages && navigator.languages.length > 0
-      ? navigator.languages
-      : navigator.language
-        ? [navigator.language]
-        : [];
-  return candidates.some((candidate) => localeFromTag(candidate) !== null);
-}
-
-/** Supported locales (re-exported for convenience/pickers). */
-export const SUPPORTED = SUPPORTED_LOCALES;
