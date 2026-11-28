@@ -276,8 +276,3 @@ export interface Settings {
  */
 export const STORAGE_VERSION = 5;
 export const STORAGE_KEY = "goalcheck_pro_state";
-
-export interface PersistEnvelope {
-  version: number;
-  state: GoalCheckState;
-}

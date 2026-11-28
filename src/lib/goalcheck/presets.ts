@@ -146,11 +146,3 @@ export function isImageUrl(val: string): boolean {
   const t = val.trim();
   return /^data:image\//i.test(t) || /^https?:\/\/.+/i.test(t);
 }
-
-/** Legacy stored emoji values still render as text (user data), but the
- *  app itself only ever offers mono icons, image URLs, or uploads. */
-export function sanitizeMedia(val: string | undefined, fallback: string): string {
-  const v = (val || "").trim();
-  if (!v) return fallback;
-  return v;
-}

@@ -62,20 +62,6 @@ export function AnimatedNumber({
   );
 }
 
-/* ---------- Buttons ---------- */
-
-import { Button } from "@/components/ui/button";
-import type { ComponentProps } from "react";
-
-export function GcButton({ className = "", ...props }: ComponentProps<typeof Button>) {
-  return (
-    <Button
-      {...props}
-      className={`gc-btn ${className}`}
-    />
-  );
-}
-
 /* ---------- Pomodoro remaining-time hook (timestamp based) ---------- */
 
 export function usePomoRemaining(): number {
