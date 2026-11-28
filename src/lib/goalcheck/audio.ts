@@ -118,6 +118,7 @@ function voiceNote(c: Ctx, pack: ChimePack, n: VoiceNote) {
   pan.pan.value = n.pan ?? 0;
   pan.connect(chimeBus!);
   sendReverb(pan, pack === "chip" ? 0.05 : 0.28);
+
   const env = c.createGain();
   env.connect(pan);
 
