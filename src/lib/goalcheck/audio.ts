@@ -118,7 +118,6 @@ function voiceNote(c: Ctx, pack: ChimePack, n: VoiceNote) {
   pan.pan.value = n.pan ?? 0;
   pan.connect(chimeBus!);
   sendReverb(pan, pack === "chip" ? 0.05 : 0.28);
-
   const env = c.createGain();
   env.connect(pan);
 
@@ -274,11 +273,6 @@ export function playChime(kind: "celebrate" | "pomo-done" | "tap" | "complete" |
 /* =========================================================
    Audio-Reactive Studio — synthesized generative streams + FFT
    ========================================================= */
-
-export interface AudioStudioState {
-  running: boolean;
-  currentStream: string;
-}
 
 const studio = {
   analyser: null as AnalyserNode | null,
@@ -621,14 +615,6 @@ export function stopAudioStream() {
   }
   studio.running = false;
   studio.reactLevel = 0;
-}
-
-export function isStudioRunning() {
-  return studio.running;
-}
-
-export function getReactLevel() {
-  return studio.running ? studio.reactLevel : 0;
 }
 
 export async function startAudioStream(kind: string): Promise<boolean> {
